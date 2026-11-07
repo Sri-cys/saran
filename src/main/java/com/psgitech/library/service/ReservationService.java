@@ -88,7 +88,16 @@ public class ReservationService implements Reservable {
         if (studentId <= 0) {
             throw new InvalidReservationException("Valid student ID is required.");
         }
-        return reservationRepository.findActiveByStudent(studentId);
+        List<Reservation> list = reservationRepository.findActiveByStudent(studentId);
+        WaitEstimator estimator = new WaitEstimator();
+        for (Reservation r : list) {
+            if (r.getStatus() == com.psgitech.library.enums.ReservationStatus.WAITING) {
+                WaitEstimator.WaitEstimate est = estimator.estimateWait(r.getBookId(), r.getQueuePosition());
+                r.setEstimatedWaitDays(est.getDays());
+                r.setEstimatedWaitMessage(est.getMessage());
+            }
+        }
+        return list;
     }
 
     /**

@@ -3,11 +3,13 @@ package com.psgitech.library.repository;
 import com.psgitech.library.config.BorrowingPolicy;
 import com.psgitech.library.enums.BorrowStatus;
 import com.psgitech.library.enums.CopyStatus;
+import com.psgitech.library.enums.Role;
 import com.psgitech.library.exception.*;
 import com.psgitech.library.model.BorrowTransaction;
 import com.psgitech.library.model.AllocationRecord;
 import com.psgitech.library.model.AllocationResult;
 import com.psgitech.library.model.FineRecord;
+import com.psgitech.library.model.LoanRenewalRecord;
 import com.psgitech.library.service.AllocationService;
 import com.psgitech.library.service.FineService;
 import com.psgitech.library.util.DBConnection;
@@ -704,7 +706,7 @@ public class BorrowRepository {
     private String getBaseJoinedSelect() {
         return "SELECT bt.transaction_id, bt.student_id, bt.book_id, bt.copy_id, " +
                 "bt.issue_date, bt.due_date, bt.return_date, bt.status, bt.issued_by, bt.returned_by, " +
-                "bt.created_at, bt.updated_at, " +
+                "bt.renewal_count, bt.last_renewed_at, bt.created_at, bt.updated_at, " +
                 "u.name AS student_name, u.register_number, u.department AS student_department, u.`year` AS student_year, " +
                 "b.title AS book_title, b.author AS book_author, b.cover_image_url, " +
                 "bc.copy_code, " +
@@ -745,6 +747,13 @@ public class BorrowRepository {
         tx.setCreatedAt(rs.getTimestamp("created_at"));
         tx.setUpdatedAt(rs.getTimestamp("updated_at"));
 
+        try {
+            tx.setRenewalCount(rs.getInt("renewal_count"));
+            tx.setLastRenewedAt(rs.getTimestamp("last_renewed_at"));
+        } catch (SQLException ignored) {
+            tx.setRenewalCount(0);
+        }
+
         tx.setStudentName(rs.getString("student_name"));
         tx.setRegisterNumber(rs.getString("register_number"));
         tx.setStudentDepartment(rs.getString("student_department"));
@@ -781,5 +790,183 @@ public class BorrowRepository {
         tx.computeDynamicMetrics(LocalDate.now());
 
         return tx;
+    }
+
+    public BorrowTransaction renewLoan(int transactionId, int studentId, int actingUserId, Role actingRole) {
+        return TransactionRetryHelper.executeWithRetry(() -> {
+            Connection conn = null;
+            boolean originalAutoCommit = true;
+
+            try {
+                conn = DBConnection.getConnection();
+                originalAutoCommit = conn.getAutoCommit();
+                conn.setAutoCommit(false);
+
+                // 1. Snapshot query to identify keys
+                int candidateStudentId;
+                int bookId;
+                int copyId;
+                LocalDate currentDueDate;
+                int currentRenewalCount;
+
+                String snapshotSql = "SELECT student_id, book_id, copy_id, due_date, status, renewal_count " +
+                                     "FROM borrow_transactions WHERE transaction_id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(snapshotSql)) {
+                    ps.setInt(1, transactionId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) {
+                            throw new BorrowTransactionNotFoundException("Borrowing transaction #" + transactionId + " not found.");
+                        }
+                        String currentStatus = rs.getString("status");
+                        if (!BorrowStatus.ACTIVE.name().equalsIgnoreCase(currentStatus)) {
+                            throw new InvalidBorrowingOperationException("Only active book borrowings can be renewed (Current status: " + currentStatus + ").");
+                        }
+                        candidateStudentId = rs.getInt("student_id");
+                        bookId = rs.getInt("book_id");
+                        copyId = rs.getInt("copy_id");
+                        Date dueSql = rs.getDate("due_date");
+                        currentDueDate = (dueSql != null) ? dueSql.toLocalDate() : null;
+                        currentRenewalCount = rs.getInt("renewal_count");
+                    }
+                }
+
+                // Student ownership check
+                if (actingRole == Role.STUDENT && candidateStudentId != studentId) {
+                    throw new InvalidBorrowingOperationException("Access Denied: You may only renew your own active book loans.");
+                }
+
+                // 2. Canonical Lock Sequence: users -> books -> book_copies -> borrow_transactions
+                // 2a. Lock user
+                try (PreparedStatement psUser = conn.prepareStatement("SELECT user_id, active FROM users WHERE user_id = ? FOR UPDATE")) {
+                    psUser.setInt(1, candidateStudentId);
+                    try (ResultSet rs = psUser.executeQuery()) {
+                        if (!rs.next()) {
+                            throw new StudentNotFoundException("Student #" + candidateStudentId + " not found.");
+                        }
+                        if (!rs.getBoolean("active")) {
+                            throw new AccountInactiveException("Student account is inactive.");
+                        }
+                    }
+                }
+
+                // 2b. Lock book
+                try (PreparedStatement psBook = conn.prepareStatement("SELECT book_id, is_archived FROM books WHERE book_id = ? FOR UPDATE")) {
+                    psBook.setInt(1, bookId);
+                    try (ResultSet rs = psBook.executeQuery()) {
+                        if (!rs.next()) {
+                            throw new BookNotFoundException("Book #" + bookId + " not found.");
+                        }
+                        if (rs.getBoolean("is_archived")) {
+                            throw new InvalidBorrowingOperationException("Cannot renew loan for an archived catalog title.");
+                        }
+                    }
+                }
+
+                // 2c. Lock copy
+                try (PreparedStatement psCopy = conn.prepareStatement("SELECT copy_id, status FROM book_copies WHERE copy_id = ? FOR UPDATE")) {
+                    psCopy.setInt(1, copyId);
+                    try (ResultSet rs = psCopy.executeQuery()) {
+                        if (!rs.next()) {
+                            throw new BookCopyUnavailableException("Physical copy #" + copyId + " not found.");
+                        }
+                    }
+                }
+
+                // 2d. Lock transaction
+                try (PreparedStatement psTx = conn.prepareStatement("SELECT transaction_id, status, due_date, renewal_count FROM borrow_transactions WHERE transaction_id = ? FOR UPDATE")) {
+                    psTx.setInt(1, transactionId);
+                    try (ResultSet rs = psTx.executeQuery()) {
+                        if (!rs.next()) {
+                            throw new BorrowTransactionNotFoundException("Transaction #" + transactionId + " not found.");
+                        }
+                        if (!BorrowStatus.ACTIVE.name().equalsIgnoreCase(rs.getString("status"))) {
+                            throw new InvalidBorrowingOperationException("Transaction is no longer ACTIVE.");
+                        }
+                        Date lockedDue = rs.getDate("due_date");
+                        if (lockedDue != null) currentDueDate = lockedDue.toLocalDate();
+                        currentRenewalCount = rs.getInt("renewal_count");
+                    }
+                }
+
+                // 3. Validation: Max renewals (Decision: 1 renewal max)
+                if (currentRenewalCount >= 1) {
+                    throw new InvalidBorrowingOperationException("This book loan has already been renewed the maximum allowed number of times (1).");
+                }
+
+                // 4. Validation: Cannot renew if already overdue
+                if (currentDueDate != null && currentDueDate.isBefore(LocalDate.now())) {
+                    throw new InvalidBorrowingOperationException("Overdue loans cannot be renewed. Please return the book at the circulation desk.");
+                }
+
+                // 5. Validation: Cannot renew if students are waiting in the reservation queue
+                String resSql = "SELECT COUNT(*) FROM reservations WHERE book_id = ? AND status = 'WAITING'";
+                try (PreparedStatement psRes = conn.prepareStatement(resSql)) {
+                    psRes.setInt(1, bookId);
+                    try (ResultSet rs = psRes.executeQuery()) {
+                        if (rs.next() && rs.getInt(1) > 0) {
+                            throw new InvalidBorrowingOperationException("Cannot renew: There are students waiting in the reservation queue for this book.");
+                        }
+                    }
+                }
+
+                // 6. Validation: Cannot renew if there is a pending interchange on this copy
+                String interSql = "SELECT COUNT(*) FROM book_interchanges WHERE copy_id = ? AND status = 'PENDING'";
+                try (PreparedStatement psInter = conn.prepareStatement(interSql)) {
+                    psInter.setInt(1, copyId);
+                    try (ResultSet rs = psInter.executeQuery()) {
+                        if (rs.next() && rs.getInt(1) > 0) {
+                            throw new InvalidBorrowingOperationException("Cannot renew: This physical copy has a pending interchange transfer request.");
+                        }
+                    }
+                }
+
+                // 7. Validation: Cannot renew if student has outstanding unpaid fines
+                String fineSql = "SELECT COUNT(*) FROM fines WHERE student_id = ? AND status IN ('UNPAID', 'PARTIALLY_PAID') AND outstanding_amount > 0";
+                try (PreparedStatement psFine = conn.prepareStatement(fineSql)) {
+                    psFine.setInt(1, candidateStudentId);
+                    try (ResultSet rs = psFine.executeQuery()) {
+                        if (rs.next() && rs.getInt(1) > 0) {
+                            throw new InvalidBorrowingOperationException("Cannot renew: You have outstanding unpaid fines that must be cleared first.");
+                        }
+                    }
+                }
+
+                // 8. Execute Renewal Mutation
+                LocalDate newDueDate = (currentDueDate != null ? currentDueDate : LocalDate.now()).plusDays(BorrowingPolicy.DEFAULT_BORROWING_DAYS);
+                String updateSql = "UPDATE borrow_transactions SET due_date = ?, renewal_count = renewal_count + 1, last_renewed_at = NOW() WHERE transaction_id = ?";
+                try (PreparedStatement psUpd = conn.prepareStatement(updateSql)) {
+                    psUpd.setDate(1, Date.valueOf(newDueDate));
+                    psUpd.setInt(2, transactionId);
+                    psUpd.executeUpdate();
+                }
+
+                // Record in loan_renewals audit table
+                LoanRenewalRecord renewalRec = new LoanRenewalRecord(
+                        transactionId, candidateStudentId, currentDueDate, newDueDate, currentRenewalCount + 1, actingUserId
+                );
+                RenewalRepository renewalRepo = new RenewalRepository();
+                renewalRepo.saveRenewal(conn, renewalRec);
+
+                conn.commit();
+                LOGGER.info("Successfully renewed loan #" + transactionId + " to new due date: " + newDueDate);
+
+                return findById(transactionId);
+
+            } catch (SQLException e) {
+                if (conn != null) {
+                    try { conn.rollback(); } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Rollback failed", ex); }
+                }
+                throw e;
+            } catch (Exception e) {
+                if (conn != null) {
+                    try { conn.rollback(); } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Rollback failed", ex); }
+                }
+                throw e;
+            } finally {
+                if (conn != null) {
+                    try { conn.setAutoCommit(originalAutoCommit); conn.close(); } catch (SQLException ignored) {}
+                }
+            }
+        }, "renewLoan");
     }
 }

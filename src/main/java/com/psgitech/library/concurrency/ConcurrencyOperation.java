@@ -16,6 +16,7 @@ public enum ConcurrencyOperation {
     BOOK_COPY_MUTATION("Add additional physical book copies"),
     USER_ADMIN_MUTATION("Admin user account creation, status change, or role update"),
     USER_PROFILE_MUTATION("User profile update or password change"),
+    BOOK_RENEWAL("Renew active book loan"),
     BOOK_INTERCHANGE("Student-to-student book interchange request, acceptance, rejection, or cancellation");
 
     private final String description;

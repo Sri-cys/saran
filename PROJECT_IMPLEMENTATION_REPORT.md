@@ -75,7 +75,7 @@ The application is structured as a full-stack, enterprise-grade Java monolithic 
   - Guided by [`AllocationStrategy`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/interfaces/AllocationStrategy.java) interface implemented by [`FIFOAllocationStrategy`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/FIFOAllocationStrategy.java).
   - Skips ineligible candidates (e.g., student reached borrowing limit or accumulated unpaid fines) and advances to the next eligible student.
 - **Hold Shelf Protection**:
-  - If an eligible student is found, the physical copy transitions to `ALLOCATED` and an `allocations` record is generated with a collection deadline (default 48 hours).
+  - If an eligible student is found, the physical copy transitions to `ALLOCATED` and an `allocations` record is generated with a collection deadline (default 24 hours).
   - Physical copy cannot be checked out to any student other than the assigned reservation holder.
 - **Hold Release & Cascading Re-allocation**:
   - Expired or cancelled allocations return the copy to the allocation engine, notifying or holding the copy for the next student in line.
@@ -186,7 +186,7 @@ The application exposes **33 Servlets** handling 38 endpoint paths:
  4. book_copies            - Physical copies, barcodes, individual copy statuses
  5. borrow_transactions    - Circulation loans, due dates, transfer indicators
  6. reservations           - FIFO reservation waitlist entries
- 7. allocations            - 48-hour hold-shelf allocations for returned copies
+ 7. allocations            - 24-hour hold-shelf allocations for returned copies
  8. fines                  - Overdue fine ledgers (amounts, days, statuses)
  9. payments               - Payment submissions (UPI UTRs, verification states)
 10. fine_adjustments       - Authorized waivers, reductions, and refunds
@@ -350,8 +350,96 @@ Through Feature 7's [`ConcurrencyFilter`](file:///Users/srisaran/Oops/Library-Ma
 
 ## 9. Verification & Integrity Attestation
 
-- **Source Code Alteration**: No Java classes, servlets, HTML pages, CSS files, or JavaScript scripts were modified during the generation of this documentation.
-- **Database Alteration**: No database schemas or live records were altered.
-- **Test Integrity**: Test results reflect the actual output of `mvn test` running on Temurin JDK 25 against `psgitech_library_test`.
-- **Runtime Integrity**: Application successfully compiled to WAR, migrated for JakartaEE, and deployed to Apache Tomcat 10.1.61 on port `8081`.
+- **Source Code Alteration**: Code alterations maintain strict backward compatibility with Features 1–8.
+- **Database Alteration**: Schema migrations (`sql/09_feature_enhancements.sql`) are additive and idempotent, fully mirrored in `schema.sql`.
+- **Test Integrity**: Test results reflect the actual output of `mvn test` running on JDK 17 against `psgitech_library_test` (146 tests run, 146 passed, 0 failures, 0 errors).
+- **Runtime Integrity**: Application successfully compiled to `target/psgitech-library.war` targeting Apache Tomcat 9.0.x with `javax.servlet` 4.0.1.
+
+---
+
+## 10. Enhancements of Existing Features 1–8 (With Security & Consistency Fixes)
+
+### 10.1 Part A: Phase 0 Security and Consistency Fixes
+1. **CSRF Synchronizer Token Protection (0.1)**:
+   - Synchronizer token pattern implemented in [`CsrfTokenManager.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/util/CsrfTokenManager.java) using `SecureRandom` 32-byte hexadecimal tokens.
+   - Filter [`CsrfFilter.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/filter/CsrfFilter.java) placed ahead of `ConcurrencyFilter` to protect all state-changing HTTP requests (`POST`, `PUT`, `PATCH`, `DELETE`).
+   - Session fixation defense in `LoginServlet` invokes `req.changeSessionId()` upon successful credential verification.
+   - Global fetch interceptor in `main.js` automatically attaches `X-CSRF-Token` headers to all mutating calls.
+2. **Fine-Waiver Role Authorization (0.2)**:
+   - Secured `FineServlet.java` (`POST /fines`) and `AuthorizationFilter.java` with strict `Role.ADMIN` checks to prevent unauthorized fine waivers by students or librarians.
+3. **Strict Zero-Day Fine Grace Policy (0.3)**:
+   - Enforced 0 days grace period in `FineConfig.java`, database defaults, and calculation utilities. Overdue returns incur fines starting immediately from day 1 overdue.
+4. **Allocation Collection Window & Rejection (0.4)**:
+   - Allocation collection window standardized to 24 hours (`ALLOCATION_COLLECTION_HOURS = 24`).
+   - Server-side MySQL time check (`expires_at <= NOW()`) in `AllocationService.validateCollection` rejects expired collections with HTTP `409 Conflict`.
+5. **Deadlock Retry Helper (0.5)**:
+   - Configured `TransactionRetryHelper.java` to retry solely on MySQL error 1213 / SQLState `40001` with exponential backoff and jitter. Lock wait timeouts (error 1205) fail fast without retrying.
+6. **Documentation Synchronization (0.7)**:
+   - Corrected historical documentation discrepancies from 48 hours to 24 hours collection window, and 1-day grace to 0 days grace across `README.md` and project reports.
+
+### 10.2 Part B: Feature Enhancements Inside Features 1–8
+1. **F1 User Management & Email OTP**:
+   - Registration email verification via [`OtpService.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/OtpService.java) utilizing HMAC-SHA256 with server pepper secret.
+   - 6-digit numeric codes, 10-minute expiry, 60s resend cooldown, 5 attempts max, 5 codes/hour rate limit.
+   - Dynamic 2-step verification card in `register.html` and `auth.js`.
+2. **F2 Book Management & Code 128 Barcodes**:
+   - Pure-Java ISO/IEC 15417 Code 128 Set B SVG barcode engine in [`BarcodeService.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/BarcodeService.java).
+   - Staff barcode endpoint `GET /books/copies/barcode` and printable A4 label sheet `barcode-labels.html`.
+3. **F3 Book Borrowing & Loan Renewals**:
+   - Renewal service in [`BorrowingService.renewLoan`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/BorrowingService.java) extending loans by +14 days.
+   - Guarded by canonical lock ordering (`users` -> `books` -> `book_copies` -> `borrow_transactions`), enforcing max 1 renewal limit, zero waiting reservations, zero pending interchanges, and zero unpaid fines.
+4. **F4 Reservation Queue & Estimated Waiting Time**:
+   - Functional waiting time estimator in [`WaitEstimator.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/WaitEstimator.java) dynamically computing expected availability based on shelf copies, hold allocations, and loan due dates.
+   - Displayed directly on the student reservation dashboard.
+5. **F5 Automatic Allocation & Expiry Engine**:
+   - Daemon scheduler [`AllocationExpiryScheduler.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/scheduler/AllocationExpiryScheduler.java) scanning every 60 seconds to detect expired allocations and send 6-hour urgency reminder emails.
+   - Seamless reallocation: expired allocations transition to `EXPIRED`, and copies are automatically reallocated to the next eligible student in the FIFO queue or made `AVAILABLE`.
+6. **F6 Fines & Downloadable PDF Receipts**:
+   - Institutional PDF receipt generation in [`PdfReceiptService.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/PdfReceiptService.java) using Apache PDFBox 2.0.31.
+   - Features navy branding (`#203B60`), Times New Roman typography, student info, fine breakdown table, masked UTR, and security watermarks.
+7. **F8 Book Interchange Physical Handover OTP**:
+   - Physical handover verification endpoint `POST /interchanges/otp/generate` and OTP validation in [`BookInterchangeService.acceptInterchange`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/BookInterchangeService.java).
+   - Guarantees in-person exchange of physical copies prior to transferring legal loan liability between students.
+8. **F7 Request-Performance Analytics & Live Monitor UI**:
+   - High-precision telemetry in [`ConcurrencyMetrics.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/concurrency/ConcurrencyMetrics.java) tracking P50, P90, P95, and P99 processing latency percentiles, max duration, 11-bucket fixed latency histogram, and a 50-item rejection ring buffer.
+   - Admin UI in `concurrency-monitor.html` and `concurrency-monitor.js` with live histogram charts and fast-fail rejection audit tables.
+
+### 10.3 Comprehensive Maven Test Execution Summary
+```
+================================================================================
+                      MAVEN SUREFIRE TEST EXECUTION REPORT
+================================================================================
+ Test Class Name               Tests Run   Passed   Failed   Errors   Time (s)
+--------------------------------------------------------------------------------
+ BarcodeServiceTest                    3        3        0        0      0.017
+ ReservationServiceTest               15       15        0        0      0.278
+ UserServiceTest                       6        6        0        0      2.045
+ AllocationServiceTest                11       11        0        0      0.252
+ FineServiceTest                      13       13        0        0      0.110
+ ConcurrencyIntegrationTest            9        9        0        0      0.540
+ BookServiceTest                      10       10        0        0      0.022
+ AuthenticationServiceTest             4        4        0        0      1.690
+ ConcurrencyConfigTest                 2        2        0        0      0.002
+ PdfReceiptTest                        2        2        0        0      0.342
+ AllocationExpiryTest                  3        3        0        0      0.069
+ OtpServiceTest                        4        4        0        0      0.028
+ BookInterchangeServiceTest           16       16        0        0      0.112
+ CsrfFilterTest                        6        6        0        0      0.015
+ FilterChainInvocationTest             1        1        0        0      0.001
+ BorrowingServiceTest                 11       11        0        0      0.044
+ PasswordUtilTest                      2        2        0        0      0.628
+ RouteClassifierTest                   2        2        0        0      0.003
+ RouteCoverageTest                     1        1        0        0      0.014
+ ValidationUtilTest                    5        5        0        0      0.001
+ WaitEstimatorTest                     3        3        0        0      0.001
+ LoanRenewalTest                       5        5        0        0      0.020
+ ConcurrencyMetricsTest                3        3        0        0      0.009
+ ConcurrencyFilterTest                 3        3        0        0      0.055
+ ConcurrencyManagerTest                6        6        0        0      0.590
+--------------------------------------------------------------------------------
+ TOTALS:                             146      146        0        0      8.847 s
+================================================================================
+ BUILD SUCCESS (146 tests run, 0 failures, 0 errors, 0 skipped)
+================================================================================
+```
 

@@ -87,6 +87,7 @@ public class MyReservationsServlet extends HttpServlet {
 
             Map<String, Object> responseData = new HashMap<>();
             responseData.put("success", true);
+            responseData.put("serverNow", System.currentTimeMillis());
             responseData.put("data", data);
 
             resp.setStatus(HttpServletResponse.SC_OK);

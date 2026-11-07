@@ -187,6 +187,32 @@ function initRegisterForm() {
         })
         .then(async res => {
             const data = await res.json().catch(() => ({}));
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Complete Student Registration';
+            }
+
+            if (!res.ok) {
+                showAlert(alertBox, 'danger', data.message || 'Registration failed. Please check your inputs.');
+                return;
+            }
+
+            if (data.requiresVerification) {
+                // Transition to Step 2: OTP Verification
+                regForm.style.display = 'none';
+                const otpSection = document.getElementById('otpVerificationSection');
+                if (otpSection) {
+                    otpSection.style.display = 'block';
+                    document.getElementById('otpDisplayEmail').textContent = data.email || email;
+                    document.getElementById('otpUserId').value = data.userId || '';
+                    document.getElementById('otpEmail').value = data.email || email;
+                    document.getElementById('otpInput').value = '';
+                    document.getElementById('otpInput').focus();
+                    startResendCountdown();
+                }
+                return;
+            }
+
             const activeUser = data.user || registeredStudent;
 
             // Persist remembered student login
@@ -202,13 +228,143 @@ function initRegisterForm() {
             }, 800);
         })
         .catch(err => {
-            // Resilient client-side registration guarantee
-            showAlert(alertBox, 'success', `Account registered successfully! Welcome, ${registeredStudent.name}. Redirecting to Student Dashboard...`);
-            setTimeout(() => {
-                window.location.href = 'student-home.html';
-            }, 800);
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Complete Student Registration';
+            }
+            showAlert(alertBox, 'danger', 'Network error during registration. Please try again.');
         });
     });
+
+    initOtpVerification();
+}
+
+let resendTimer = null;
+function startResendCountdown() {
+    let seconds = 60;
+    const countdownEl = document.getElementById('resendCountdown');
+    const countdownText = document.getElementById('countdownText');
+    const resendBtn = document.getElementById('resendOtpBtn');
+
+    if (resendBtn) resendBtn.disabled = true;
+    if (countdownText) countdownText.style.display = 'inline';
+
+    if (resendTimer) clearInterval(resendTimer);
+
+    resendTimer = setInterval(() => {
+        seconds--;
+        if (countdownEl) countdownEl.textContent = seconds;
+        if (seconds <= 0) {
+            clearInterval(resendTimer);
+            if (resendBtn) resendBtn.disabled = false;
+            if (countdownText) countdownText.style.display = 'none';
+        }
+    }, 1000);
+}
+
+function initOtpVerification() {
+    const otpForm = document.getElementById('otpForm');
+    const otpAlert = document.getElementById('otpAlert');
+    const resendBtn = document.getElementById('resendOtpBtn');
+    const editLink = document.getElementById('editRegistrationLink');
+
+    if (otpForm) {
+        otpForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const userId = document.getElementById('otpUserId').value;
+            const email = document.getElementById('otpEmail').value;
+            const otp = document.getElementById('otpInput').value.trim();
+            const verifyBtn = document.getElementById('verifyOtpBtn');
+
+            if (!otp || otp.length !== 6) {
+                showAlert(otpAlert, 'danger', 'Please enter a valid 6-digit numeric verification code.');
+                return;
+            }
+
+            if (verifyBtn) {
+                verifyBtn.disabled = true;
+                verifyBtn.textContent = 'Verifying Code...';
+            }
+
+            try {
+                const res = await fetch('register/verify-otp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ userId: userId ? parseInt(userId, 10) : null, email: email, otp: otp })
+                });
+
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.success) {
+                    showAlert(otpAlert, 'success', data.message || 'Email verified successfully! Redirecting to login...');
+                    setTimeout(() => {
+                        window.location.href = data.redirect || 'login.html?verified=true';
+                    }, 1200);
+                } else {
+                    showAlert(otpAlert, 'danger', data.message || 'Invalid or expired verification code.');
+                    document.getElementById('otpInput').value = '';
+                    document.getElementById('otpInput').focus();
+                    if (verifyBtn) {
+                        verifyBtn.disabled = false;
+                        verifyBtn.textContent = 'Verify & Activate Account';
+                    }
+                }
+            } catch (err) {
+                showAlert(otpAlert, 'danger', 'Network error during code verification.');
+                if (verifyBtn) {
+                    verifyBtn.disabled = false;
+                    verifyBtn.textContent = 'Verify & Activate Account';
+                }
+            }
+        });
+    }
+
+    if (resendBtn) {
+        resendBtn.addEventListener('click', async function () {
+            const userId = document.getElementById('otpUserId').value;
+            const email = document.getElementById('otpEmail').value;
+
+            resendBtn.disabled = true;
+            resendBtn.textContent = 'Sending...';
+
+            try {
+                const res = await fetch('register/resend-otp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ userId: userId ? parseInt(userId, 10) : null, email: email })
+                });
+
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.success) {
+                    showAlert(otpAlert, 'info', data.message || 'A new verification code has been dispatched.');
+                    startResendCountdown();
+                } else {
+                    showAlert(otpAlert, 'danger', data.message || 'Failed to resend code.');
+                    resendBtn.disabled = false;
+                }
+            } catch (err) {
+                showAlert(otpAlert, 'danger', 'Network error while resending verification code.');
+                resendBtn.disabled = false;
+            } finally {
+                resendBtn.textContent = 'Resend Code';
+            }
+        });
+    }
+
+    if (editLink) {
+        editLink.addEventListener('click', function (e) {
+            e.preventDefault();
+            const regForm = document.getElementById('registerForm');
+            const otpSection = document.getElementById('otpVerificationSection');
+            if (regForm) regForm.style.display = 'block';
+            if (otpSection) otpSection.style.display = 'none';
+        });
+    }
 }
 
 /**
@@ -286,6 +442,9 @@ function initLoginForm() {
         .then(async res => {
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
+                if (data.csrfToken) {
+                    sessionStorage.setItem('psgitech_csrf_token', data.csrfToken);
+                }
                 if (data.user) {
                     sessionStorage.setItem('psgitech_user', JSON.stringify(data.user));
                     if (rememberMe || localStorage.getItem('psgitech_remember_me') === 'true') {
@@ -673,6 +832,7 @@ function initLogoutButtons() {
         btn.addEventListener('click', function (e) {
             e.preventDefault();
             sessionStorage.removeItem('psgitech_user');
+            sessionStorage.removeItem('psgitech_csrf_token');
             localStorage.removeItem('psgitech_user');
             // We deliberately preserve localStorage psgitech_remembered_key so the user's username is remembered on login
 

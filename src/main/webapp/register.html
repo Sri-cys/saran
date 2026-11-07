@@ -122,6 +122,40 @@
                 <button type="submit" class="btn btn-primary btn-block" style="padding: 12px;">Complete Student Registration</button>
             </form>
 
+            <!-- Step 2: Email OTP Verification Card -->
+            <div id="otpVerificationSection" style="display: none;">
+                <div class="auth-header" style="margin-bottom: 20px;">
+                    <h2 class="auth-title" style="color: var(--primary);">Email Verification</h2>
+                    <p class="auth-subtitle">A 6-digit verification code has been dispatched to <strong id="otpDisplayEmail"></strong>. Please enter the code below to activate your student account.</p>
+                </div>
+
+                <div id="otpAlert" class="alert" style="display: none;"></div>
+
+                <form id="otpForm" style="margin-top: 20px;">
+                    <input type="hidden" id="otpUserId" value="">
+                    <input type="hidden" id="otpEmail" value="">
+
+                    <div class="form-group" style="text-align: center;">
+                        <label for="otpInput" class="form-label" style="font-size: 1.05rem; margin-bottom: 12px; font-weight: bold;">Enter 6-Digit Verification Code</label>
+                        <input type="text" id="otpInput" name="otp" class="form-control" maxlength="6" pattern="[0-9]{6}" 
+                               style="font-size: 1.8rem; letter-spacing: 8px; text-align: center; max-width: 240px; margin: 0 auto; font-family: monospace; font-weight: bold;" 
+                               placeholder="------" required autocomplete="one-time-code">
+                        <small class="helper-text" style="display: block; margin-top: 8px;">Code is valid for 10 minutes. Maximum 5 attempts.</small>
+                    </div>
+
+                    <button type="submit" id="verifyOtpBtn" class="btn btn-primary btn-block" style="padding: 12px; font-size: 1rem;">Verify & Activate Account</button>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 18px; font-size: 0.92rem;">
+                        <span id="countdownText" class="text-secondary">Resend in <strong id="resendCountdown">60</strong>s</span>
+                        <button type="button" id="resendOtpBtn" class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem;" disabled>Resend Code</button>
+                    </div>
+
+                    <div style="text-align: center; margin-top: 24px;">
+                        <a href="#" id="editRegistrationLink" style="font-size: 0.9rem; color: var(--text-secondary);">&larr; Edit Registration Details</a>
+                    </div>
+                </form>
+            </div>
+
             <div class="auth-footer">
                 <p>By registering, you agree to PSG iTech Library Regulations and Resource Lending Policies.</p>
                 <div style="margin-top: 10px;">

@@ -159,6 +159,32 @@ public class BookInterchangeService {
     }
 
     /**
+     * Executes atomic, concurrency-safe acceptance of an interchange request with optional physical OTP handover verification.
+     */
+    public BookInterchange acceptInterchange(int interchangeId, int recipientUserId, String handoverOtp) {
+        OtpRepository otpRepo = new OtpRepository();
+        OtpService otpService = new OtpService();
+        try {
+            OtpCode activeOtp = otpRepo.findActive(OtpPurpose.INTERCHANGE_HANDOVER, interchangeId);
+            if (activeOtp != null) {
+                if (handoverOtp == null || handoverOtp.trim().isEmpty()) {
+                    throw new InvalidInterchangeException("Physical handover code is required to complete this transfer.");
+                }
+                boolean valid = otpService.verifyOtp(OtpPurpose.INTERCHANGE_HANDOVER, interchangeId, handoverOtp.trim());
+                if (!valid) {
+                    throw new InvalidInterchangeException("Invalid or expired physical handover code.");
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Database error verifying handover code: " + e.getMessage(), e);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new InvalidInterchangeException(e.getMessage());
+        }
+
+        return acceptInterchange(interchangeId, recipientUserId);
+    }
+
+    /**
      * Executes atomic, concurrency-safe acceptance of an interchange request.
      * Transfers ownership of the existing borrowing transaction to the recipient.
      * Preserves original issue_date and due_date exactly.

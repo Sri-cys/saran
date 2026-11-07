@@ -725,6 +725,16 @@ public class ReservationRepository {
         }
     }
 
+    public boolean markExpired(Connection conn, int reservationId, Timestamp expiredAt) throws SQLException {
+        String sql = "UPDATE reservations SET status = 'EXPIRED', cancelled_at = ?, updated_at = CURRENT_TIMESTAMP " +
+                "WHERE reservation_id = ? AND status = 'ALLOCATED'";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setTimestamp(1, expiredAt != null ? expiredAt : new Timestamp(System.currentTimeMillis()));
+            ps.setInt(2, reservationId);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
     private Reservation mapRow(ResultSet rs) throws SQLException {
         Reservation r = new Reservation();
         r.setReservationId(rs.getInt("reservation_id"));

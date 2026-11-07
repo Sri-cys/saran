@@ -1,12 +1,16 @@
 package com.psgitech.library.service;
 
+import com.psgitech.library.enums.Role;
 import com.psgitech.library.exception.AccountInactiveException;
+import com.psgitech.library.exception.AccountNotVerifiedException;
 import com.psgitech.library.exception.InvalidCredentialsException;
 import com.psgitech.library.model.User;
 import com.psgitech.library.repository.UserRepository;
 import com.psgitech.library.util.PasswordUtil;
 
+import java.io.InputStream;
 import java.sql.Timestamp;
+import java.util.Properties;
 
 /**
  * Service handling user authentication, credential verification with BCrypt,
@@ -47,7 +51,21 @@ public class AuthenticationService {
             throw new AccountInactiveException("Your account is deactivated. Please contact the Library Administrator.");
         }
 
+        if (isEmailVerificationRequired() && user.getRole() == Role.STUDENT && !user.isEmailVerified()) {
+            throw new AccountNotVerifiedException("Your email address has not been verified yet. Please complete verification.",
+                    user.getUserId(), user.getEmail());
+        }
+
         return user;
+    }
+
+    public static boolean isEmailVerificationRequired() {
+        Properties props = new Properties();
+        try (InputStream in = AuthenticationService.class.getClassLoader().getResourceAsStream("db.properties")) {
+            if (in != null) props.load(in);
+        } catch (Exception ignored) {}
+        return Boolean.parseBoolean(System.getProperty("auth.email.verification.required",
+                props.getProperty("auth.email.verification.required", "false")));
     }
 
     /**

@@ -104,6 +104,45 @@
             border-radius: 50%;
             display: inline-block;
         }
+        .histogram-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .histogram-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.85rem;
+        }
+        .histogram-label {
+            width: 90px;
+            font-family: monospace;
+            color: #4a5568;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .histogram-bar-track {
+            flex-grow: 1;
+            background: #edf2f7;
+            height: 18px;
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+        .histogram-bar-fill {
+            height: 100%;
+            background-color: var(--primary);
+            transition: width 0.3s ease;
+        }
+        .histogram-count {
+            width: 70px;
+            text-align: right;
+            font-weight: 600;
+            color: #2d3748;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 <body>
@@ -240,6 +279,26 @@
                         <div class="text-secondary" style="font-size: 0.85rem;">Avg Processing Duration</div>
                         <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);" id="valAvgProc">0.0 ms</div>
                     </div>
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.85rem;">Max Processing Duration</div>
+                        <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);" id="valMaxProc">0 ms</div>
+                    </div>
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.85rem;">P50 Processing Latency</div>
+                        <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);" id="valP50">0 ms</div>
+                    </div>
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.85rem;">P90 Processing Latency</div>
+                        <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);" id="valP90">0 ms</div>
+                    </div>
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.85rem;">P95 Processing Latency</div>
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #b7791f;" id="valP95">0 ms</div>
+                    </div>
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.85rem;">P99 Processing Latency</div>
+                        <div style="font-size: 1.5rem; font-weight: bold; color: var(--danger);" id="valP99">0 ms</div>
+                    </div>
                 </div>
 
                 <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.85rem; color: #718096;" id="rejectionsDetail">
@@ -247,8 +306,17 @@
                 </div>
             </div>
 
+            <!-- Latency Distribution Histogram -->
+            <div class="info-card" style="margin-bottom: 28px;">
+                <h3 style="margin-bottom: 4px;">Request Latency Distribution (Histogram)</h3>
+                <p class="text-secondary" style="font-size: 0.85rem; margin-bottom: 16px;">Fixed-bucket processing latency counts across all completed mutating operations</p>
+                <div class="histogram-container" id="latencyHistogram">
+                    <div style="text-align: center; color: #718096; padding: 12px;">Loading latency histogram...</div>
+                </div>
+            </div>
+
             <!-- Operations Breakdown Table -->
-            <div class="info-card">
+            <div class="info-card" style="margin-bottom: 28px;">
                 <h3 style="margin-bottom: 16px;">Operation Breakdown &amp; Concurrency Metrics</h3>
                 <div style="overflow-x: auto;">
                     <table class="data-table">
@@ -267,6 +335,29 @@
                         <tbody id="operationsTableBody">
                             <tr>
                                 <td colspan="8" style="text-align: center; color: #718096;">Loading operation breakdown...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Rejections Table (Ring Buffer) -->
+            <div class="info-card">
+                <h3 style="margin-bottom: 4px;">Recent Rejection Events (Last 50 in Ring Buffer)</h3>
+                <p class="text-secondary" style="font-size: 0.85rem; margin-bottom: 16px;">Real-time fast-failure audit trail capturing admission governor backpressure and CSRF security drops</p>
+                <div style="overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Rejection Reason</th>
+                                <th>Request Path</th>
+                                <th>Operation Category</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rejectionsTableBody">
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: #718096;">No rejection events recorded.</td>
                             </tr>
                         </tbody>
                     </table>

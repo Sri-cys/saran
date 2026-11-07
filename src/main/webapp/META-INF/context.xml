@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Context>
+    <!-- SameSite=Lax Cookie Policy for Session Cookie Protection (Decision D1) -->
+    <CookieProcessor sameSiteCookies="lax" />
+
     <!-- Tomcat JNDI Connection Pool for PSG iTech Library System -->
     <Resource name="jdbc/PsgItechDB"
               auth="Container"

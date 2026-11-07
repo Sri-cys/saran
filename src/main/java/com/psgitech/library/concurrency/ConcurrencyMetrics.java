@@ -1,8 +1,11 @@
 package com.psgitech.library.concurrency;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -72,11 +75,40 @@ public class ConcurrencyMetrics implements TransactionRetryListener {
     // Deadlock and lock timeout counters
     private final LongAdder deadlockRetries = new LongAdder();
     private final LongAdder lockWaitTimeouts = new LongAdder();
+    private final LongAdder csrfFailures = new LongAdder();
 
     // Timing metrics
     private final LongAdder totalAdmissionWaitMs = new LongAdder();
     private final AtomicLong maxAdmissionWaitMs = new AtomicLong(0);
     private final LongAdder totalProcessingMs = new LongAdder();
+    private final AtomicLong maxProcessingMs = new AtomicLong(0);
+
+    // Feature Enhancement F7: Latency histogram & percentiles (5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000 ms)
+    public static final long[] BUCKET_UPPER_BOUNDS = {5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000};
+    private final LongAdder[] latencyBuckets;
+
+    // Feature Enhancement F7: Rejection telemetry ring buffer (last 50 rejections)
+    public static class RejectionEvent {
+        private final long timestamp;
+        private final String reason;
+        private final String path;
+        private final String operation;
+
+        public RejectionEvent(String reason, String path, String operation) {
+            this.timestamp = System.currentTimeMillis();
+            this.reason = reason;
+            this.path = path != null ? path : "/";
+            this.operation = operation != null ? operation : "MUTATION";
+        }
+
+        public long getTimestamp() { return timestamp; }
+        public String getReason() { return reason; }
+        public String getPath() { return path; }
+        public String getOperation() { return operation; }
+    }
+
+    private static final int MAX_REJECTIONS_BUFFER = 50;
+    private final java.util.concurrent.ConcurrentLinkedDeque<RejectionEvent> recentRejections = new java.util.concurrent.ConcurrentLinkedDeque<>();
 
     // Pre-allocated, fully populated EnumMap
     private final Map<ConcurrencyOperation, OperationStats> operationStatsMap;
@@ -87,6 +119,11 @@ public class ConcurrencyMetrics implements TransactionRetryListener {
             map.put(op, new OperationStats());
         }
         this.operationStatsMap = Collections.unmodifiableMap(map);
+
+        this.latencyBuckets = new LongAdder[BUCKET_UPPER_BOUNDS.length + 1];
+        for (int i = 0; i < latencyBuckets.length; i++) {
+            latencyBuckets[i] = new LongAdder();
+        }
     }
 
     public void updateActiveWatermark(int currentActive) {
@@ -112,6 +149,7 @@ public class ConcurrencyMetrics implements TransactionRetryListener {
     public void recordCompleted(ConcurrencyOperation op, int statusCode, long processingDurationMs) {
         totalCompleted.increment();
         totalProcessingMs.add(processingDurationMs);
+        recordLatency(processingDurationMs);
 
         OperationStats stats = operationStatsMap.get(op);
         if (stats != null) {
@@ -131,7 +169,47 @@ public class ConcurrencyMetrics implements TransactionRetryListener {
         }
     }
 
+    public void recordLatency(long latencyMs) {
+        maxProcessingMs.accumulateAndGet(latencyMs, Math::max);
+        for (int i = 0; i < BUCKET_UPPER_BOUNDS.length; i++) {
+            if (latencyMs <= BUCKET_UPPER_BOUNDS[i]) {
+                latencyBuckets[i].increment();
+                return;
+            }
+        }
+        latencyBuckets[BUCKET_UPPER_BOUNDS.length].increment();
+    }
+
+    public long getPercentileLatency(double percentile) {
+        long total = 0;
+        for (LongAdder b : latencyBuckets) total += b.sum();
+        if (total == 0) return 0;
+
+        long target = (long) Math.ceil((percentile / 100.0) * total);
+        long cumulative = 0;
+        for (int i = 0; i < BUCKET_UPPER_BOUNDS.length; i++) {
+            cumulative += latencyBuckets[i].sum();
+            if (cumulative >= target) {
+                return BUCKET_UPPER_BOUNDS[i];
+            }
+        }
+        return 5001; // overflow
+    }
+
+    public Map<String, Long> getLatencyHistogram() {
+        Map<String, Long> hist = new LinkedHashMap<>();
+        for (int i = 0; i < BUCKET_UPPER_BOUNDS.length; i++) {
+            hist.put("<=" + BUCKET_UPPER_BOUNDS[i] + "ms", latencyBuckets[i].sum());
+        }
+        hist.put(">5000ms", latencyBuckets[BUCKET_UPPER_BOUNDS.length].sum());
+        return hist;
+    }
+
     public void recordRejection(ConcurrencyLimitExceededException.Reason reason) {
+        recordRejection(reason, null, null);
+    }
+
+    public void recordRejection(ConcurrencyLimitExceededException.Reason reason, String path, ConcurrencyOperation op) {
         if (reason == null) return;
         switch (reason) {
             case WAIT_TIMEOUT:
@@ -147,6 +225,23 @@ public class ConcurrencyMetrics implements TransactionRetryListener {
                 rejectionsPoolExhausted.increment();
                 break;
         }
+        addRejectionEvent(new RejectionEvent(reason.name(), path, op != null ? op.name() : null));
+    }
+
+    public void recordCsrfFailure(String path) {
+        csrfFailures.increment();
+        addRejectionEvent(new RejectionEvent("CSRF_TOKEN_INVALID", path, "SECURITY"));
+    }
+
+    private void addRejectionEvent(RejectionEvent event) {
+        recentRejections.addFirst(event);
+        while (recentRejections.size() > MAX_REJECTIONS_BUFFER) {
+            recentRejections.pollLast();
+        }
+    }
+
+    public List<RejectionEvent> getRecentRejections() {
+        return new ArrayList<>(recentRejections);
     }
 
     public void recordInterrupted() {
@@ -179,7 +274,10 @@ public class ConcurrencyMetrics implements TransactionRetryListener {
     public long getRejectionsPoolExhausted() { return rejectionsPoolExhausted.sum(); }
     public long getDeadlockRetries() { return deadlockRetries.sum(); }
     public long getLockWaitTimeouts() { return lockWaitTimeouts.sum(); }
+    public void recordCsrfFailure() { csrfFailures.increment(); }
+    public long getCsrfFailures() { return csrfFailures.sum(); }
     public long getMaxAdmissionWaitMs() { return maxAdmissionWaitMs.get(); }
+    public long getMaxProcessingMs() { return maxProcessingMs.get(); }
 
     public double getAvgAdmissionWaitMs() {
         long count = totalAdmitted.sum();

@@ -33,11 +33,15 @@ public class AppContextListener implements ServletContextListener {
                 config.getMaxWaitingMutations(),
                 config.getWaitTimeoutMs(),
                 config.getUserInflightCap()));
+
+        // Start Background Allocation Expiry & Reminder Scheduler
+        com.psgitech.library.scheduler.AllocationExpiryScheduler.getInstance().start();
     }
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
         LOGGER.info("PSG iTech Library System shutting down...");
+        com.psgitech.library.scheduler.AllocationExpiryScheduler.getInstance().stop();
         TransactionRetryHelper.removeListener(ConcurrencyManager.getInstance().getMetrics());
     }
 }

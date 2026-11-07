@@ -72,8 +72,35 @@ public class RegisterServlet extends HttpServlet {
         try {
             userService.registerStudent(student, password, confirmPassword);
             result.put("success", true);
-            result.put("message", "Registration successful! You can now log in with your credentials.");
-            result.put("redirect", req.getContextPath() + "/login.html?registered=true");
+
+            if (com.psgitech.library.service.AuthenticationService.isEmailVerificationRequired()) {
+                try {
+                    com.psgitech.library.service.OtpService otpService = new com.psgitech.library.service.OtpService();
+                    String rawOtp = otpService.generateAndSaveOtp(
+                            com.psgitech.library.model.OtpPurpose.EMAIL_VERIFICATION,
+                            student.getUserId(),
+                            student.getEmail()
+                    );
+                    com.psgitech.library.service.MailService mailService = com.psgitech.library.service.MailServiceFactory.getMailService();
+                    mailService.send(student.getEmail(), "PSG iTech Library - Verify Your Email",
+                            "Dear " + student.getName() + ",\n\n" +
+                            "Thank you for registering at PSG iTech Library.\n" +
+                            "Your 6-digit verification code is: " + rawOtp + "\n\n" +
+                            "This code is valid for 10 minutes.\n\n" +
+                            "Regards,\nPSG iTech Library Administration");
+                } catch (Exception e) {
+                    // Log but do not block registration result
+                }
+
+                result.put("requiresVerification", true);
+                result.put("userId", student.getUserId());
+                result.put("email", student.getEmail());
+                result.put("message", "Registration initiated! Please enter the 6-digit code sent to " + student.getEmail() + " to activate your account.");
+            } else {
+                result.put("requiresVerification", false);
+                result.put("message", "Registration successful! You can now log in with your credentials.");
+                result.put("redirect", req.getContextPath() + "/login.html?registered=true");
+            }
 
             if (isAjax) {
                 resp.setContentType("application/json");

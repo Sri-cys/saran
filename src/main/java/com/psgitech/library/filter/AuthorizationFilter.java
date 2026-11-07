@@ -75,11 +75,12 @@ public class AuthorizationFilter implements Filter {
             }
         }
 
-        // Admin-only protection
+        // Admin-only protection (including fine waivers via POST /fines)
         if (path.startsWith("/admin/") || (path.startsWith("/api/admin/") && !path.startsWith("/api/admin/interchanges"))
-                || path.contains("admin-users") || path.contains("concurrency-monitor")) {
+                || path.contains("admin-users") || path.contains("concurrency-monitor")
+                || (path.startsWith("/fines") && "POST".equalsIgnoreCase(req.getMethod()))) {
             if (user == null) {
-                if (path.startsWith("/api/admin/") || (!path.endsWith(".html") && !path.contains("."))) {
+                if (path.startsWith("/api/admin/") || path.startsWith("/fines") || (!path.endsWith(".html") && !path.contains("."))) {
                     res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
                 } else {
                     res.sendRedirect(contextPath + "/login.html?redirect=" + path);
@@ -96,7 +97,8 @@ public class AuthorizationFilter implements Filter {
         if (path.startsWith("/librarian/") || path.contains("librarian-dashboard") || path.contains("borrowing-management")
                 || path.startsWith("/borrow/issue") || path.startsWith("/borrow/return") || path.startsWith("/borrow/active")
                 || path.startsWith("/borrow/overdue") || path.startsWith("/borrow/lookup")
-                || path.startsWith("/fines") || path.startsWith("/payments/verify")) {
+                || path.startsWith("/fines") || path.startsWith("/payments/verify")
+                || path.startsWith("/books/copies/barcode") || path.contains("barcode-labels")) {
             if (user == null) {
                 if (path.endsWith(".html") || !path.contains(".")) {
                     res.sendRedirect(contextPath + "/login.html?redirect=" + path);
@@ -126,6 +128,7 @@ public class AuthorizationFilter implements Filter {
 
         // Student & Staff API & Receipt protection
         if (path.startsWith("/borrow/student") || path.startsWith("/borrow/history") 
+                || path.startsWith("/borrow/renew")
                 || path.startsWith("/reservations") || path.startsWith("/allocations")
                 || path.startsWith("/my-fines") || path.startsWith("/payments") || path.startsWith("/receipt")
                 || path.startsWith("/interchanges")

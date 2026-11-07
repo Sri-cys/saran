@@ -107,8 +107,8 @@ async function loadMyReservations() {
                             </p>
 
                             ${isAllocated ? `
-                                <!-- Highlighted Allocation Notice (Feature 5) -->
-                                <div style="background-color: #E8F8F0; border-left: 3px solid #159B50; padding: 10px 12px; border-radius: 4px; margin-bottom: 14px;">
+                                <!-- Highlighted Allocation Notice with Countdown (Feature 5) -->
+                                <div class="allocation-box" style="background-color: #E8F8F0; border-left: 3px solid #159B50; padding: 10px 12px; border-radius: 4px; margin-bottom: 14px;">
                                     <div style="font-size: 0.9rem; font-weight: bold; color: #159B50; margin-bottom: 4px;">
                                         ✓ Ready for Collection
                                     </div>
@@ -116,7 +116,13 @@ async function loadMyReservations() {
                                         Physical Copy: <code>${escapeHtml(copyCode)}</code>
                                     </div>
                                     <div style="font-size: 0.82rem; color: #444444; margin-top: 3px;">
-                                        Collect from the library desk by: <strong>${escapeHtml(expiresAt ? expiresAt.substring(0, 16) : '24 Hours')}</strong>
+                                        Deadline: <strong>${escapeHtml(expiresAt ? expiresAt.substring(0, 16) : '24 Hours')}</strong>
+                                    </div>
+                                    <div class="allocation-countdown" data-expires-at="${escapeHtml(expiresAt)}" style="font-size: 0.85rem; margin-top: 6px; color: var(--primary);">
+                                        Calculating time remaining...
+                                    </div>
+                                    <div class="urgency-banner" style="display: none; margin-top: 8px; padding: 6px 8px; background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">
+                                        &#9888; Action Required: Less than 6 hours remain before auto-release!
                                     </div>
                                 </div>
 
@@ -133,6 +139,9 @@ async function loadMyReservations() {
                                     <div style="font-size: 1.25rem; font-weight: bold; color: var(--primary);">
                                         Position #${pos} <span style="font-size: 0.85rem; font-weight: normal; color: var(--text-secondary);">of ${total} in FIFO line</span>
                                     </div>
+                                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">
+                                        Estimated Wait: <strong style="color: #203B60;">${escapeHtml(res.estimatedWaitMessage || 'Available soon')}</strong>
+                                    </div>
                                 </div>
 
                                 <div style="display: flex; gap: 8px; justify-content: flex-end;">
@@ -148,6 +157,8 @@ async function loadMyReservations() {
             }
             html += '</div>';
             activeContainer.innerHTML = html;
+            const serverOffsetMs = (data.serverNow ? data.serverNow - Date.now() : 0);
+            startAllocationCountdowns(serverOffsetMs);
         }
 
         // Render Reservation History (Table)
@@ -259,3 +270,43 @@ window.releaseAllocationAction = async function (reservationId, bookTitle) {
         alert('Network error while releasing allocation. Please try again.');
     }
 };
+
+let countdownInterval = null;
+function startAllocationCountdowns(serverOffsetMs) {
+    if (countdownInterval) clearInterval(countdownInterval);
+
+    function update() {
+        const now = Date.now() + (serverOffsetMs || 0);
+        document.querySelectorAll('.allocation-countdown').forEach(el => {
+            const expStr = el.getAttribute('data-expires-at');
+            if (!expStr) return;
+            const expTime = new Date(expStr.replace(' ', 'T')).getTime();
+            const diff = expTime - now;
+
+            if (diff <= 0) {
+                el.innerHTML = '<span style="color: var(--danger); font-weight: bold;">Expired &bull; Auto-release pending</span>';
+                const banner = el.closest('.allocation-box')?.querySelector('.urgency-banner');
+                if (banner) banner.style.display = 'none';
+            } else {
+                const totalSeconds = Math.floor(diff / 1000);
+                const hours = Math.floor(totalSeconds / 3600);
+                const mins = Math.floor((totalSeconds % 3600) / 60);
+                const secs = totalSeconds % 60;
+                const timeFormatted = `${hours}h ${mins}m ${secs}s`;
+                el.innerHTML = `Time Remaining: <strong>${timeFormatted}</strong>`;
+
+                const banner = el.closest('.allocation-box')?.querySelector('.urgency-banner');
+                if (banner) {
+                    if (hours < 6) {
+                        banner.style.display = 'block';
+                    } else {
+                        banner.style.display = 'none';
+                    }
+                }
+            }
+        });
+    }
+
+    update();
+    countdownInterval = setInterval(update, 1000);
+}

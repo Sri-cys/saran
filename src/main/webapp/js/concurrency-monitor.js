@@ -195,10 +195,19 @@
             setText('valAvgWait', (data.timing.avgAdmissionWaitMs || 0) + ' ms');
             setText('valMaxWait', (data.timing.maxAdmissionWaitMs || 0) + ' ms');
             setText('valAvgProc', (data.timing.avgProcessingMs || 0) + ' ms');
+            setText('valMaxProc', (data.timing.maxProcessingMs || 0) + ' ms');
+            setText('valP50', (data.timing.p50LatencyMs || 0) + ' ms');
+            setText('valP90', (data.timing.p90LatencyMs || 0) + ' ms');
+            setText('valP95', (data.timing.p95LatencyMs || 0) + ' ms');
+            setText('valP99', (data.timing.p99LatencyMs || 0) + ' ms');
+            renderHistogram(data.timing.histogram);
         }
 
         // Operations Breakdown Table
         renderOperationsTable(data.operations);
+
+        // Recent Rejections Table
+        renderRecentRejections(data.recentRejections);
     }
 
     function renderOperationsTable(operations) {
@@ -288,6 +297,122 @@
 
             tbody.appendChild(tr);
         }
+    }
+
+    function renderHistogram(histogram) {
+        const container = document.getElementById('latencyHistogram');
+        if (!container) return;
+        container.textContent = '';
+
+        if (!histogram || Object.keys(histogram).length === 0) {
+            const empty = document.createElement('div');
+            empty.style.textAlign = 'center';
+            empty.style.color = '#718096';
+            empty.style.padding = '12px';
+            empty.textContent = 'No latency measurements recorded yet.';
+            container.appendChild(empty);
+            return;
+        }
+
+        let maxCount = 0;
+        let totalCount = 0;
+        for (const bucket in histogram) {
+            if (histogram.hasOwnProperty(bucket)) {
+                const count = histogram[bucket] || 0;
+                totalCount += count;
+                if (count > maxCount) {
+                    maxCount = count;
+                }
+            }
+        }
+
+        for (const bucket in histogram) {
+            if (!histogram.hasOwnProperty(bucket)) continue;
+            const count = histogram[bucket] || 0;
+            const pct = maxCount > 0 ? (count / maxCount * 100) : 0;
+            const sharePct = totalCount > 0 ? ((count / totalCount) * 100).toFixed(1) : '0.0';
+
+            const row = document.createElement('div');
+            row.className = 'histogram-row';
+
+            const label = document.createElement('div');
+            label.className = 'histogram-label';
+            label.textContent = bucket;
+            row.appendChild(label);
+
+            const track = document.createElement('div');
+            track.className = 'histogram-bar-track';
+            track.title = count + ' requests (' + sharePct + '%)';
+
+            const fill = document.createElement('div');
+            fill.className = 'histogram-bar-fill';
+            fill.style.width = pct + '%';
+            track.appendChild(fill);
+            row.appendChild(track);
+
+            const countEl = document.createElement('div');
+            countEl.className = 'histogram-count';
+            countEl.textContent = count;
+            row.appendChild(countEl);
+
+            container.appendChild(row);
+        }
+    }
+
+    function renderRecentRejections(recentRejections) {
+        const tbody = document.getElementById('rejectionsTableBody');
+        if (!tbody) return;
+        tbody.textContent = '';
+
+        if (!recentRejections || recentRejections.length === 0) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 4;
+            td.style.textAlign = 'center';
+            td.style.color = '#718096';
+            td.textContent = 'No rejection events recorded.';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        // Display newest first
+        const items = recentRejections.slice().reverse();
+        items.forEach(function(item) {
+            const tr = document.createElement('tr');
+
+            const tdTime = document.createElement('td');
+            if (item.timestamp) {
+                try {
+                    const d = new Date(item.timestamp);
+                    tdTime.textContent = d.toLocaleTimeString() + '.' + String(d.getMilliseconds()).padStart(3, '0');
+                } catch(e) {
+                    tdTime.textContent = item.timestamp;
+                }
+            } else {
+                tdTime.textContent = '-';
+            }
+            tr.appendChild(tdTime);
+
+            const tdReason = document.createElement('td');
+            const badge = document.createElement('span');
+            badge.className = 'badge badge-danger';
+            badge.textContent = item.reason || 'REJECTED';
+            tdReason.appendChild(badge);
+            tr.appendChild(tdReason);
+
+            const tdPath = document.createElement('td');
+            const code = document.createElement('code');
+            code.textContent = item.path || '-';
+            tdPath.appendChild(code);
+            tr.appendChild(tdPath);
+
+            const tdOp = document.createElement('td');
+            tdOp.textContent = item.operation || 'GENERAL';
+            tr.appendChild(tdOp);
+
+            tbody.appendChild(tr);
+        });
     }
 
     function setText(id, text) {

@@ -51,6 +51,10 @@ public class BorrowTransaction {
     private boolean acquiredViaInterchange;
     private String originalBorrowerName;
 
+    // Feature Enhancement F3: Loan Renewals
+    private int renewalCount = 0;
+    private Timestamp lastRenewedAt;
+
     public BorrowTransaction() {
         this.status = BorrowStatus.ACTIVE;
     }
@@ -354,6 +358,22 @@ public class BorrowTransaction {
 
     public void setOriginalBorrowerName(String originalBorrowerName) {
         this.originalBorrowerName = originalBorrowerName;
+    }
+
+    public int getRenewalCount() {
+        return renewalCount;
+    }
+
+    public void setRenewalCount(int renewalCount) {
+        this.renewalCount = renewalCount;
+    }
+
+    public Timestamp getLastRenewedAt() {
+        return lastRenewedAt;
+    }
+
+    public void setLastRenewedAt(Timestamp lastRenewedAt) {
+        this.lastRenewedAt = lastRenewedAt;
     }
 
     @Override

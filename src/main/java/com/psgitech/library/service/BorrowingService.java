@@ -271,6 +271,17 @@ public class BorrowingService {
     }
 
     /**
+     * Renews an active book borrowing transaction by extending its due date by standard borrowing duration.
+     * Enforces single renewal limit, zero waiting reservations, zero pending interchanges, and fine clearance.
+     */
+    public BorrowTransaction renewLoan(int transactionId, int studentId, int actingUserId, Role actingRole) {
+        if (transactionId <= 0) {
+            throw new IllegalArgumentException("Valid transaction ID is required for renewal.");
+        }
+        return borrowRepository.renewLoan(transactionId, studentId, actingUserId, actingRole);
+    }
+
+    /**
      * Helper to find book_id for a given copy_id using JDBC.
      */
     private int findBookIdByCopyId(int copyId) {

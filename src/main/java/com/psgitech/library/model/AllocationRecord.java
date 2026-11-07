@@ -36,6 +36,11 @@ public class AllocationRecord {
     private String bookIsbn;
     private String copyCode;
     private String bookCoverUrl;
+    private String studentEmail;
+    private Timestamp expiredAt;
+    private Integer successorAllocationId;
+    private Timestamp reminderSentAt;
+    private String reminderStatus;
 
     public AllocationRecord() {
         this.status = AllocationStatus.ALLOCATED;
@@ -261,6 +266,46 @@ public class AllocationRecord {
 
     public void setBookCoverUrl(String bookCoverUrl) {
         this.bookCoverUrl = bookCoverUrl;
+    }
+
+    public String getStudentEmail() {
+        return studentEmail;
+    }
+
+    public void setStudentEmail(String studentEmail) {
+        this.studentEmail = studentEmail;
+    }
+
+    public Timestamp getExpiredAt() {
+        return expiredAt;
+    }
+
+    public void setExpiredAt(Timestamp expiredAt) {
+        this.expiredAt = expiredAt;
+    }
+
+    public Integer getSuccessorAllocationId() {
+        return successorAllocationId;
+    }
+
+    public void setSuccessorAllocationId(Integer successorAllocationId) {
+        this.successorAllocationId = successorAllocationId;
+    }
+
+    public Timestamp getReminderSentAt() {
+        return reminderSentAt;
+    }
+
+    public void setReminderSentAt(Timestamp reminderSentAt) {
+        this.reminderSentAt = reminderSentAt;
+    }
+
+    public String getReminderStatus() {
+        return reminderStatus;
+    }
+
+    public void setReminderStatus(String reminderStatus) {
+        this.reminderStatus = reminderStatus;
     }
 }
 

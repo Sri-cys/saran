@@ -388,8 +388,85 @@ public class AllocationRepository {
         try { a.setStudentName(rs.getString("student_name")); } catch (SQLException ignored) {}
         try { a.setRegisterNumber(rs.getString("register_number")); } catch (SQLException ignored) {}
         try { a.setBookCoverUrl(rs.getString("cover_image_url")); } catch (SQLException ignored) {}
+        try { a.setExpiredAt(rs.getTimestamp("expired_at")); } catch (SQLException ignored) {}
+        try {
+            int succ = rs.getInt("successor_allocation_id");
+            if (!rs.wasNull()) a.setSuccessorAllocationId(succ);
+        } catch (SQLException ignored) {}
+        try { a.setReminderSentAt(rs.getTimestamp("reminder_sent_at")); } catch (SQLException ignored) {}
+        try { a.setReminderStatus(rs.getString("reminder_status")); } catch (SQLException ignored) {}
 
         return a;
+    }
+
+    public boolean markExpired(Connection conn, int allocationId, Timestamp expiredAt) throws SQLException {
+        String sql = "UPDATE allocations SET status = 'EXPIRED', expired_at = ? WHERE allocation_id = ? AND status = 'ALLOCATED'";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setTimestamp(1, expiredAt != null ? expiredAt : new Timestamp(System.currentTimeMillis()));
+            ps.setInt(2, allocationId);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    public void setSuccessorAllocation(Connection conn, int allocationId, int successorId) throws SQLException {
+        String sql = "UPDATE allocations SET successor_allocation_id = ? WHERE allocation_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, successorId);
+            ps.setInt(2, allocationId);
+            ps.executeUpdate();
+        }
+    }
+
+    public List<Integer> findExpiredAllocationIds() {
+        List<Integer> list = new ArrayList<>();
+        String sql = "SELECT allocation_id FROM allocations WHERE status = 'ALLOCATED' AND expires_at <= NOW()";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(rs.getInt("allocation_id"));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error querying expired allocation IDs", e);
+        }
+        return list;
+    }
+
+    public List<AllocationRecord> findAllocationsNeedingReminder() {
+        List<AllocationRecord> list = new ArrayList<>();
+        String sql = "SELECT a.*, b.title AS book_title, u.name AS student_name, u.email AS student_email, c.copy_code " +
+                "FROM allocations a " +
+                "JOIN books b ON a.book_id = b.book_id " +
+                "JOIN users u ON a.student_id = u.user_id " +
+                "JOIN book_copies c ON a.copy_id = c.copy_id " +
+                "WHERE a.status = 'ALLOCATED' " +
+                "AND a.expires_at <= DATE_ADD(NOW(), INTERVAL 6 HOUR) " +
+                "AND a.expires_at > NOW() " +
+                "AND a.reminder_sent_at IS NULL " +
+                "AND a.reminder_status = 'PENDING'";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                AllocationRecord rec = mapRow(rs);
+                rec.setStudentEmail(rs.getString("student_email"));
+                list.add(rec);
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error querying allocations needing reminder", e);
+        }
+        return list;
+    }
+
+    public void markReminderSent(int allocationId) {
+        String sql = "UPDATE allocations SET reminder_sent_at = NOW(), reminder_status = 'SENT' WHERE allocation_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, allocationId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "Error marking reminder sent for allocation #" + allocationId, e);
+        }
     }
 }
 

@@ -127,6 +127,21 @@ function renderStudentBorrowingCard(tx) {
         dueStatusHtml = `<span class="badge badge-available">${tx.daysRemaining} days remaining</span>`;
     }
 
+    const renewalCount = tx.renewalCount || 0;
+    const canRenew = (!tx.overdue && tx.status === 'ACTIVE' && renewalCount < 1);
+    let renewBtnHtml = '';
+    if (canRenew) {
+        renewBtnHtml = `
+            <button class="btn btn-outline btn-sm" onclick="handleRenewLoan(${tx.transactionId})">
+                &#8635; Renew Loan (+14 Days)
+            </button>
+        `;
+    } else if (renewalCount >= 1) {
+        renewBtnHtml = `<span class="badge" style="background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1;">Renewed (1/1)</span>`;
+    } else if (tx.overdue) {
+        renewBtnHtml = `<span class="badge" style="background: #FEE2E2; color: #B91C1C; border: 1px solid #FECACA;">Overdue &bull; Cannot Renew</span>`;
+    }
+
     const transferBtnHtml = (!tx.overdue && tx.status === 'ACTIVE') ? `
         <button class="btn btn-secondary btn-sm" onclick="openTransferModal(${tx.transactionId}, '${escapeHtml(tx.bookTitle || '').replace(/'/g, "\\'")}', '${escapeHtml(tx.copyCode || '')}', '${escapeHtml(tx.issueDate || '')}', '${escapeHtml(tx.dueDate || '')}')">
             &rarr; Transfer Book to Peer
@@ -170,12 +185,42 @@ function renderStudentBorrowingCard(tx) {
                 </div>
 
                 <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                    ${peerOriginHtml}
-                    ${transferBtnHtml}
+                    <div>${peerOriginHtml}</div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        ${renewBtnHtml}
+                        ${transferBtnHtml}
+                    </div>
                 </div>
             </div>
         </div>
     `;
+}
+
+async function handleRenewLoan(txId) {
+    if (!confirm('Are you sure you want to renew this book loan? Your due date will be extended by 14 days.')) {
+        return;
+    }
+    try {
+        const res = await fetch('borrow/renew', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ transactionId: txId })
+        });
+        const json = await res.json();
+        if (res.ok && json.success) {
+            alert(json.message || 'Loan renewed successfully!');
+            if (typeof loadStudentActiveBorrowings === 'function') {
+                loadStudentActiveBorrowings();
+            }
+        } else {
+            alert('Renewal failed: ' + (json.message || 'Ineligible for renewal.'));
+        }
+    } catch (e) {
+        alert('Network error while processing renewal.');
+    }
 }
 
 function renderStatusBadge(tx) {
@@ -294,7 +339,12 @@ async function loadStudentOutgoingInterchanges() {
 
                 if (req.status === 'REQUESTED') {
                     statusBadge = `<span class="badge badge-warning">Awaiting Recipient</span>`;
-                    actionBtn = `<button class="btn btn-outline btn-sm" onclick="cancelBookInterchange(${req.interchangeId})">Cancel Request</button>`;
+                    actionBtn = `
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <button class="btn btn-secondary btn-sm" onclick="generateHandoverCode(${req.interchangeId})">&#128273; Generate Handover Code</button>
+                            <button class="btn btn-outline btn-sm" onclick="cancelBookInterchange(${req.interchangeId})">Cancel Request</button>
+                        </div>
+                    `;
                 } else if (req.status === 'COMPLETED') {
                     statusBadge = `<span class="badge badge-success" style="background: #dcfce7; color: #166534;">Completed</span>`;
                 } else if (req.status === 'REJECTED') {
@@ -413,24 +463,51 @@ window.submitBookTransfer = async function () {
     }
 };
 
-window.acceptBookInterchange = async function (interchangeId, bookTitle, dueDate) {
-    const confirmed = confirm(
-        `Confirm Physical Handover Receipt:\n\n` +
-        `Book: "${bookTitle}"\n` +
-        `Return Deadline: ${dueDate} (Strictly unchanged)\n\n` +
-        `By clicking OK, you confirm that you have physically received this textbook and agree to return it by ${dueDate}.`
-    );
-
-    if (!confirmed) return;
-
+window.generateHandoverCode = async function (interchangeId) {
     try {
-        const resp = await fetch('interchanges/accept', {
+        const resp = await fetch('interchanges/otp/generate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({ interchangeId: interchangeId })
+        });
+        const json = await resp.json();
+        if (resp.ok && json.success) {
+            alert(`Physical Handover Verification Code: ${json.otp}\n\nShare this 6-digit code with the recipient student when physically handing over the textbook.`);
+        } else {
+            alert('Failed to generate handover code: ' + (json.message || 'Error occurred.'));
+        }
+    } catch (e) {
+        console.error('Error generating handover code', e);
+        alert('Network error while generating handover code.');
+    }
+};
+
+window.acceptBookInterchange = async function (interchangeId, bookTitle, dueDate) {
+    const otp = prompt(
+        `Confirm Physical Handover Receipt:\n\n` +
+        `Book: "${bookTitle}"\n` +
+        `Return Deadline: ${dueDate} (Strictly unchanged)\n\n` +
+        `Enter the 6-digit physical handover code provided by your peer (or leave blank if no code was required):`
+    );
+
+    if (otp === null) return; // Student pressed Cancel
+
+    try {
+        const payload = { interchangeId: interchangeId };
+        if (otp && otp.trim().length > 0) {
+            payload.otp = otp.trim();
+        }
+
+        const resp = await fetch('interchanges/accept', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(payload)
         });
 
         const json = await resp.json();

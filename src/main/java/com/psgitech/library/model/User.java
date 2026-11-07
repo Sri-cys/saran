@@ -15,6 +15,8 @@ public abstract class User {
     private String phone;
     private Role role;
     private boolean active;
+    private boolean emailVerified = true;
+    private Timestamp emailVerifiedAt;
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
@@ -96,6 +98,22 @@ public abstract class User {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
+    }
+
+    public Timestamp getEmailVerifiedAt() {
+        return emailVerifiedAt;
+    }
+
+    public void setEmailVerifiedAt(Timestamp emailVerifiedAt) {
+        this.emailVerifiedAt = emailVerifiedAt;
     }
 
     public Timestamp getCreatedAt() {

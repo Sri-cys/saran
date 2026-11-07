@@ -464,6 +464,33 @@ public class BookRepository {
     }
 
     /**
+     * Retrieves a single physical copy by its unique primary key.
+     */
+    public BookCopy findCopyById(int copyId) {
+        String sql = "SELECT * FROM book_copies WHERE copy_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, copyId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    BookCopy copy = new BookCopy();
+                    copy.setCopyId(rs.getInt("copy_id"));
+                    copy.setCopyCode(rs.getString("copy_code"));
+                    copy.setBookId(rs.getInt("book_id"));
+                    copy.setStatus(CopyStatus.fromString(rs.getString("status")));
+                    copy.setCreatedAt(rs.getTimestamp("created_at"));
+                    copy.setUpdatedAt(rs.getTimestamp("updated_at"));
+                    return copy;
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error fetching copy by ID: " + copyId, e);
+            throw new RuntimeException("Database error retrieving physical copy.", e);
+        }
+        return null;
+    }
+
+    /**
      * Retrieves all physical copies of a book.
      */
     public List<BookCopy> findCopiesByBookId(int bookId) {

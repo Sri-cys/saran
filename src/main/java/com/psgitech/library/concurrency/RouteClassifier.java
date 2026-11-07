@@ -22,6 +22,8 @@ public class RouteClassifier {
         excluded.add("/login");
         excluded.add("/logout");
         excluded.add("/register");
+        excluded.add("/register/verify-otp");
+        excluded.add("/register/resend-otp");
         EXCLUDED_PATHS = Collections.unmodifiableSet(excluded);
 
         Map<String, ConcurrencyOperation> routes = new HashMap<>();
@@ -30,6 +32,7 @@ public class RouteClassifier {
         routes.put("/borrowings/issue", ConcurrencyOperation.BOOK_ISSUE);
         routes.put("/borrow/return", ConcurrencyOperation.BOOK_RETURN);
         routes.put("/borrowings/return", ConcurrencyOperation.BOOK_RETURN);
+        routes.put("/borrow/renew", ConcurrencyOperation.BOOK_RENEWAL);
 
         // Reservations & queue
         routes.put("/reservations", ConcurrencyOperation.RESERVATION_CREATE);
@@ -56,6 +59,7 @@ public class RouteClassifier {
         routes.put("/interchanges/accept", ConcurrencyOperation.BOOK_INTERCHANGE);
         routes.put("/interchanges/reject", ConcurrencyOperation.BOOK_INTERCHANGE);
         routes.put("/interchanges/cancel", ConcurrencyOperation.BOOK_INTERCHANGE);
+        routes.put("/interchanges/otp/generate", ConcurrencyOperation.BOOK_INTERCHANGE);
 
         POST_ROUTES = Collections.unmodifiableMap(routes);
     }

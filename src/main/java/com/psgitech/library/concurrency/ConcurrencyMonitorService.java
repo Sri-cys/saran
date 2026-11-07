@@ -72,7 +72,16 @@ public class ConcurrencyMonitorService {
         timingMap.put("avgAdmissionWaitMs", Math.round(metrics.getAvgAdmissionWaitMs() * 100.0) / 100.0);
         timingMap.put("maxAdmissionWaitMs", metrics.getMaxAdmissionWaitMs());
         timingMap.put("avgProcessingMs", Math.round(metrics.getAvgProcessingMs() * 100.0) / 100.0);
+        timingMap.put("maxProcessingMs", metrics.getMaxProcessingMs());
+        timingMap.put("p50LatencyMs", metrics.getPercentileLatency(50.0));
+        timingMap.put("p90LatencyMs", metrics.getPercentileLatency(90.0));
+        timingMap.put("p95LatencyMs", metrics.getPercentileLatency(95.0));
+        timingMap.put("p99LatencyMs", metrics.getPercentileLatency(99.0));
+        timingMap.put("histogram", metrics.getLatencyHistogram());
         data.put("timing", timingMap);
+
+        // Recent rejections telemetry (ring buffer)
+        data.put("recentRejections", metrics.getRecentRejections());
 
         // Per-operation breakdown
         Map<String, Object> operationsMap = new LinkedHashMap<>();

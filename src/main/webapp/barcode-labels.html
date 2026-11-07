@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcode Label Sheets - PSG iTech Library</title>
+    <link rel="stylesheet" href="css/library-theme.css">
+    <style>
+        .print-controls {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .labels-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        .barcode-label {
+            border: 1px dashed #CBD5E1;
+            padding: 12px;
+            background: #FFFFFF;
+            text-align: center;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 140px;
+        }
+        .barcode-label img {
+            max-width: 100%;
+            height: auto;
+        }
+        .barcode-label .inst-name {
+            font-size: 0.72rem;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .barcode-label .book-title {
+            font-size: 0.82rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        @media print {
+            body {
+                background: #FFFFFF !important;
+                color: #000000 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .navbar, .footer, .print-controls, .breadcrumb, h1.page-title, p.page-subtitle {
+                display: none !important;
+            }
+            .main-content {
+                padding: 0 !important;
+                max-width: 100% !important;
+            }
+            .labels-grid {
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 10px !important;
+            }
+            .barcode-label {
+                border: 1px solid #94A3B8 !important;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="brand-container">
+                <span class="brand-text">PSG iTech Library</span>
+            </a>
+            <div class="nav-middle">
+                <a href="manage-books.html" class="nav-link">Catalog Management</a>
+                <a href="borrowing-management.html" class="nav-link">Circulation Desk</a>
+            </div>
+            <div class="nav-right">
+                <a href="librarian-dashboard.html" class="btn btn-outline btn-sm">Dashboard</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content" style="max-width: 1100px; margin: 30px auto; padding: 0 20px;">
+        <h1 class="page-title" style="color: var(--primary); font-family: 'Times New Roman', serif;">Physical Copy Barcode Labels</h1>
+        <p class="page-subtitle text-secondary">Code 128 Set B format for circulation desk optical laser scanners.</p>
+
+        <div class="print-controls">
+            <div style="flex: 1; min-width: 250px;">
+                <label for="bookSelect" class="form-label">Select Catalog Title</label>
+                <select id="bookSelect" class="form-control">
+                    <option value="">-- Load all copies from catalog --</option>
+                </select>
+            </div>
+            <div>
+                <button type="button" id="loadBtn" class="btn btn-secondary">Generate Preview</button>
+                <button type="button" onclick="window.print()" class="btn btn-primary" style="margin-left: 8px;">Print Label Sheet</button>
+            </div>
+        </div>
+
+        <div id="labelsContainer" class="labels-grid">
+            <!-- Dynamically populated labels -->
+        </div>
+    </main>
+
+    <script src="js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const res = await fetch('books');
+                if (res.ok) {
+                    const books = await res.json();
+                    const sel = document.getElementById('bookSelect');
+                    books.forEach(b => {
+                        const opt = document.createElement('option');
+                        opt.value = b.bookId;
+                        opt.textContent = `${b.title} (${b.isbn || 'No ISBN'})`;
+                        sel.appendChild(opt);
+                    });
+                }
+            } catch (e) {}
+
+            document.getElementById('loadBtn').addEventListener('click', loadLabels);
+            loadLabels();
+        });
+
+        async function loadLabels() {
+            const container = document.getElementById('labelsContainer');
+            container.innerHTML = '<p class="text-secondary" style="grid-column: 1 / -1; text-align: center;">Loading copy barcodes...</p>';
+            
+            const bookId = document.getElementById('bookSelect').value;
+            let url = 'books';
+            if (bookId) {
+                url = `books?id=${bookId}`;
+            }
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                const books = Array.isArray(data) ? data : [data];
+                
+                container.innerHTML = '';
+                let totalCopies = 0;
+
+                books.forEach(book => {
+                    if (book && book.copies) {
+                        book.copies.forEach(copy => {
+                            totalCopies++;
+                            const card = document.createElement('div');
+                            card.className = 'barcode-label';
+                            card.innerHTML = `
+                                <div class="inst-name">PSG iTech Library</div>
+                                <img src="books/copies/barcode?code=${encodeURIComponent(copy.copyCode)}" alt="${copy.copyCode}" />
+                                <div class="book-title">${book.title}</div>
+                            `;
+                            container.appendChild(card);
+                        });
+                    }
+                });
+
+                if (totalCopies === 0) {
+                    container.innerHTML = '<p class="text-secondary" style="grid-column: 1 / -1; text-align: center;">No physical copies found for the selected catalog entry.</p>';
+                }
+            } catch (e) {
+                container.innerHTML = '<p class="text-danger" style="grid-column: 1 / -1; text-align: center;">Error loading copy barcodes.</p>';
+            }
+        }
+    </script>
+</body>
+</html>

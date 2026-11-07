@@ -41,6 +41,10 @@ public class Reservation {
     private Timestamp allocatedAt;
     private AllocationResult releaseOutcome;
 
+    // Feature Enhancement F4: Estimated Waiting Time
+    private Integer estimatedWaitDays;
+    private String estimatedWaitMessage;
+
     public Reservation() {
         this.status = ReservationStatus.WAITING;
         this.reservationDate = LocalDate.now();
@@ -295,6 +299,22 @@ public class Reservation {
 
     public void setReleaseOutcome(AllocationResult releaseOutcome) {
         this.releaseOutcome = releaseOutcome;
+    }
+
+    public Integer getEstimatedWaitDays() {
+        return estimatedWaitDays;
+    }
+
+    public void setEstimatedWaitDays(Integer estimatedWaitDays) {
+        this.estimatedWaitDays = estimatedWaitDays;
+    }
+
+    public String getEstimatedWaitMessage() {
+        return estimatedWaitMessage;
+    }
+
+    public void setEstimatedWaitMessage(String estimatedWaitMessage) {
+        this.estimatedWaitMessage = estimatedWaitMessage;
     }
 
     @Override

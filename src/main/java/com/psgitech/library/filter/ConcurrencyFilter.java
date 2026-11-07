@@ -99,11 +99,14 @@ public class ConcurrencyFilter implements Filter {
             }
 
         } catch (ConcurrencyLimitExceededException e) {
+            String requestPath = RouteClassifier.normalizePath(req);
+            concurrencyManager.getMetrics().recordRejection(e.getReason(), requestPath, op);
             sendJsonError(res, e.getHttpStatus(), e.getRetryAfterSeconds(), e.getMessage());
         } catch (Throwable t) {
             SQLException sqle = findSQLException(t);
             if (sqle != null && DBConnection.isPoolExhaustedOrMaxConnections(sqle)) {
-                concurrencyManager.getMetrics().recordRejection(ConcurrencyLimitExceededException.Reason.POOL_EXHAUSTED);
+                String requestPath = RouteClassifier.normalizePath(req);
+                concurrencyManager.getMetrics().recordRejection(ConcurrencyLimitExceededException.Reason.POOL_EXHAUSTED, requestPath, op);
                 sendJsonError(res, HttpServletResponse.SC_SERVICE_UNAVAILABLE, 2,
                         "The library system is experiencing high traffic. Please retry in a few moments.");
             } else if (t instanceof ServletException) {

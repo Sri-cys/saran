@@ -69,6 +69,7 @@ public class InterchangeActionServlet extends HttpServlet {
 
         int interchangeId = 0;
         String reason = null;
+        String otp = null;
 
         String contentType = req.getContentType();
         if (contentType != null && contentType.toLowerCase().contains("application/json")) {
@@ -76,6 +77,7 @@ public class InterchangeActionServlet extends HttpServlet {
                 JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
                 if (json.has("interchangeId")) interchangeId = json.get("interchangeId").getAsInt();
                 if (json.has("reason") && !json.get("reason").isJsonNull()) reason = json.get("reason").getAsString();
+                if (json.has("otp") && !json.get("otp").isJsonNull()) otp = json.get("otp").getAsString();
             } catch (Exception e) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 resp.getWriter().write(gson.toJson(buildResponse(false, "Malformed JSON request body.", null)));
@@ -87,6 +89,7 @@ public class InterchangeActionServlet extends HttpServlet {
                 try { interchangeId = Integer.parseInt(idParam.trim()); } catch (NumberFormatException ignored) {}
             }
             reason = req.getParameter("reason");
+            otp = req.getParameter("otp");
         }
 
         if (interchangeId <= 0) {
@@ -97,7 +100,7 @@ public class InterchangeActionServlet extends HttpServlet {
 
         try {
             if (path.endsWith("/accept")) {
-                BookInterchange completed = interchangeService.acceptInterchange(interchangeId, currentUser.getUserId());
+                BookInterchange completed = interchangeService.acceptInterchange(interchangeId, currentUser.getUserId(), otp);
                 resp.setStatus(HttpServletResponse.SC_OK);
                 resp.getWriter().write(gson.toJson(buildResponse(true,
                         "Book interchange completed. The borrowing record is now under your account. Your return deadline remains unchanged.", completed)));

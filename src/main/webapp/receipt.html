@@ -110,6 +110,7 @@
 
     <div class="receipt-actions">
         <a href="my-fines.html" class="btn btn-secondary btn-sm">&larr; Back to My Fines</a>
+        <button id="downloadPdfBtn" class="btn btn-outline btn-sm">&#128196; Download Official PDF</button>
         <button onclick="window.print()" class="btn btn-primary btn-sm">&#128438; Print Receipt</button>
     </div>
 
@@ -200,6 +201,13 @@
             if (!paymentId) {
                 alert('Payment ID missing in receipt request.');
                 return;
+            }
+
+            const downloadBtn = document.getElementById('downloadPdfBtn');
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', function() {
+                    window.location.href = `payments/receipt/pdf?paymentId=${encodeURIComponent(paymentId)}`;
+                });
             }
 
             fetch(`receipt?paymentId=${encodeURIComponent(paymentId)}`)

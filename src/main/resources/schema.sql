@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
     department VARCHAR(50),
     `year` INT,
     active BOOLEAN DEFAULT TRUE,
+    email_verified BOOLEAN DEFAULT TRUE,
+    email_verified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     must_change_password BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -63,6 +65,8 @@ CREATE TABLE IF NOT EXISTS borrow_transactions (
     status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
     issued_by INT NOT NULL,
     returned_by INT NULL,
+    renewal_count INT DEFAULT 0,
+    last_renewed_at TIMESTAMP NULL,
     active_copy_lock INT AS (CASE WHEN status = 'ACTIVE' THEN copy_id ELSE NULL END),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -100,6 +104,10 @@ CREATE TABLE IF NOT EXISTS allocations (
     status VARCHAR(30) NOT NULL DEFAULT 'ALLOCATED',
     allocated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
+    expired_at TIMESTAMP NULL DEFAULT NULL,
+    successor_allocation_id INT NULL DEFAULT NULL,
+    reminder_sent_at TIMESTAMP NULL DEFAULT NULL,
+    reminder_status VARCHAR(30) NULL DEFAULT NULL,
     collected_at TIMESTAMP NULL DEFAULT NULL,
     cancelled_at TIMESTAMP NULL DEFAULT NULL,
     cancelled_by INT NULL,
@@ -239,6 +247,36 @@ CREATE TABLE IF NOT EXISTS book_interchanges (
     FOREIGN KEY (accepted_by) REFERENCES users (user_id) ON DELETE RESTRICT,
     FOREIGN KEY (rejected_by) REFERENCES users (user_id) ON DELETE RESTRICT,
     FOREIGN KEY (cancelled_by) REFERENCES users (user_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS loan_renewals (
+    renewal_id INT AUTO_INCREMENT PRIMARY KEY,
+    transaction_id INT NOT NULL,
+    student_id INT NOT NULL,
+    previous_due_date DATE NOT NULL,
+    new_due_date DATE NOT NULL,
+    renewal_number INT NOT NULL,
+    renewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    renewed_by INT NOT NULL,
+    FOREIGN KEY (transaction_id) REFERENCES borrow_transactions (transaction_id) ON DELETE RESTRICT,
+    FOREIGN KEY (student_id) REFERENCES users (user_id) ON DELETE RESTRICT,
+    FOREIGN KEY (renewed_by) REFERENCES users (user_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS otp_codes (
+    otp_id INT AUTO_INCREMENT PRIMARY KEY,
+    purpose VARCHAR(30) NOT NULL,
+    subject_id INT NOT NULL,
+    destination_email VARCHAR(100) NOT NULL,
+    code_hash VARCHAR(128) NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
+    attempts INT NOT NULL DEFAULT 0,
+    max_attempts INT NOT NULL DEFAULT 5,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP NULL DEFAULT NULL,
+    active_subject_lock VARCHAR(64) AS (CASE WHEN status = 'ACTIVE' THEN CONCAT(purpose, '-', CAST(subject_id AS VARCHAR)) ELSE NULL END),
+    UNIQUE (active_subject_lock)
 );
 
 

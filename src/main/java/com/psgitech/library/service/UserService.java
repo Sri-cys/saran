@@ -89,6 +89,15 @@ public class UserService {
         student.setPasswordHash(PasswordUtil.hashPassword(password));
         student.setActive(true);
 
+        // Feature Enhancement F1: Email verification flag
+        if (AuthenticationService.isEmailVerificationRequired()) {
+            student.setEmailVerified(false);
+            student.setEmailVerifiedAt(null);
+        } else {
+            student.setEmailVerified(true);
+            student.setEmailVerifiedAt(new java.sql.Timestamp(System.currentTimeMillis()));
+        }
+
         boolean saved = userRepository.saveStudent(student);
         if (!saved) {
             throw new RuntimeException("Failed to register student in database.");

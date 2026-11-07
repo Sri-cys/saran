@@ -55,6 +55,12 @@ public class UserRepository {
         user.setPhone(rs.getString("phone"));
         user.setRole(role);
         user.setActive(rs.getBoolean("active"));
+        try {
+            user.setEmailVerified(rs.getBoolean("email_verified"));
+            user.setEmailVerifiedAt(rs.getTimestamp("email_verified_at"));
+        } catch (SQLException ignored) {
+            user.setEmailVerified(true);
+        }
         user.setCreatedAt(rs.getTimestamp("created_at"));
         user.setUpdatedAt(rs.getTimestamp("updated_at"));
 
@@ -150,8 +156,8 @@ public class UserRepository {
     }
 
     public boolean saveStudent(Student student) {
-        String sql = "INSERT INTO users (name, email, password_hash, phone, role, register_number, department, `year`, active, must_change_password) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (name, email, password_hash, phone, role, register_number, department, `year`, active, must_change_password, email_verified, email_verified_at) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, student.getName());
@@ -168,6 +174,8 @@ public class UserRepository {
             }
             ps.setBoolean(9, student.isActive());
             ps.setBoolean(10, false);
+            ps.setBoolean(11, student.isEmailVerified());
+            ps.setTimestamp(12, student.getEmailVerifiedAt());
 
             int affected = ps.executeUpdate();
             if (affected > 0) {
@@ -180,6 +188,18 @@ public class UserRepository {
             }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Error saving student: " + student.getEmail(), e);
+        }
+        return false;
+    }
+
+    public boolean markEmailVerified(int userId) {
+        String sql = "UPDATE users SET email_verified = true, email_verified_at = NOW() WHERE user_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error marking email verified for user_id=" + userId, e);
         }
         return false;
     }

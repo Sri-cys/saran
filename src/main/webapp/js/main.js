@@ -3,6 +3,46 @@
  * Handles Global Navigation, Dropdowns, Search, and Session UI state.
  */
 
+// Global CSRF Protection: Intercept mutating fetch calls to attach X-CSRF-Token
+(function () {
+    const originalFetch = window.fetch;
+    window.fetch = async function (resource, init = {}) {
+        const method = (init.method || 'GET').toUpperCase();
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+            let token = sessionStorage.getItem('psgitech_csrf_token');
+            if (!token) {
+                try {
+                    const tokenRes = await originalFetch('csrf-token');
+                    if (tokenRes.ok) {
+                        const tokenData = await tokenRes.json();
+                        if (tokenData && tokenData.csrfToken) {
+                            token = tokenData.csrfToken;
+                            sessionStorage.setItem('psgitech_csrf_token', token);
+                        }
+                    }
+                } catch (e) {}
+            }
+            if (token) {
+                init.headers = init.headers || {};
+                if (init.headers instanceof Headers) {
+                    if (!init.headers.has('X-CSRF-Token')) {
+                        init.headers.append('X-CSRF-Token', token);
+                    }
+                } else if (Array.isArray(init.headers)) {
+                    if (!init.headers.some(h => h[0].toLowerCase() === 'x-csrf-token')) {
+                        init.headers.push(['X-CSRF-Token', token]);
+                    }
+                } else {
+                    if (!init.headers['X-CSRF-Token'] && !init.headers['x-csrf-token']) {
+                        init.headers['X-CSRF-Token'] = token;
+                    }
+                }
+            }
+        }
+        return originalFetch(resource, init);
+    };
+})();
+
 document.addEventListener('DOMContentLoaded', function () {
     initNavigation();
     initScrollButtons();

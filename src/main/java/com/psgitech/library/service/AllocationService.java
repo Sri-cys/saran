@@ -159,6 +159,17 @@ public class AllocationService {
             throw new InvalidAllocationException("Allocation is no longer active for this student.");
         }
 
+        // Feature Enhancement 0.4: Check whether allocation deadline has passed
+        try (PreparedStatement ps = conn.prepareStatement("SELECT (expires_at <= NOW()) AS is_expired FROM allocations WHERE allocation_id = ?")) {
+            ps.setInt(1, lockedAlloc.getAllocationId());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt("is_expired") == 1) {
+                    throw new InvalidAllocationException("Allocation #" + lockedAlloc.getAllocationId() +
+                            " has expired. Collection deadline was " + lockedAlloc.getExpiresAt() + ".");
+                }
+            }
+        }
+
         // Condition 10: Collection must re-validate eligibility at collection time (including fines)
         revalidateStudentForCollection(conn, studentId, lockedAlloc.getBookId(), lockedAlloc.getAllocationId());
         return lockedAlloc;
@@ -293,6 +304,116 @@ public class AllocationService {
                 }
             }
         }, "releaseAllocation");
+    }
+
+    /**
+     * Feature Enhancement F5: Automatically expires an overdue hold allocation,
+     * updates reservation to EXPIRED, and reallocates the copy to the next waiting candidate,
+     * or transitions it to AVAILABLE if no eligible waiter remains.
+     */
+    public AllocationResult expireAndReallocate(int allocationId) {
+        return TransactionRetryHelper.executeWithRetry(() -> {
+            Connection conn = null;
+            boolean originalAutoCommit = true;
+
+            try {
+                conn = DBConnection.getConnection();
+                originalAutoCommit = conn.getAutoCommit();
+                conn.setAutoCommit(false);
+
+                // 1. Plain read allocation record on same connection
+                int bookId = -1;
+                int copyId = -1;
+                int reservationId = -1;
+                int studentId = -1;
+                String plainAllocSql = "SELECT reservation_id, student_id, book_id, copy_id, status FROM allocations WHERE allocation_id = ?";
+                try (PreparedStatement psPlain = conn.prepareStatement(plainAllocSql)) {
+                    psPlain.setInt(1, allocationId);
+                    try (ResultSet rs = psPlain.executeQuery()) {
+                        if (!rs.next()) {
+                            return null;
+                        }
+                        if (!AllocationStatus.ALLOCATED.name().equalsIgnoreCase(rs.getString("status"))) {
+                            // Already collected, cancelled, or expired
+                            return null;
+                        }
+                        reservationId = rs.getInt("reservation_id");
+                        studentId = rs.getInt("student_id");
+                        bookId = rs.getInt("book_id");
+                        copyId = rs.getInt("copy_id");
+                    }
+                }
+
+                // 2. Canonical lock sequence: books -> book_copies -> reservations -> allocations
+                // 2a. Lock book
+                try (PreparedStatement psBook = conn.prepareStatement("SELECT book_id FROM books WHERE book_id = ? FOR UPDATE")) {
+                    psBook.setInt(1, bookId);
+                    try (ResultSet rs = psBook.executeQuery()) {
+                        if (!rs.next()) return null;
+                    }
+                }
+
+                // 2b. Lock copy
+                try (PreparedStatement psCopy = conn.prepareStatement("SELECT copy_id, status FROM book_copies WHERE copy_id = ? FOR UPDATE")) {
+                    psCopy.setInt(1, copyId);
+                    try (ResultSet rs = psCopy.executeQuery()) {
+                        if (!rs.next()) return null;
+                    }
+                }
+
+                // 2c. Lock reservation
+                reservationRepository.lockById(conn, reservationId);
+
+                // 2d. Lock allocation
+                AllocationRecord lockedAlloc = allocationRepository.findActiveByCopy(conn, copyId);
+                if (lockedAlloc == null || lockedAlloc.getAllocationId() != allocationId || lockedAlloc.getStatus() != AllocationStatus.ALLOCATED) {
+                    return null;
+                }
+
+                // Verify expiration condition: expires_at <= NOW()
+                try (PreparedStatement psExp = conn.prepareStatement("SELECT (expires_at <= NOW()) AS is_exp FROM allocations WHERE allocation_id = ?")) {
+                    psExp.setInt(1, allocationId);
+                    try (ResultSet rs = psExp.executeQuery()) {
+                        if (!rs.next() || rs.getInt("is_exp") != 1) {
+                            // Not yet expired
+                            return null;
+                        }
+                    }
+                }
+
+                Timestamp expiredAt = new Timestamp(System.currentTimeMillis());
+                // Mark allocation EXPIRED
+                allocationRepository.markExpired(conn, allocationId, expiredAt);
+                // Mark reservation EXPIRED
+                reservationRepository.markExpired(conn, reservationId, expiredAt);
+
+                // Re-run automatic allocation for the copy
+                AllocationResult outcome = allocateReturnedCopy(conn, copyId, bookId, null);
+                if (outcome != null && outcome.getAllocation() != null) {
+                    allocationRepository.setSuccessorAllocation(conn, allocationId, outcome.getAllocation().getAllocationId());
+                }
+
+                conn.commit();
+                LOGGER.info("Expired allocation #" + allocationId + " (Reservation #" + reservationId + "). Reallocation outcome: " +
+                        (outcome != null && outcome.getOutcome() != null ? outcome.getOutcome().name() : "None"));
+                return outcome;
+
+            } catch (SQLException e) {
+                if (conn != null) {
+                    try { conn.rollback(); } catch (SQLException ex) { e.addSuppressed(ex); }
+                }
+                throw e;
+            } catch (Exception e) {
+                if (conn != null) {
+                    try { conn.rollback(); } catch (SQLException ex) { e.addSuppressed(ex); }
+                }
+                throw e;
+            } finally {
+                if (conn != null) {
+                    try { conn.setAutoCommit(originalAutoCommit); conn.close(); } catch (SQLException ignored) {}
+                }
+            }
+        }, "expireAndReallocate");
     }
 
     /**

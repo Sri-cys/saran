@@ -104,12 +104,12 @@ Every feature listed below is **fully implemented across all architectural layer
 ### Feature 5 – Automatic Book Allocation & Hold Shelf
 - **Event-Driven Return Allocation**: When a borrowed book is returned at the circulation desk, `AllocationService.allocateReturnedCopy` is automatically invoked inside the return transaction.
 - **FIFO Strategy Engine**: Uses `AllocationStrategy` and `FIFOAllocationStrategy` to evaluate the waiting queue in ascending order, skipping students who have reached quota or accumulated unpaid fines.
-- **Hold-Shelf State Transition**: The physical copy transitions to `ALLOCATED` status, and an `allocations` record is generated with a collection deadline (configurable, default 48 hours).
+- **Hold-Shelf State Transition**: The physical copy transitions to `ALLOCATED` status, and an `allocations` record is generated with a collection deadline (configurable, default 24 hours).
 - **Anti-Theft Collection Guard**: If another student attempts to check out an allocated copy at the desk, `BorrowRepository` validates the hold shelf; checkouts are permitted only to the allocated reservation holder.
 - **Hold Release & Re-allocation**: Expired or librarian-cancelled allocations release the physical copy and automatically trigger the allocation engine for the next student in line.
 
 ### Feature 6 – Fine Calculation & UPI Payment Reconciliation
-- **Automated Fine Assessment**: On book return, `FineService.createFineForReturn` calculates overdue duration based on `Asia/Kolkata` calendar days, applies the institutional grace period (default 1 day), and assesses fines at ₹2.00/day.
+- **Automated Fine Assessment**: On book return, `FineService.createFineForReturn` calculates overdue duration based on `Asia/Kolkata` calendar days, applies the institutional grace period (0 days), and assesses fines at ₹2.00/day.
 - **Outstanding Fine Tracking**: Tracks `original_amount`, `paid_amount`, `waived_amount`, and `outstanding_amount` across `fines` records with statuses `UNPAID`, `PARTIALLY_PAID`, `PAID`, `WAIVED`.
 - **UPI QR & Reference Submission**: Students view fines on `my-fines.html`, scan the dynamic UPI QR code, and submit their 12-digit bank UPI Transaction Reference Number (UTR).
 - **Duplicate UTR Protection**: Unique constraint on `payments.upi_reference` prevents replay attacks and double submissions.
@@ -184,7 +184,7 @@ sequenceDiagram
     Sys->>Sys: Assess fines (₹0 if on-time)
     Sys->>Sys: Trigger FIFOAllocationStrategy
     Sys-->>Sys: Copy PSG-BK1-C01 status -> ALLOCATED
-    Sys-->>Sys: Creates 48-hour hold shelf for Student 2
+    Sys-->>Sys: Creates 24-hour hold shelf for Student 2
     Sys-->>L: Return confirmed; Alert: Book allocated to Student 2
 
     S2->>L: Arrives at desk to collect allocated book
@@ -484,23 +484,21 @@ http://localhost:8081/psgitech-library/
 
 | Feature / Subsystem | Implementation Status | Concrete Evidence in Codebase |
 |---|:---:|---|
-| **Feature 1: User Management** | **Fully Implemented** | `UserService.java`, `UserRepository.java`, `AuthenticationFilter.java`, `LoginServlet.java`, `RegisterServlet.java`, `admin-users.html`, `users` table |
-| **Feature 2: Book Management** | **Fully Implemented** | `BookService.java`, `BookRepository.java`, `AddBookServlet.java`, `ArchiveBookServlet.java`, `manage-books.html`, `books` & `book_copies` tables |
-| **Feature 3: Book Borrowing** | **Fully Implemented** | `BorrowingService.java`, `BorrowRepository.java`, `IssueBookServlet.java`, `ReturnBookServlet.java`, `borrowing-management.html`, `my-borrowings.html` |
-| **Feature 4: Reservation Queue** | **Fully Implemented** | `ReservationService.java`, `ReservationRepository.java`, `ReservationServlet.java`, `CancelReservationServlet.java`, `my-reservations.html` |
-| **Feature 5: Automatic Allocation** | **Fully Implemented** | `AllocationService.java`, `AllocationRepository.java`, `FIFOAllocationStrategy.java`, `AllocationServlet.java`, `allocations` table |
-| **Feature 6: Fines & UPI Payment** | **Fully Implemented** | `FineService.java`, `PaymentService.java`, `FineRepository.java`, `PaymentRepository.java`, `PaymentServlet.java`, `my-fines.html`, `receipt.html` |
-| **Feature 7: Concurrency Management** | **Fully Implemented** | `ConcurrencyManager.java`, `ConcurrencyFilter.java`, `RouteClassifier.java`, `ConcurrencyMonitorServlet.java`, `concurrency-monitor.html` |
-| **Feature 8: Peer Book Interchange** | **Fully Implemented** | `BookInterchangeService.java`, `BookInterchangeRepository.java`, `InterchangeServlet.java`, `InterchangeActionServlet.java`, `book_interchanges` table |
+| **Feature 1: User Management** | **Fully Implemented (+ Email OTP)** | `UserService.java`, `UserRepository.java`, `OtpService.java`, `AuthenticationFilter.java`, `LoginServlet.java`, `RegisterServlet.java`, `VerifyOtpServlet.java`, `admin-users.html`, `users` table |
+| **Feature 2: Book Management** | **Fully Implemented (+ Code 128 Barcodes)** | `BookService.java`, `BookRepository.java`, `BarcodeService.java`, `BarcodeServlet.java`, `barcode-labels.html`, `manage-books.html`, `books` & `book_copies` tables |
+| **Feature 3: Book Borrowing** | **Fully Implemented (+ Loan Renewals)** | `BorrowingService.java`, `BorrowRepository.java`, `RenewalRepository.java`, `RenewBookServlet.java`, `IssueBookServlet.java`, `ReturnBookServlet.java`, `borrowing-management.html`, `my-borrowings.html` |
+| **Feature 4: Reservation Queue** | **Fully Implemented (+ Estimated Wait Time)** | `ReservationService.java`, `ReservationRepository.java`, `WaitEstimator.java`, `ReservationServlet.java`, `CancelReservationServlet.java`, `my-reservations.html` |
+| **Feature 5: Automatic Allocation** | **Fully Implemented (+ Expiry Engine & Reminders)** | `AllocationService.java`, `AllocationRepository.java`, `AllocationExpiryScheduler.java`, `FIFOAllocationStrategy.java`, `AllocationServlet.java`, `allocations` table |
+| **Feature 6: Fines & UPI Payment** | **Fully Implemented (+ PDF Receipts)** | `FineService.java`, `PaymentService.java`, `PdfReceiptService.java`, `PdfReceiptServlet.java`, `FineRepository.java`, `PaymentRepository.java`, `PaymentServlet.java`, `receipt.html` |
+| **Feature 7: Concurrency Management** | **Fully Implemented (+ Latency Percentiles & Histogram)** | `ConcurrencyManager.java`, `ConcurrencyFilter.java`, `ConcurrencyMetrics.java`, `CsrfFilter.java`, `RouteClassifier.java`, `ConcurrencyMonitorServlet.java`, `concurrency-monitor.html` |
+| **Feature 8: Peer Book Interchange** | **Fully Implemented (+ Handover OTP Verification)** | `BookInterchangeService.java`, `BookInterchangeRepository.java`, `InterchangeOtpServlet.java`, `InterchangeServlet.java`, `InterchangeActionServlet.java`, `book_interchanges` table |
 | **Node.js Server (`server.js`)** | **Mock / Dev Artifact** | `server.js` (Used strictly as a lightweight local mockup for early UI prototype review; independent of Java Tomcat backend) |
 
 ---
 
 ## N. Future Enhancements
 
-The following capabilities are **not yet implemented** in the current code and are planned for future iterations:
+The following capabilities are planned for future long-term iterations:
 1. **Automated Payment Gateway Webhooks**: Replace manual UPI reference verification with direct webhooks (e.g., Razorpay / Cashfree) for instantaneous payment reconciliation.
-2. **RFID / Barcode Scanner Hardware Integration**: Native browser WebUSB/Serial integration for automated barcode scanning at the circulation desk.
-3. **Email / SMS Notification Dispatcher**: Automated SMTP or SMS alerts notifying students when a reserved book has been placed on the hold shelf.
-4. **Inter-Library Loan (ILL)**: Cross-institutional borrowing and resource sharing across consortium colleges.
-5. **CSRF Token Header Validation**: Introduce synchronizer token pattern across mutating POST/PUT requests (currently listed as a known limitation in the concurrency report).
+2. **RFID Hardware Integration**: Native browser WebUSB/Serial integration for automated RFID antenna scanning at the circulation desk.
+3. **Inter-Library Loan (ILL)**: Cross-institutional borrowing and resource sharing across consortium colleges.

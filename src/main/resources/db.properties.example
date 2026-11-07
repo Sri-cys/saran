@@ -1,0 +1,56 @@
+# ============================================================================
+# PSG iTech Library - Database & Feature Enhancements Configuration Template
+# Copy this file to db.properties and set production values
+# ============================================================================
+db.url=jdbc:mysql://localhost:3306/psgitech_library?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+db.driver=com.mysql.cj.jdbc.Driver
+db.username=root
+db.password=your_secure_password_here
+
+db.fallback.enabled=false
+db.fallback.url=jdbc:h2:mem:psgitech_library;MODE=MySQL;DATABASE_TO_UPPER=FALSE;DB_CLOSE_DELAY=-1
+db.fallback.driver=org.h2.Driver
+db.fallback.username=sa
+db.fallback.password=
+
+concurrency.limiter.enabled=true
+concurrency.max.mutations=12
+concurrency.max.waiting=24
+concurrency.wait.timeout.ms=3000
+concurrency.user.inflight.cap=3
+concurrency.monitor.enabled=true
+
+# F1: Email Verification
+auth.email.verification.required=false
+auth.email.allowed.domains=psgitech.ac.in
+
+# Mail Service Settings (smtp, dev-outbox, mock, disabled)
+mail.mode=smtp
+mail.host=smtp.gmail.com
+mail.port=587
+mail.username=your_email@gmail.com
+mail.password=your_app_password
+mail.from=library@psgitech.ac.in
+mail.smtp.auth=true
+mail.smtp.starttls.enable=true
+
+# OTP Security Pepper (HMAC-SHA256 secret key)
+otp.pepper.secret=generate_a_random_32_byte_secret_here
+
+# F3: Borrowing Renewals (Decision D12)
+borrowing.renewal.max=1
+borrowing.renewal.days=14
+
+# F5: Allocation Collection & Expiry Scheduler (Decisions D3, D14)
+allocation.collection.hours=24
+allocation.collection.grace.seconds=0
+allocation.expiry.enabled=true
+allocation.expiry.interval.seconds=60
+allocation.expiry.initial.delay.seconds=10
+allocation.expiry.batch.size=50
+allocation.expiry.max.run.seconds=30
+allocation.expiry.shutdown.wait.seconds=10
+allocation.reminder.hours=6
+
+# F8: Book Interchange Handover OTP (Decision D13)
+handover.otp.required=true

@@ -3,6 +3,7 @@ package com.psgitech.library.servlet;
 import com.google.gson.Gson;
 import com.psgitech.library.enums.Role;
 import com.psgitech.library.exception.AccountInactiveException;
+import com.psgitech.library.exception.AccountNotVerifiedException;
 import com.psgitech.library.exception.InvalidCredentialsException;
 import com.psgitech.library.model.Librarian;
 import com.psgitech.library.model.User;
@@ -66,12 +67,19 @@ public class LoginServlet extends HttpServlet {
         try {
             User user = authService.login(loginKey, password);
 
-            // Establish secure session
+            // Establish secure session with session fixation protection (Decision D1)
             HttpSession session = req.getSession(true);
+            try {
+                req.changeSessionId();
+            } catch (Exception ignored) {}
+
             session.setAttribute("user", user);
             session.setAttribute("userId", user.getUserId());
             session.setAttribute("userRole", user.getRole().name());
             session.setAttribute("userName", user.getName());
+
+            // Generate and bind fresh CSRF token
+            String csrfToken = com.psgitech.library.util.CsrfTokenManager.rotateToken(session);
 
             // Handle Remember Me
             if (rememberMe != null && (rememberMe.equals("true") || rememberMe.equals("on") || rememberMe.equals("1"))) {
@@ -90,6 +98,7 @@ public class LoginServlet extends HttpServlet {
             result.put("message", "Login successful! Welcome, " + user.getName());
             result.put("redirect", redirectUrl);
             result.put("user", user);
+            result.put("csrfToken", csrfToken);
 
             if (isAjax) {
                 resp.setContentType("application/json");
@@ -105,6 +114,22 @@ public class LoginServlet extends HttpServlet {
 
             if (isAjax) {
                 resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                resp.setContentType("application/json");
+                resp.setCharacterEncoding("UTF-8");
+                resp.getWriter().write(gson.toJson(result));
+            } else {
+                req.setAttribute("errorMessage", e.getMessage());
+                req.getRequestDispatcher("/login.html").forward(req, resp);
+            }
+        } catch (AccountNotVerifiedException e) {
+            result.put("success", false);
+            result.put("requiresVerification", true);
+            result.put("userId", e.getUserId());
+            result.put("email", e.getEmail());
+            result.put("message", e.getMessage());
+
+            if (isAjax) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 resp.setContentType("application/json");
                 resp.setCharacterEncoding("UTF-8");
                 resp.getWriter().write(gson.toJson(result));
