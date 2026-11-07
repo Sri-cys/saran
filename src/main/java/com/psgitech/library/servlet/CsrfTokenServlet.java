@@ -55,3 +55,4 @@ public class CsrfTokenServlet extends HttpServlet {
         resp.getWriter().write(gson.toJson(data));
     }
 }
+

@@ -5,3 +5,4 @@ public enum OtpPurpose {
     INTERCHANGE_HANDOVER,
     PASSWORD_RESET
 }
+

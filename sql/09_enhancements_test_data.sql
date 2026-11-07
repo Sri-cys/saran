@@ -22,3 +22,4 @@ VALUES
 ('978-0-TEST-ENH-02', 'TEST Book for Barcodes', 'TEST Author Barcode', 'TEST Press', 2026, 'Engineering', 'CSE', FALSE),
 ('978-0-TEST-ENH-03', 'TEST Book for Handover OTP', 'TEST Author Handover', 'TEST Press', 2026, 'Engineering', 'CSE', FALSE)
 ON DUPLICATE KEY UPDATE title = VALUES(title);
+

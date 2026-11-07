@@ -48,3 +48,4 @@ SET @sql_user_cols := IF(@can_rollback = 1,
     'ALTER TABLE users DROP COLUMN email_verified_at, DROP COLUMN email_verified',
     'SELECT "Skipping users column drop" AS notice');
 PREPARE stmt FROM @sql_user_cols; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+

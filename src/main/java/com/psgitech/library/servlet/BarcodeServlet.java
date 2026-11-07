@@ -83,3 +83,4 @@ public class BarcodeServlet extends HttpServlet {
         }
     }
 }
+

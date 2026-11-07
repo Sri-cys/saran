@@ -126,3 +126,4 @@ public class BarcodeService {
                 .replace("'", "&apos;");
     }
 }
+

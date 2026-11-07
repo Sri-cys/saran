@@ -15,3 +15,4 @@ public class DisabledMailService implements MailService {
         LOGGER.info("[DISABLED MAIL SERVICE] HTML Email to: " + to + " | Subject: " + subject);
     }
 }
+

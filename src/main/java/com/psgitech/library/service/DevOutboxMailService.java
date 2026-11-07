@@ -52,3 +52,4 @@ public class DevOutboxMailService implements MailService {
         }
     }
 }
+

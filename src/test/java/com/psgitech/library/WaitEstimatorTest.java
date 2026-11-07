@@ -52,3 +52,4 @@ public class WaitEstimatorTest {
         assertNotNull(estPos5.getMessage());
     }
 }
+

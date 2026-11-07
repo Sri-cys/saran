@@ -67,3 +67,4 @@ SELECT
 FROM users
 WHERE (email_verified = FALSE AND email_verified_at IS NOT NULL)
    OR (email_verified = TRUE AND email_verified_at IS NULL);
+

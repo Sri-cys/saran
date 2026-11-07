@@ -18,3 +18,4 @@ public class AccountNotVerifiedException extends RuntimeException {
         return email;
     }
 }
+

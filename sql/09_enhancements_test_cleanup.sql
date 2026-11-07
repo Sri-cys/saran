@@ -62,3 +62,4 @@ DELETE FROM books WHERE isbn LIKE '978-0-TEST-ENH-%';
 
 -- Clear test users
 DELETE FROM users WHERE email LIKE '%@example.test' OR register_number LIKE 'TEST-REG-ENH%';
+

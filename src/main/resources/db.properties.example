@@ -54,3 +54,4 @@ allocation.reminder.hours=6
 
 # F8: Book Interchange Handover OTP (Decision D13)
 handover.otp.required=true
+
