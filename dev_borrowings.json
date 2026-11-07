@@ -1,0 +1,44 @@
+[
+  {
+    "transactionId": 1,
+    "studentId": 4,
+    "bookId": 1,
+    "copyId": 1,
+    "issueDate": "2026-10-25",
+    "dueDate": "2026-11-08",
+    "returnDate": null,
+    "status": "ACTIVE",
+    "issuedBy": 2,
+    "returnedBy": null,
+    "createdAt": "2026-10-25 10:00:00",
+    "updatedAt": "2026-10-25 10:00:00"
+  },
+  {
+    "transactionId": 2,
+    "studentId": 5,
+    "bookId": 2,
+    "copyId": 5,
+    "issueDate": "2026-10-01",
+    "dueDate": "2026-10-15",
+    "returnDate": "2026-10-14",
+    "status": "RETURNED",
+    "issuedBy": 2,
+    "returnedBy": 2,
+    "createdAt": "2026-10-01 11:00:00",
+    "updatedAt": "2026-10-14 15:30:00"
+  },
+  {
+    "transactionId": 3,
+    "studentId": 4,
+    "bookId": 3,
+    "copyId": 8,
+    "issueDate": "2026-10-30",
+    "dueDate": "2026-11-13",
+    "returnDate": "2026-10-30",
+    "status": "RETURNED",
+    "issuedBy": 2,
+    "returnedBy": 2,
+    "createdAt": "2026-10-30T20:37:41.243Z",
+    "updatedAt": "2026-10-30T20:37:45.959Z"
+  }
+]

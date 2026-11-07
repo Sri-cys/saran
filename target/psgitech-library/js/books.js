@@ -107,7 +107,9 @@ function renderAvailabilityBadgeHtml(book) {
     if (avail > 0) {
         return `<span class="badge badge-available">Available (${avail} of ${total})</span>`;
     } else {
-        return `<span class="badge badge-borrowed" style="background-color: #FEF3C7; color: #B45309; border: 1px solid #FDE68A;">Currently Unavailable</span>`;
+        const waiting = book.waitingCount || (book.inventory && book.inventory.waitingCount) || 0;
+        const waitingText = waiting > 0 ? ` &bull; Waiting: ${waiting}` : '';
+        return `<span class="badge badge-borrowed" style="background-color: #FEF3C7; color: #B45309; border: 1px solid #FDE68A;">All Copies Borrowed${waitingText}</span>`;
     }
 }
 
@@ -495,20 +497,203 @@ function renderBookDetailsView(book, isStaff) {
                         <tr>
                             <td class="meta-label">Shelf Availability</td>
                             <td>
-                                <strong>${avail}</strong> copy(ies) available on library racks out of <strong>${total}</strong> active physical copies.
+                                <strong>${avail}</strong> copy(ies) available on library racks out of <strong>${total}</strong> active physical copies.${isStaff && book.inventory && book.inventory.allocatedCopies > 0 ? ` <span class="badge badge-copy-allocated" style="margin-left: 6px;">${book.inventory.allocatedCopies} on Hold</span>` : ''}
                             </td>
                         </tr>
                     </tbody>
                 </table>
 
                 ${staffControlsHtml}
+
+                <div id="reservationSection"></div>
             </div>
         </div>
     `;
 
     // Cache current book for modals
     window._currentViewingBook = book;
+
+    // Load dynamic reservation queue status
+    loadBookReservationStatus(book, avail, total);
 }
+
+/**
+ * Feature 4: Load reservation status & waiting queue for Book Details page
+ */
+function loadBookReservationStatus(book, avail, total) {
+    const sec = document.getElementById('reservationSection');
+    if (!sec || book.archived) return;
+
+    if (avail > 0) {
+        sec.innerHTML = `
+            <div class="info-card" style="background-color: #E8F8F0; border-left: 4px solid var(--success); padding: 12px 16px; margin-top: 20px;">
+                <strong style="color: var(--success);">&#10003; Copies Available:</strong> Copies of this textbook are currently available on the shelf for borrowing at the library desk. Reservations are only open when all copies are checked out.
+            </div>
+        `;
+        return;
+    }
+
+    if (total === 0) {
+        sec.innerHTML = `
+            <div class="info-card" style="background-color: #FEF3C7; border-left: 4px solid #D97706; padding: 12px 16px; margin-top: 20px;">
+                <strong style="color: #B45309;">No Active Copies:</strong> This book has no physical copies in active circulation to reserve.
+            </div>
+        `;
+        return;
+    }
+
+    // Call /reservations?bookId=...
+    fetch('reservations?bookId=' + book.bookId)
+        .then(res => {
+            if (res.status === 401) {
+                return { isGuest: true };
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data.isGuest) {
+                sec.innerHTML = `
+                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 14px 18px; margin-top: 20px;">
+                        <h4 style="margin: 0 0 4px 0; color: var(--primary);">All Copies Currently Borrowed</h4>
+                        <p class="text-secondary" style="margin: 0 0 10px 0;">Sign in with your student credentials to join the FIFO reservation queue.</p>
+                        <a href="login.html?redirect=book-details.html?id=${book.bookId}" class="btn btn-secondary btn-sm">Log In to Reserve</a>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!data.success) return;
+
+            const waitingCount = data.waitingCount || 0;
+            const waitingLabel = waitingCount === 1 ? '1 student' : `${waitingCount} students`;
+
+            if (data.queue) {
+                // Staff view
+                sec.innerHTML = `
+                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 14px 18px; margin-top: 20px;">
+                        <h4 style="margin: 0 0 4px 0; color: var(--primary);">Reservation Queue: ${waitingCount} Waiting</h4>
+                        <p class="text-secondary" style="margin: 0 0 10px 0;">All physical copies are checked out. View and manage the queue in the circulation desk.</p>
+                        <a href="borrowing-management.html" class="btn btn-secondary btn-sm">Open Circulation Desk</a>
+                    </div>
+                `;
+            } else if (data.currentlyBorrowedByMe) {
+                sec.innerHTML = `
+                    <div class="info-card" style="background-color: #FEF3C7; border-left: 4px solid #D97706; padding: 14px 18px; margin-top: 20px;">
+                        <strong style="color: #B45309;">Currently Borrowed by You:</strong> You have an active loan for a copy of this book. Students cannot hold both an active loan and a reservation for the same title.
+                    </div>
+                `;
+            } else if (data.myReservation && data.myReservation.status === 'ALLOCATED') {
+                const copyCode = (data.myReservation.allocation && (data.myReservation.allocation.copyCode || data.myReservation.allocation.copyIdentifier)) || data.myReservation.copyCode || '';
+                const expiresAt = (data.myReservation.allocation && data.myReservation.allocation.expiresAt) || data.myReservation.allocationExpiresAt || '';
+                sec.innerHTML = `
+                    <div class="info-card" style="background-color: #E8F8F0; border-left: 4px solid #159B50; padding: 16px 20px; margin-top: 20px;">
+                        <div style="font-weight: bold; color: #159B50; font-size: 1.15rem; margin-bottom: 6px;">
+                            ✓ Allocated to You - Ready for Collection!
+                        </div>
+                        <p class="text-secondary" style="margin: 0 0 10px 0;">
+                            A physical copy (<code>${escapeHtml(copyCode)}</code>) has been held for you at the library circulation desk.
+                            Please collect from the desk by <strong>${escapeHtml(expiresAt ? expiresAt.substring(0, 16) : '24 Hours')}</strong>.
+                        </p>
+                        <a href="my-reservations.html" class="btn btn-primary btn-sm">View in My Reservations</a>
+                    </div>
+                `;
+            } else if (data.myReservation) {
+                const pos = data.myReservation.queuePosition || 1;
+                sec.innerHTML = `
+                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 14px 18px; margin-top: 20px;">
+                        <div style="font-weight: bold; color: var(--primary); font-size: 1.1rem; margin-bottom: 4px;">
+                            &#10004; Reserved (Your Queue Position: #${pos})
+                        </div>
+                        <p class="text-secondary" style="margin: 0 0 12px 0;">
+                            Waiting Queue: <strong>${waitingLabel}</strong> in line. You will be allocated a copy as soon as a student returns one.
+                        </p>
+                        <a href="my-reservations.html" class="btn btn-secondary btn-sm">View in My Reservations</a>
+                    </div>
+                `;
+            } else {
+                // Eligible student: show "Reserve Book (Join Queue)" button
+                sec.innerHTML = `
+                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 16px 20px; margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                            <div>
+                                <h4 style="margin: 0 0 4px 0; color: var(--primary);">All Copies Currently Borrowed</h4>
+                                <p class="text-secondary" style="margin: 0; font-size: 0.92rem;">
+                                    Waiting Queue: <strong>${waitingLabel}</strong> in FIFO order
+                                </p>
+                            </div>
+                            <button id="btnReserveBook" class="btn btn-primary" onclick="handleReserveBookClick(${book.bookId})">
+                                Reserve Book (Join Queue)
+                            </button>
+                        </div>
+                        <div id="reserveMsgContainer" style="margin-top: 8px;"></div>
+                    </div>
+                `;
+            }
+        })
+        .catch(err => {
+            console.error('Error checking reservation status:', err);
+        });
+}
+
+window.handleReserveBookClick = async function(bookId) {
+    const btn = document.getElementById('btnReserveBook');
+    const msgBox = document.getElementById('reserveMsgContainer');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Reserving...';
+    }
+    if (msgBox) msgBox.innerHTML = '';
+
+    try {
+        const resp = await fetch('reservations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookId: bookId })
+        });
+        const result = await resp.json();
+
+        if (resp.status === 201 && result.success) {
+            const data = result.data || {};
+            const pos = data.queuePosition || 1;
+            const total = data.totalWaitingInQueue || pos;
+            const waitingLabel = total === 1 ? '1 student' : `${total} students`;
+
+            const sec = document.getElementById('reservationSection');
+            if (sec) {
+                sec.innerHTML = `
+                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 14px 18px; margin-top: 20px;">
+                        <div style="font-weight: bold; color: var(--primary); font-size: 1.1rem; margin-bottom: 4px;">
+                            &#10004; Reserved (Your Queue Position: #${pos})
+                        </div>
+                        <p class="text-secondary" style="margin: 0 0 12px 0;">
+                            Waiting Queue: <strong>${waitingLabel}</strong> in line. You will be allocated a copy as soon as a student returns one.
+                        </p>
+                        <a href="my-reservations.html" class="btn btn-secondary btn-sm">View in My Reservations</a>
+                    </div>
+                `;
+            }
+        } else {
+            if (msgBox) {
+                msgBox.innerHTML = `<div style="color: var(--danger); font-size: 0.92rem; margin-top: 6px;">${escapeHtml(result.message || 'Could not place reservation.')}</div>`;
+            } else {
+                alert(result.message || 'Could not place reservation.');
+            }
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Reserve Book (Join Queue)';
+            }
+        }
+    } catch (e) {
+        console.error('Error reserving book:', e);
+        if (msgBox) {
+            msgBox.innerHTML = `<div style="color: var(--danger); font-size: 0.92rem; margin-top: 6px;">Network error while placing reservation. Please try again.</div>`;
+        }
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Reserve Book (Join Queue)';
+        }
+    }
+};
 
 /**
  * Staff Action: Archive Single Copy

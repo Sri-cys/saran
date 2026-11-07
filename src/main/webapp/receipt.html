@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fine Payment Receipt | PSG iTech Library</title>
+    <link rel="stylesheet" href="css/library-theme.css">
+    <style>
+        body {
+            background-color: #F8F9FA;
+            padding: 24px;
+        }
+        .receipt-card {
+            max-width: 720px;
+            margin: 0 auto;
+            background: #FFFFFF;
+            border: 2px solid var(--primary);
+            border-radius: 4px;
+            padding: 36px 44px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        .receipt-header {
+            text-align: center;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 20px;
+            margin-bottom: 24px;
+        }
+        .college-title {
+            font-size: 1.35rem;
+            font-weight: bold;
+            color: var(--primary) !important;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .receipt-sub {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+        .receipt-type {
+            font-size: 1.15rem;
+            font-weight: bold;
+            color: var(--primary) !important;
+            margin-top: 10px;
+            text-decoration: underline;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .receipt-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .receipt-table th, .receipt-table td {
+            border: 1px solid #D5D8DC;
+            padding: 10px 14px;
+            font-size: 0.95rem;
+        }
+        .receipt-table th {
+            background-color: var(--background-warm);
+            color: var(--primary);
+            text-align: left;
+        }
+        .watermark-void {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 5rem;
+            font-weight: bold;
+            color: rgba(192, 57, 43, 0.18);
+            border: 8px solid rgba(192, 57, 43, 0.25);
+            padding: 10px 40px;
+            border-radius: 8px;
+            pointer-events: none;
+            letter-spacing: 6px;
+            display: none;
+        }
+        .receipt-actions {
+            max-width: 720px;
+            margin: 16px auto 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .receipt-actions {
+                display: none !important;
+            }
+            .receipt-card {
+                border: 1px solid #000;
+                box-shadow: none;
+                padding: 24px 32px;
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="receipt-actions">
+        <a href="my-fines.html" class="btn btn-secondary btn-sm">&larr; Back to My Fines</a>
+        <button onclick="window.print()" class="btn btn-primary btn-sm">&#128438; Print Receipt</button>
+    </div>
+
+    <div class="receipt-card" id="receiptCard">
+        <div class="watermark-void" id="voidWatermark">VOID / REFUNDED</div>
+
+        <div class="receipt-header">
+            <img src="images/psgitech-logo.png" alt="PSG Logo" style="width: 52px; height: 52px; margin-bottom: 8px;">
+            <div class="college-title">PSG Institute of Technology and Applied Research</div>
+            <div class="receipt-sub">Neelambur, Coimbatore - 641 062, Tamil Nadu, India</div>
+            <div class="receipt-sub" style="font-style: italic;">Central Library Resource Management System</div>
+            <div class="receipt-type">OFFICIAL LIBRARY FINE SETTLEMENT RECEIPT</div>
+        </div>
+
+        <div class="grid-2">
+            <div>
+                <p><strong>Receipt Number:</strong> <span id="rcptNumber">RCPT-2026-XXXXX</span></p>
+                <p><strong>Payment Code:</strong> <span id="rcptPaymentCode">--</span></p>
+                <p><strong>Date of Settlement:</strong> <span id="rcptDate">--</span></p>
+                <p><strong>Payment Method:</strong> <span id="rcptMethod">UPI Transfer</span></p>
+            </div>
+            <div style="text-align: right;">
+                <p><strong>Student Name:</strong> <span id="rcptStudentName">--</span></p>
+                <p><strong>Register Number:</strong> <span id="rcptRegisterNumber">--</span></p>
+                <p><strong>UPI Ref (UTR):</strong> <span id="rcptReferenceId">--</span></p>
+                <p><strong>Status:</strong> <span id="rcptStatus" class="badge" style="background:#EAFAF1; color:#1E8449; border:1px solid #A9DFBF;">VERIFIED</span></p>
+            </div>
+        </div>
+
+        <table class="receipt-table">
+            <thead>
+                <tr>
+                    <th>Item Description</th>
+                    <th style="text-align: right;">Amount (&inr;)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <strong>Overdue Fine Settlement</strong><br>
+                        <span class="text-secondary" id="rcptBookDetail">Book: -- (Copy: --)</span><br>
+                        <span class="text-secondary" id="rcptFineDetail">Fine Record #--</span>
+                    </td>
+                    <td style="text-align: right; font-weight: bold; font-size: 1.1rem;" id="rcptAmountPaid">
+                        &inr; 0.00
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: right; color: var(--text-secondary);">Original Fine Assessed:</td>
+                    <td style="text-align: right;" id="rcptOriginalAmount">&inr; 0.00</td>
+                </tr>
+                <tr>
+                    <td style="text-align: right; color: var(--text-secondary);">Total Paid to Date:</td>
+                    <td style="text-align: right;" id="rcptTotalPaid">&inr; 0.00</td>
+                </tr>
+                <tr>
+                    <td style="text-align: right; color: var(--text-secondary);">Administrative Waivers:</td>
+                    <td style="text-align: right;" id="rcptTotalWaived">&inr; 0.00</td>
+                </tr>
+                <tr style="background-color: var(--background-warm);">
+                    <td style="text-align: right; font-weight: bold;">Remaining Outstanding Balance:</td>
+                    <td style="text-align: right; font-weight: bold;" id="rcptOutstanding">&inr; 0.00</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div id="refundNotice" style="display: none; background: #FDEDEC; border: 1px solid #E6B0AA; color: #78281F; padding: 10px 14px; margin-bottom: 16px; border-radius: 4px;">
+            <strong>Refund Notice:</strong> This payment was officially reversed by the Administrator. Reason: <span id="rcptRefundReason">--</span>
+        </div>
+
+        <div style="margin-top: 36px; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div style="font-size: 0.85rem; color: var(--text-secondary); max-width: 360px;">
+                Note: This is a system-generated electronic receipt issued by the Central Library, PSG iTech. Preserved in immutable audit ledger.
+            </div>
+            <div style="text-align: center;">
+                <div style="font-family: 'Times New Roman', serif; font-size: 1.1rem; font-weight: bold; color: var(--primary);">
+                    Authorized Library Desk
+                </div>
+                <div style="font-size: 0.82rem; color: var(--text-secondary);">PSG iTech Central Library</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const paymentId = params.get('paymentId');
+            if (!paymentId) {
+                alert('Payment ID missing in receipt request.');
+                return;
+            }
+
+            fetch(`receipt?paymentId=${encodeURIComponent(paymentId)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        alert(data.message || 'Receipt not found or not eligible for printing.');
+                        return;
+                    }
+                    const r = data.receipt;
+                    document.getElementById('rcptNumber').innerText = r.receiptNumber || 'RCPT-PENDING';
+                    document.getElementById('rcptPaymentCode').innerText = r.paymentCode || '--';
+                    document.getElementById('rcptDate').innerText = r.paymentDate || '--';
+                    document.getElementById('rcptStudentName').innerText = r.studentName || '--';
+                    document.getElementById('rcptRegisterNumber').innerText = r.registerNumber || '--';
+                    document.getElementById('rcptReferenceId').innerText = r.referenceId || '--';
+                    document.getElementById('rcptAmountPaid').innerText = 'INR ' + r.amountPaidThisPayment;
+                    document.getElementById('rcptOriginalAmount').innerText = 'INR ' + r.originalFineAmount;
+                    document.getElementById('rcptTotalPaid').innerText = 'INR ' + r.totalPaidSoFar;
+                    document.getElementById('rcptTotalWaived').innerText = 'INR ' + r.totalWaived;
+                    document.getElementById('rcptOutstanding').innerText = 'INR ' + r.remainingOutstanding;
+                    document.getElementById('rcptBookDetail').innerText = 'Book: ' + (r.bookTitle || 'Library Resource');
+                    document.getElementById('rcptFineDetail').innerText = 'Fine Record #' + r.fineId + ' (Borrow Tx #' + r.borrowTransactionId + ')';
+
+                    if (r.isRefunded) {
+                        document.getElementById('voidWatermark').style.display = 'block';
+                        document.getElementById('refundNotice').style.display = 'block';
+                        document.getElementById('rcptRefundReason').innerText = r.refundReason || 'Administrative refund';
+                        document.getElementById('rcptStatus').innerText = 'REFUNDED';
+                        document.getElementById('rcptStatus').style.background = '#FDEDEC';
+                        document.getElementById('rcptStatus').style.color = '#C0392B';
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching receipt:', err);
+                    alert('Failed to load receipt details.');
+                });
+        });
+    </script>
+</body>
+</html>
+

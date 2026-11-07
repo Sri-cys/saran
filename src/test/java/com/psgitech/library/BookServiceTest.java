@@ -10,9 +10,15 @@ import com.psgitech.library.repository.BookRepository;
 import com.psgitech.library.service.BookSearchService;
 import com.psgitech.library.service.BookService;
 import com.psgitech.library.util.DBConnection;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -26,6 +32,8 @@ public class BookServiceTest {
     private BookService bookService;
     private BookSearchService bookSearchService;
     private BookRepository bookRepository;
+    private List<Integer> createdBookIds = new ArrayList<>();
+    private List<Integer> createdCopyIds = new ArrayList<>();
 
     @Before
     public void setUp() {
@@ -33,16 +41,67 @@ public class BookServiceTest {
         this.bookRepository = new BookRepository();
         this.bookService = new BookService(bookRepository);
         this.bookSearchService = new BookSearchService(bookRepository);
+        this.createdBookIds = new ArrayList<>();
+        this.createdCopyIds = new ArrayList<>();
+        cleanUpLegacyTestBook("978-0987654321");
+    }
+
+    @After
+    public void tearDown() {
+        try (Connection conn = DBConnection.getConnection()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            String catalog = conn.getCatalog();
+            String product = meta.getDatabaseProductName();
+            boolean isTestDb = "H2".equalsIgnoreCase(product) || (catalog != null && catalog.toLowerCase().endsWith("_test"));
+            if (isTestDb) {
+                for (int copyId : createdCopyIds) {
+                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM book_copies WHERE copy_id = ?")) {
+                        ps.setInt(1, copyId);
+                        ps.executeUpdate();
+                    }
+                }
+                for (int bookId : createdBookIds) {
+                    try (PreparedStatement psCopies = conn.prepareStatement("DELETE FROM book_copies WHERE book_id = ?")) {
+                        psCopies.setInt(1, bookId);
+                        psCopies.executeUpdate();
+                    }
+                    try (PreparedStatement psBook = conn.prepareStatement("DELETE FROM books WHERE book_id = ?")) {
+                        psBook.setInt(1, bookId);
+                        psBook.executeUpdate();
+                    }
+                }
+            }
+        } catch (SQLException ignored) {
+        } finally {
+            createdCopyIds.clear();
+            createdBookIds.clear();
+        }
+    }
+
+    private void cleanUpLegacyTestBook(String isbn) {
+        try (Connection conn = DBConnection.getConnection()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            String catalog = conn.getCatalog();
+            String product = meta.getDatabaseProductName();
+            boolean isTestDb = "H2".equalsIgnoreCase(product) || (catalog != null && catalog.toLowerCase().endsWith("_test"));
+            if (isTestDb) {
+                try (PreparedStatement psCopies = conn.prepareStatement(
+                        "DELETE FROM book_copies WHERE book_id IN (SELECT book_id FROM books WHERE isbn = ?)")) {
+                    psCopies.setString(1, isbn);
+                    psCopies.executeUpdate();
+                }
+                try (PreparedStatement psBook = conn.prepareStatement("DELETE FROM books WHERE isbn = ?")) {
+                    psBook.setString(1, isbn);
+                    psBook.executeUpdate();
+                }
+            }
+        } catch (SQLException ignored) {
+        }
     }
 
     @Test
     public void testAddBookWithCopies_Success() {
-        String uniqueIsbn = "978-0131103627"; // C Programming Language
-        if (bookRepository.existsByIsbn(uniqueIsbn)) {
-            Book existing = bookRepository.findByIsbn(uniqueIsbn);
-            assertNotNull(existing);
-            return;
-        }
+        String uniqueIsbn = "978-013" + String.format("%07d", Math.abs(System.nanoTime() % 10000000L));
 
         Book book = new Book();
         book.setTitle("The C Programming Language");
@@ -57,6 +116,7 @@ public class BookServiceTest {
 
         Book created = bookService.addBook(book, 3);
         assertNotNull(created.getBookId());
+        createdBookIds.add(created.getBookId());
         assertEquals("The C Programming Language", created.getTitle());
         assertEquals(3, created.getInventory().getTotalActiveCopies());
         assertEquals(3, created.getInventory().getAvailableCopies());
@@ -131,6 +191,9 @@ public class BookServiceTest {
 
         int initialCopies = book.getTotalActiveCopies();
         List<BookCopy> added = bookService.addCopies(1, 2);
+        for (BookCopy c : added) {
+            createdCopyIds.add(c.getCopyId());
+        }
         assertEquals(2, added.size());
 
         Book reloaded = bookRepository.findById(1, false);
@@ -142,6 +205,7 @@ public class BookServiceTest {
         // Add a temporary copy to test copy archival
         List<BookCopy> added = bookService.addCopies(2, 1);
         BookCopy copy = added.get(0);
+        createdCopyIds.add(copy.getCopyId());
 
         boolean archived = bookService.archiveCopy(copy.getCopyId());
         assertTrue(archived);
@@ -164,6 +228,7 @@ public class BookServiceTest {
         // Archiving an already archived copy must fail
         List<BookCopy> added = bookService.addCopies(3, 1);
         BookCopy copy = added.get(0);
+        createdCopyIds.add(copy.getCopyId());
         bookService.archiveCopy(copy.getCopyId());
 
         // Attempt second archival on same copy
@@ -190,17 +255,20 @@ public class BookServiceTest {
 
     @Test
     public void testArchiveBook_GuardrailSuccess() {
+        String testIsbn = "978-0987" + String.format("%06d", Math.abs(System.nanoTime() % 1000000L));
+
         // Create an isolated book with 2 copies
         Book book = new Book();
         book.setTitle("Temporary Book for Archival");
         book.setAuthor("Archive Tester");
-        book.setIsbn("978-0987654321");
+        book.setIsbn(testIsbn);
         book.setPublisher("Test Pub");
         book.setPublicationYear(2021);
         book.setCategory("General Knowledge");
         book.setDepartment("GENERAL");
 
         Book created = bookService.addBook(book, 2);
+        createdBookIds.add(created.getBookId());
         assertNotNull(created.getBookId());
         assertFalse(created.isArchived());
 

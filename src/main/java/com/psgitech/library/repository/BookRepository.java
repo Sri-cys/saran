@@ -300,7 +300,9 @@ public class BookRepository {
                 }
             }
 
-            if (currentStatus != CopyStatus.AVAILABLE) {
+            if (currentStatus == CopyStatus.ALLOCATED) {
+                throw new InvalidBookOperationException("Cannot archive copy: This physical copy is currently ALLOCATED to a student. Release the active reservation before archiving.");
+            } else if (currentStatus != CopyStatus.AVAILABLE) {
                 throw new InvalidBookOperationException("Cannot archive copy: current status is " + currentStatus +
                         ". Only AVAILABLE copies can be archived.");
             }

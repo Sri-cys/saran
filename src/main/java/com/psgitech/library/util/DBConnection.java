@@ -1,5 +1,9 @@
 package com.psgitech.library.util;
 
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+import javax.sql.DataSource;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -13,25 +17,29 @@ import java.util.logging.Logger;
 
 /**
  * Database connection manager for PSG iTech Library System.
- * Connects to MySQL (psgitech_library) via JDBC.
- * Automatically falls back to an embedded in-memory MySQL-compatible DB
- * if the local MySQL service is temporarily unavailable, ensuring seamless execution.
+ * Connects to MySQL (psgitech_library) via Tomcat JNDI connection pool when available,
+ * falling back to direct DriverManager for standalone repository tests.
+ * Supports development fallback only when explicitly enabled via configuration.
  */
 public class DBConnection {
     private static final Logger LOGGER = Logger.getLogger(DBConnection.class.getName());
 
-    private static String dbUrl;
-    private static String dbDriver;
-    private static String dbUsername;
-    private static String dbPassword;
+    private static volatile String dbUrl;
+    private static volatile String dbDriver;
+    private static volatile String dbUsername;
+    private static volatile String dbPassword;
 
-    private static String fallbackUrl;
-    private static String fallbackDriver;
-    private static String fallbackUsername;
-    private static String fallbackPassword;
+    private static volatile String fallbackUrl;
+    private static volatile String fallbackDriver;
+    private static volatile String fallbackUsername;
+    private static volatile String fallbackPassword;
 
-    private static boolean usingFallback = false;
-    private static boolean initialized = false;
+    private static volatile boolean fallbackEnabled = false;
+    private static volatile boolean usingFallback = false;
+    private static volatile boolean initialized = false;
+
+    private static volatile DataSource jndiDataSource = null;
+    private static volatile boolean jndiAttempted = false;
 
     static {
         loadConfiguration();
@@ -52,18 +60,45 @@ public class DBConnection {
         dbUsername = System.getProperty("db.username", props.getProperty("db.username", "root"));
         dbPassword = System.getProperty("db.password", props.getProperty("db.password", "root"));
 
+        fallbackEnabled = Boolean.parseBoolean(System.getProperty("db.fallback.enabled", props.getProperty("db.fallback.enabled", "false")));
         fallbackUrl = props.getProperty("db.fallback.url", "jdbc:h2:mem:psgitech_library;MODE=MySQL;DATABASE_TO_UPPER=FALSE;DB_CLOSE_DELAY=-1");
         fallbackDriver = props.getProperty("db.fallback.driver", "org.h2.Driver");
         fallbackUsername = props.getProperty("db.fallback.username", "sa");
         fallbackPassword = props.getProperty("db.fallback.password", "");
     }
 
+    private static DataSource getJndiDataSource() {
+        if (!jndiAttempted) {
+            synchronized (DBConnection.class) {
+                if (!jndiAttempted) {
+                    try {
+                        InitialContext initCtx = new InitialContext();
+                        Context envCtx = (Context) initCtx.lookup("java:comp/env");
+                        jndiDataSource = (DataSource) envCtx.lookup("jdbc/PsgItechDB");
+                        LOGGER.info("Bound to Tomcat JNDI DataSource: jdbc/PsgItechDB");
+                    } catch (NamingException e) {
+                        LOGGER.fine("JNDI DataSource not found (" + e.getMessage() + "), using direct DriverManager connection");
+                    } finally {
+                        jndiAttempted = true;
+                    }
+                }
+            }
+        }
+        return jndiDataSource;
+    }
+
     /**
      * Obtains a JDBC Connection.
+     * Thread-safe, non-blocking connection acquisition using JNDI pool with DriverManager fallback.
      */
-    public static synchronized Connection getConnection() throws SQLException {
+    public static Connection getConnection() throws SQLException {
         if (!initialized) {
-            initializeDatabase();
+            synchronized (DBConnection.class) {
+                if (!initialized) {
+                    initializeDatabase();
+                    initialized = true;
+                }
+            }
         }
 
         if (usingFallback) {
@@ -75,17 +110,18 @@ public class DBConnection {
             }
         }
 
+        // Try JNDI connection pool first (inside Tomcat)
+        DataSource ds = getJndiDataSource();
+        if (ds != null) {
+            return ds.getConnection();
+        }
+
+        // Direct DriverManager fallback (in unit / integration test JVMs)
         try {
             Class.forName(dbDriver);
             return DriverManager.getConnection(dbUrl, dbUsername, dbPassword);
         } catch (ClassNotFoundException e) {
-            LOGGER.warning("MySQL Driver not found, switching to fallback");
-            enableFallback();
-            return getConnection();
-        } catch (SQLException e) {
-            LOGGER.warning("Could not connect to MySQL (" + e.getMessage() + "), activating development fallback database");
-            enableFallback();
-            return getConnection();
+            throw new SQLException("MySQL JDBC Driver not found: " + dbDriver, e);
         }
     }
 
@@ -119,8 +155,12 @@ public class DBConnection {
                 return;
             }
         } catch (Exception e) {
-            LOGGER.info("Primary MySQL database unavailable (" + e.getMessage() + "), initializing development database");
-            enableFallback();
+            if (fallbackEnabled) {
+                LOGGER.info("Primary MySQL database unavailable (" + e.getMessage() + ") and fallback enabled, initializing development database");
+                enableFallback();
+            } else {
+                LOGGER.log(Level.SEVERE, "Primary MySQL database unavailable: " + e.getMessage() + ". Development fallback disabled (db.fallback.enabled=false).", e);
+            }
         }
     }
 
@@ -155,6 +195,19 @@ public class DBConnection {
         }
     }
 
+    /**
+     * Checks if a SQLException is caused by pool exhaustion or MySQL max_connections (1040).
+     */
+    public static boolean isPoolExhaustedOrMaxConnections(SQLException e) {
+        if (e == null) return false;
+        if (e.getErrorCode() == 1040) return true; // ER_CON_COUNT_ERROR
+        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        return msg.contains("pool empty") || msg.contains("timeout waiting for idle object")
+                || msg.contains("pool exhausted") || msg.contains("unable to fetch a connection")
+                || msg.contains("cannot get a connection, pool error")
+                || msg.contains("too many connections");
+    }
+
     public static boolean isUsingFallback() {
         return usingFallback;
     }
@@ -162,5 +215,18 @@ public class DBConnection {
     public static void setForceFallback(boolean force) {
         usingFallback = force;
         initialized = false;
+    }
+
+    public static void resetJndiDataSource() {
+        synchronized (DBConnection.class) {
+            jndiDataSource = null;
+            jndiAttempted = false;
+            initialized = false;
+            loadConfiguration();
+        }
+    }
+
+    public static String getDbUrl() {
+        return dbUrl;
     }
 }

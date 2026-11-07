@@ -186,7 +186,7 @@
       "copyId": 1,
       "copyCode": "PSG-BK1-C01",
       "bookId": 1,
-      "status": "AVAILABLE",
+      "status": "BORROWED",
       "archived": false,
       "createdAt": "2026-01-01 00:00:00"
     },

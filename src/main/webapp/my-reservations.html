@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Reservations | PSG iTech Library</title>
+    <link rel="stylesheet" href="css/library-theme.css">
+</head>
+<body>
+
+    <!-- Global Navigation -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="student-home.html" class="nav-left">
+                <img src="images/psgitech-logo.png" alt="PSG iTech Logo" class="logo-icon">
+                <span class="brand-text">PSG iTECH LIBRARY</span>
+            </a>
+
+            <div class="nav-middle">
+                <ul class="nav-menu">
+                    <li><a href="student-home.html">Dashboard</a></li>
+                    <li><a href="my-borrowings.html">My Borrowings</a></li>
+                    <li><a href="my-reservations.html" class="active">My Reservations</a></li>
+                    <li><a href="my-fines.html">My Fines</a></li>
+                    <li><a href="browse.html">Browse Catalog</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-right">
+                <div class="profile-dropdown">
+                    <button class="profile-trigger" id="profileTrigger">
+                        <span class="avatar-icon" id="studentAvatar">S</span>
+                        <span id="navUsername" style="font-weight: bold;">Student Portal</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                    <div class="dropdown-menu" id="profileDropdownMenu">
+                        <div class="dropdown-header">Student Account</div>
+                        <a href="student-home.html" class="dropdown-item">My Dashboard</a>
+                        <a href="my-borrowings.html" class="dropdown-item">My Borrowings</a>
+                        <a href="my-reservations.html" class="dropdown-item active">My Reservations</a>
+                        <a href="my-fines.html" class="dropdown-item">My Fines &amp; Dues</a>
+                        <a href="profile.html" class="dropdown-item">My Profile</a>
+                        <a href="profile.html#change-password" class="dropdown-item">Change Password</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="logout" class="dropdown-item" data-action="logout" style="color: var(--danger);">Log Out</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container" style="margin-top: 32px;">
+
+            <!-- Header Section -->
+            <div style="border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h1 style="margin-bottom: 4px;">My Book Reservations</h1>
+                    <p class="text-secondary">Feature 4 &bull; First-In-First-Out (FIFO) Waiting Queue &bull; Live Queue Position Tracking</p>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <span id="reservationQuotaBadge" class="badge" style="font-size: 0.92rem; padding: 6px 14px; border: 1px solid var(--border);">
+                        0 / 3 Active Reservations
+                    </span>
+                    <a href="browse.html" class="btn btn-primary btn-sm">+ Find Books to Reserve</a>
+                </div>
+            </div>
+
+            <!-- Section 1: Active Reservations -->
+            <section style="margin-bottom: 36px;">
+                <div class="section-header" style="margin-bottom: 16px;">
+                    <h2 style="font-size: 1.35rem; color: var(--primary);">Active Waiting Line</h2>
+                    <span class="text-secondary" style="font-size: 0.9rem;">Positions are dynamically computed in real-time</span>
+                </div>
+                <div id="activeReservationsContainer">
+                    <div style="text-align: center; padding: 40px;" class="text-secondary">
+                        <p>Loading your active reservations...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 2: Historical Reservations -->
+            <section>
+                <div class="section-header" style="margin-bottom: 16px;">
+                    <h2 style="font-size: 1.35rem; color: var(--primary);">Reservation History</h2>
+                    <span class="text-secondary" style="font-size: 0.9rem;">Previous fulfilled, cancelled, or expired requests</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="library-table">
+                        <thead>
+                            <tr>
+                                <th>Ref #</th>
+                                <th>Book Title</th>
+                                <th>Request Date</th>
+                                <th>Updated Date</th>
+                                <th>Final Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 24px;" class="text-secondary">
+                                    Loading history...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container text-secondary" style="text-align: center; font-size: 0.9rem;">
+            <p>&copy; 2026 PSG Institute of Technology and Applied Research &bull; Institutional Digital Library System</p>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/reservations.js"></script>
+</body>
+</html>
+

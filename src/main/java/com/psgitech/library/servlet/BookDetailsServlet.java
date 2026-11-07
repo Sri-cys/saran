@@ -1,11 +1,16 @@
 package com.psgitech.library.servlet;
 
 import com.google.gson.Gson;
+import com.psgitech.library.enums.ReservationStatus;
 import com.psgitech.library.enums.Role;
 import com.psgitech.library.exception.BookNotFoundException;
+import com.psgitech.library.model.AllocationRecord;
 import com.psgitech.library.model.Book;
+import com.psgitech.library.model.Reservation;
 import com.psgitech.library.model.User;
+import com.psgitech.library.repository.AllocationRepository;
 import com.psgitech.library.service.BookService;
+import com.psgitech.library.service.ReservationService;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -83,6 +88,37 @@ public class BookDetailsServlet extends HttpServlet {
             result.put("success", true);
             result.put("book", book);
             result.put("isStaff", isStaffUser);
+
+            // Feature 5 (Section 9.6): Add myReservation for student view
+            if (currentUser != null && currentUser.getRole() == Role.STUDENT && book != null) {
+                ReservationService resService = new ReservationService();
+                Reservation activeRes = resService.getActiveReservationForStudentAndBook(currentUser.getUserId(), book.getBookId());
+                if (activeRes != null) {
+                    Map<String, Object> myResMap = new HashMap<>();
+                    myResMap.put("reservationId", activeRes.getReservationId());
+                    myResMap.put("status", activeRes.getStatus().name());
+                    if (activeRes.getStatus() == ReservationStatus.WAITING) {
+                        myResMap.put("queuePosition", activeRes.getQueuePosition());
+                        myResMap.put("totalWaitingInQueue", activeRes.getTotalWaitingInQueue());
+                    } else if (activeRes.getStatus() == ReservationStatus.ALLOCATED) {
+                        AllocationRepository allocRepo = new AllocationRepository();
+                        AllocationRecord alloc = allocRepo.findActiveByReservation(activeRes.getReservationId());
+                        Map<String, Object> allocDetails = new HashMap<>();
+                        if (alloc != null) {
+                            allocDetails.put("allocationId", alloc.getAllocationId());
+                            allocDetails.put("copyId", alloc.getCopyId());
+                            allocDetails.put("copyCode", alloc.getCopyCode());
+                            allocDetails.put("copyIdentifier", alloc.getCopyCode());
+                            allocDetails.put("expiresAt", alloc.getExpiresAt() != null ? alloc.getExpiresAt().toString() : null);
+                            allocDetails.put("allocatedAt", alloc.getAllocatedAt() != null ? alloc.getAllocatedAt().toString() : null);
+                        }
+                        myResMap.put("allocation", allocDetails);
+                    }
+                    result.put("myReservation", myResMap);
+                } else {
+                    result.put("myReservation", null);
+                }
+            }
 
             resp.getWriter().write(gson.toJson(result));
 

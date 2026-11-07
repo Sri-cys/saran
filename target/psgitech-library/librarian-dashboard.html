@@ -12,10 +12,7 @@
     <header class="navbar">
         <div class="nav-container">
             <a href="librarian-dashboard.html" class="nav-left">
-                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                </svg>
+                <img src="images/psgitech-logo.png" alt="PSG iTech Logo" class="logo-icon">
                 <span class="brand-text">PSG iTECH LIBRARY &bull; LIBRARIAN</span>
             </a>
 
@@ -23,10 +20,10 @@
             <div class="nav-middle">
                 <ul class="nav-menu">
                     <li><a href="librarian-dashboard.html" class="active">Dashboard</a></li>
-                    <li><a href="profile.html">My Profile</a></li>
                     <li><a href="manage-books.html">Manage Books</a></li>
-                    <li><a href="#borrowing" onclick="showComingSoon('Borrowing Management (Feature 3)')">Borrowing Management</a></li>
+                    <li><a href="borrowing-management.html">Borrowing Management</a></li>
                     <li><a href="admin-users.html">Student Records</a></li>
+                    <li><a href="profile.html">My Profile</a></li>
                 </ul>
             </div>
 
@@ -116,27 +113,40 @@
                     </div>
                 </div>
 
-                <!-- Clean Coming Soon: Borrowing Management -->
-                <div class="info-card" style="background-color: var(--background-warm);">
+                <!-- Operational: Borrowing Management -->
+                <div class="info-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
                         <h3>Borrowing &amp; Lending Desk</h3>
-                        <span class="badge badge-borrowed">Feature 3 &bull; Coming Soon</span>
+                        <span class="badge badge-active">Operational</span>
                     </div>
-                    <p class="text-secondary" style="line-height: 1.6;">Issue counter checkouts, return scans, and renewal extensions will be connected when Borrowing Management is developed.</p>
+                    <p class="text-secondary" style="line-height: 1.6;">Issue physical copies, verify student eligibility and quotas, check same-book restrictions, and process returns.</p>
                     <div style="margin-top: 20px;">
-                        <button class="btn btn-secondary btn-sm" disabled style="opacity: 0.65; cursor: not-allowed;">Issue / Return Desk (Planned)</button>
+                        <a href="borrowing-management.html" class="btn btn-primary btn-sm">Open Circulation Desk &rarr;</a>
                     </div>
                 </div>
 
-                <!-- Clean Coming Soon: Queue Management -->
-                <div class="info-card" style="background-color: var(--background-warm);">
+                <!-- Operational: Queue & Fines Management -->
+                <div class="info-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                        <h3>Reservation Queues</h3>
-                        <span class="badge badge-borrowed">Feature 4 &bull; Coming Soon</span>
+                        <h3>Queues, Allocations &amp; Fines</h3>
+                        <span class="badge badge-active">Operational</span>
                     </div>
-                    <p class="text-secondary" style="line-height: 1.6;">Automated priority waitlists, book reservation notifications, and fine calculation modules will be introduced in Feature 4.</p>
+                    <p class="text-secondary" style="line-height: 1.6;">Automated FIFO reservation waitlists, hold shelf allocations, atomic return fine assessment, and manual UPI payment verifications.</p>
+                    <div style="margin-top: 20px; display: flex; gap: 8px;">
+                        <a href="borrowing-management.html" class="btn btn-primary btn-sm">Queue &amp; Allocations &rarr;</a>
+                        <a href="borrowing-management.html" class="btn btn-secondary btn-sm" onclick="sessionStorage.setItem('openDeskTab', 'tabVerif')">Verify UPI Fines &rarr;</a>
+                    </div>
+                </div>
+
+                <!-- Operational: Concurrency & Performance Monitor (Admin) -->
+                <div class="info-card" id="adminConcurrencyCard">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                        <h3>Concurrent Activity Monitor</h3>
+                        <span class="badge badge-active">Governor Active</span>
+                    </div>
+                    <p class="text-secondary" style="line-height: 1.6;">Live JVM request admission controller, fair semaphore queuing, connection pool budget, and deadlock telemetry.</p>
                     <div style="margin-top: 20px;">
-                        <button class="btn btn-secondary btn-sm" disabled style="opacity: 0.65; cursor: not-allowed;">Waitlist Queue (Planned)</button>
+                        <a href="concurrency-monitor.html" class="btn btn-primary btn-sm">Open Live Concurrency Monitor &rarr;</a>
                     </div>
                 </div>
             </div>

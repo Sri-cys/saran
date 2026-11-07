@@ -12,16 +12,16 @@
     <header class="navbar">
         <div class="nav-container">
             <a href="student-home.html" class="nav-left">
-                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                </svg>
+                <img src="images/psgitech-logo.png" alt="PSG iTech Logo" class="logo-icon">
                 <span class="brand-text">PSG iTECH LIBRARY</span>
             </a>
 
             <div class="nav-middle">
                 <ul class="nav-menu">
-                    <li><a href="my-books.html">My Books</a></li>
+                    <li><a href="student-home.html" class="active">Dashboard</a></li>
+                    <li><a href="my-borrowings.html">My Borrowings</a></li>
+                    <li><a href="my-reservations.html">My Reservations</a></li>
+                    <li><a href="my-fines.html">My Fines</a></li>
                     <li><a href="browse.html">Browse</a></li>
                 </ul>
                 <form class="nav-search-form" id="navSearchForm">
@@ -61,7 +61,9 @@
                         <div class="dropdown-header">Student Account</div>
                         <a href="profile.html" class="dropdown-item">My Profile</a>
                         <a href="profile.html#change-password" class="dropdown-item">Change Password</a>
-                        <a href="my-books.html" class="dropdown-item">My Borrowed Books</a>
+                        <a href="my-borrowings.html" class="dropdown-item">My Borrowings</a>
+                        <a href="my-reservations.html" class="dropdown-item">My Reservations</a>
+                        <a href="my-fines.html" class="dropdown-item">My Fines &amp; Dues</a>
                         <div class="dropdown-divider"></div>
                         <a href="logout" class="dropdown-item" data-action="logout" style="color: var(--danger);">Log Out</a>
                     </div>
@@ -78,31 +80,46 @@
                 <p class="text-secondary">PSG iTech Department of Computer Science and Engineering &bull; 3rd Year</p>
             </div>
 
+            <!-- Incoming Peer Interchange Banner -->
+            <div id="incomingInterchangeBanner" class="alert alert-info" style="display: none; margin-bottom: 20px; align-items: center; justify-content: space-between; border-left: 4px solid var(--primary);">
+                <div>
+                    <strong>Incoming Book Transfer:</strong> You have <span id="bannerInterchangeCount">0</span> peer transfer request(s) awaiting your acceptance.
+                </div>
+                <a href="my-borrowings.html" class="btn btn-primary btn-sm">Review &amp; Accept</a>
+            </div>
+
             <!-- Compact Library Activity Section -->
             <section class="student-activity-banner">
                 <h3 style="font-size: 1.25rem;">Your Library Activity</h3>
                 <div class="activity-indicators-row">
-                    <div class="activity-indicator">
-                        <div class="indicator-number">0</div>
+                    <a href="my-borrowings.html" class="activity-indicator" style="text-decoration: none; color: inherit;">
+                        <div class="indicator-number" id="studentActiveBorrowingsCount">0</div>
                         <div>
                             <div class="indicator-label" style="font-weight: bold;">Currently Borrowed</div>
                             <div class="text-secondary" style="font-size: 0.85rem;">Active issues from library desk</div>
                         </div>
-                    </div>
-                    <div class="activity-indicator">
-                        <div class="indicator-number">0</div>
+                    </a>
+                    <a href="my-borrowings.html" class="activity-indicator" id="interchangeIndicator" style="text-decoration: none; color: inherit;">
+                        <div class="indicator-number" id="studentIncomingInterchangesCount" style="color: var(--primary);">0</div>
                         <div>
-                            <div class="indicator-label" style="font-weight: bold;">Pending Reservations</div>
-                            <div class="text-secondary" style="font-size: 0.85rem;">Queued titles awaiting return</div>
+                            <div class="indicator-label" style="font-weight: bold;">Peer Transfers</div>
+                            <div class="text-secondary" id="studentInterchangeSubText" style="font-size: 0.85rem;">Incoming book requests</div>
                         </div>
-                    </div>
-                    <div class="activity-indicator">
-                        <div class="indicator-number" style="color: var(--success) !important;">0</div>
+                    </a>
+                    <a href="my-reservations.html" class="activity-indicator" style="text-decoration: none; color: inherit;">
+                        <div class="indicator-number" id="studentPendingReservationsCount">0</div>
                         <div>
-                            <div class="indicator-label" style="font-weight: bold;">Due Soon</div>
-                            <div class="text-secondary" style="font-size: 0.85rem;">Books due in next 48 hours</div>
+                            <div class="indicator-label" style="font-weight: bold;">Active Reservations</div>
+                            <div class="text-secondary" id="studentReservationNote" style="font-size: 0.85rem;">Queued titles awaiting return</div>
                         </div>
-                    </div>
+                    </a>
+                    <a href="my-fines.html" class="activity-indicator" style="text-decoration: none; color: inherit;">
+                        <div class="indicator-number" id="studentFinesDueBadge" style="color: var(--success) !important;">&inr; 0.00</div>
+                        <div>
+                            <div class="indicator-label" style="font-weight: bold;">Outstanding Dues</div>
+                            <div class="text-secondary" id="studentFineSubText" style="font-size: 0.85rem;">Clean standing &bull; No overdue fees</div>
+                        </div>
+                    </a>
                 </div>
             </section>
 
@@ -252,6 +269,83 @@
                     }
                 } catch (e) {}
             }
+
+            // Dynamically load active borrowings count
+            fetch('borrow/student?type=active')
+                .then(r => r.json())
+                .then(json => {
+                    if (json && json.success && Array.isArray(json.data)) {
+                        const count = json.data.length;
+                        const indicators = document.querySelectorAll('.indicator-number');
+                        if (indicators.length > 0) indicators[0].textContent = count;
+                    }
+                })
+                .catch(() => {});
+
+            // Dynamically load active reservations count & allocation readiness notice
+            fetch('reservations/my')
+                .then(r => r.json())
+                .then(json => {
+                    if (json && json.success && json.data) {
+                        const summary = json.data.summary || {};
+                        const resCountEl = document.getElementById('studentPendingReservationsCount');
+                        if (resCountEl) resCountEl.textContent = summary.activeCount || 0;
+
+                        const activeList = json.data.activeReservations || [];
+                        const allocatedCount = activeList.filter(r => r.status === 'ALLOCATED').length;
+                        const noteEl = document.getElementById('studentReservationNote');
+                        if (noteEl) {
+                            if (allocatedCount > 0) {
+                                noteEl.innerHTML = `<span style="color: #159B50; font-weight: bold;">✓ ${allocatedCount} ${allocatedCount === 1 ? 'book' : 'books'} ready for collection!</span>`;
+                            } else {
+                                noteEl.textContent = 'Queued titles awaiting return';
+                            }
+                        }
+                    }
+                })
+                .catch(() => {});
+            // Dynamically load incoming interchange transfer requests count
+            fetch('interchanges?type=count')
+                .then(r => r.json())
+                .then(json => {
+                    if (json && json.success && json.data) {
+                        const count = json.data.pendingIncomingCount || 0;
+                        const countEl = document.getElementById('studentIncomingInterchangesCount');
+                        const subEl = document.getElementById('studentInterchangeSubText');
+                        const bannerEl = document.getElementById('incomingInterchangeBanner');
+                        const bannerCountEl = document.getElementById('bannerInterchangeCount');
+
+                        if (countEl) countEl.textContent = count;
+                        if (count > 0) {
+                            if (subEl) subEl.innerHTML = `<span style="color: var(--primary); font-weight: bold;">${count} incoming transfer${count === 1 ? '' : 's'}</span>`;
+                            if (bannerEl) bannerEl.style.display = 'flex';
+                            if (bannerCountEl) bannerCountEl.textContent = count;
+                        }
+                    }
+                })
+                .catch(() => {});
+
+            // Dynamically load outstanding fines
+            fetch('my-fines')
+                .then(r => r.json())
+                .then(json => {
+                    if (json && json.success && json.summary) {
+                        const out = parseFloat(json.summary.totalOutstanding) || 0;
+                        const badge = document.getElementById('studentFinesDueBadge');
+                        const sub = document.getElementById('studentFineSubText');
+                        if (badge) {
+                            badge.textContent = 'INR ' + out.toFixed(2);
+                            if (out > 0) {
+                                badge.style.setProperty('color', 'var(--danger)', 'important');
+                                if (sub) sub.innerHTML = `<span style="color: var(--danger); font-weight: bold;">Borrowing paused &bull; Settle via UPI</span>`;
+                            } else {
+                                badge.style.setProperty('color', 'var(--success)', 'important');
+                                if (sub) sub.textContent = 'Clean standing • No overdue fees';
+                            }
+                        }
+                    }
+                })
+                .catch(() => {});
         });
     </script>
 </body>

@@ -7,6 +7,7 @@ import com.psgitech.library.model.User;
 import com.psgitech.library.service.AuthenticationService;
 import com.psgitech.library.service.UserService;
 import com.psgitech.library.util.DBConnection;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -22,6 +23,12 @@ public class AuthenticationServiceTest {
         DBConnection.initializeDatabase();
         authService = new AuthenticationService();
         userService = new UserService();
+    }
+
+    @After
+    public void tearDown() {
+        DBConnection.setForceFallback(false);
+        DBConnection.resetJndiDataSource();
     }
 
     @Test

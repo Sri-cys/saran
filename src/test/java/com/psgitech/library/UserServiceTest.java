@@ -9,6 +9,7 @@ import com.psgitech.library.model.Student;
 import com.psgitech.library.model.User;
 import com.psgitech.library.service.UserService;
 import com.psgitech.library.util.DBConnection;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -24,6 +25,12 @@ public class UserServiceTest {
         DBConnection.setForceFallback(true);
         DBConnection.initializeDatabase();
         userService = new UserService();
+    }
+
+    @After
+    public void tearDown() {
+        DBConnection.setForceFallback(false);
+        DBConnection.resetJndiDataSource();
     }
 
     @Test

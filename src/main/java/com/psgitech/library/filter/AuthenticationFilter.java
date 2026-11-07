@@ -19,9 +19,10 @@ import java.io.IOException;
 /**
  * Filter that verifies authentication and automatically restores sessions
  * from secure Remember Me persistent cookies.
+ * Filter registration and order is defined deterministically in web.xml.
  */
-@WebFilter("/*")
 public class AuthenticationFilter implements Filter {
+    public static final String INVOCATION_COUNT_ATTR = "com.psgitech.library.filter.AuthenticationFilter.invocations";
     private AuthenticationService authService;
 
     @Override
@@ -35,6 +36,10 @@ public class AuthenticationFilter implements Filter {
 
         HttpServletRequest req = (HttpServletRequest) request;
         HttpServletResponse res = (HttpServletResponse) response;
+
+        // Track invocation count for filter-chain verification
+        Integer count = (Integer) req.getAttribute(INVOCATION_COUNT_ATTR);
+        req.setAttribute(INVOCATION_COUNT_ATTR, (count == null ? 1 : count + 1));
 
         HttpSession session = req.getSession(false);
         User currentUser = (session != null) ? (User) session.getAttribute("user") : null;

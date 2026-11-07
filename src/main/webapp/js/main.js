@@ -165,8 +165,26 @@ function updateNavForLoggedInUser(user) {
         } else {
             navDashboardLink.href = 'student-home.html';
             navDashboardLink.textContent = 'Student Dashboard';
+            updateStudentInterchangeNotificationBadge();
         }
     }
+}
+
+function updateStudentInterchangeNotificationBadge() {
+    const badge = document.querySelector('.notification-badge');
+    if (!badge) return;
+    fetch('interchanges?type=count')
+        .then(r => r.json())
+        .then(json => {
+            if (json && json.success && json.data) {
+                const count = json.data.pendingIncomingCount || 0;
+                if (count > 0) {
+                    badge.textContent = count;
+                    badge.style.display = 'inline-block';
+                }
+            }
+        })
+        .catch(() => {});
 }
 
 function updateNavForLoggedOutUser() {

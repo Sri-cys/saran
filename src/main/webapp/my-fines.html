@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Fines &amp; UPI Payments | PSG iTech Library</title>
+    <link rel="stylesheet" href="css/library-theme.css">
+    <style>
+        .fine-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .summary-card {
+            background-color: var(--background-warm);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 16px 20px;
+        }
+        .summary-card.alert {
+            background-color: #FDEDEC;
+            border-color: #E6B0AA;
+        }
+        .summary-card.clean {
+            background-color: #EAFAF1;
+            border-color: #A9DFBF;
+        }
+        .summary-label {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .summary-val {
+            font-size: 1.85rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        .summary-sub {
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+        .projected-card {
+            background: #FEF9E7;
+            border: 1px dashed var(--warning);
+            border-radius: 4px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+        }
+        .qr-box {
+            text-align: center;
+            padding: 12px;
+            background: #fff;
+            border: 1px solid var(--border);
+            display: inline-block;
+            margin: 12px auto;
+        }
+        .badge-unpaid { background-color: #FDEDEC; color: #C0392B; border: 1px solid #E6B0AA; }
+        .badge-partially_paid { background-color: #FEF9E7; color: #B7950B; border: 1px solid #F9E79F; }
+        .badge-paid { background-color: #EAFAF1; color: #1E8449; border: 1px solid #A9DFBF; }
+        .badge-waived { background-color: #EAECEE; color: #5D6D7E; border: 1px solid #D5D8DC; }
+        .badge-initiated { background-color: #EBF5FB; color: #2874A6; border: 1px solid #AED6F1; }
+        .badge-pending_verification { background-color: #FEF9E7; color: #B7950B; border: 1px solid #F9E79F; }
+        .badge-success { background-color: #EAFAF1; color: #1E8449; border: 1px solid #A9DFBF; }
+        .badge-rejected { background-color: #FDEDEC; color: #C0392B; border: 1px solid #E6B0AA; }
+        .badge-refunded { background-color: #EAECEE; color: #5D6D7E; border: 1px solid #D5D8DC; text-decoration: line-through; }
+    </style>
+</head>
+<body>
+
+    <!-- Global Navigation -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="student-home.html" class="nav-left">
+                <img src="images/psgitech-logo.png" alt="PSG iTech Logo" class="logo-icon">
+                <span class="brand-text">PSG iTECH LIBRARY</span>
+            </a>
+
+            <div class="nav-middle">
+                <ul class="nav-menu">
+                    <li><a href="student-home.html">Dashboard</a></li>
+                    <li><a href="my-borrowings.html">My Borrowings</a></li>
+                    <li><a href="my-reservations.html">My Reservations</a></li>
+                    <li><a href="my-fines.html" class="active">My Fines &amp; Dues</a></li>
+                    <li><a href="browse.html">Browse Catalog</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-right">
+                <div class="profile-dropdown">
+                    <button class="profile-trigger" id="profileTrigger">
+                        <span class="avatar-icon" id="studentAvatar">S</span>
+                        <span id="navUsername" style="font-weight: bold;">Student Portal</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                    <div class="dropdown-menu" id="profileDropdownMenu">
+                        <div class="dropdown-header">Student Account</div>
+                        <a href="student-home.html" class="dropdown-item">My Dashboard</a>
+                        <a href="my-borrowings.html" class="dropdown-item">My Borrowings</a>
+                        <a href="my-reservations.html" class="dropdown-item">My Reservations</a>
+                        <a href="my-fines.html" class="dropdown-item active">My Fines &amp; Dues</a>
+                        <a href="profile.html" class="dropdown-item">My Profile</a>
+                        <a href="profile.html#change-password" class="dropdown-item">Change Password</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="logout" class="dropdown-item" data-action="logout" style="color: var(--danger);">Log Out</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container" style="margin-top: 32px;">
+
+            <!-- Header Section -->
+            <div style="border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h1 style="margin-bottom: 4px;">My Library Fines &amp; UPI Payments</h1>
+                    <p class="text-secondary">Official student account ledger &bull; Overdue fine calculations &bull; Direct UPI fee settlement</p>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <span id="borrowingEligibilityBadge" class="badge" style="font-size: 0.92rem; padding: 6px 14px; border: 1px solid var(--border);">
+                        Checking Account Standing...
+                    </span>
+                    <button class="btn btn-secondary btn-sm" onclick="loadMyFines()">Refresh Records</button>
+                </div>
+            </div>
+
+            <!-- Block Alert Banner (Hidden by default) -->
+            <div id="blockedAlertBanner" style="display: none; background-color: #FDEDEC; border: 1px solid #E6B0AA; color: #78281F; padding: 14px 18px; border-radius: 4px; margin-bottom: 20px;">
+                <h4 style="color: #922B21 !important; margin-bottom: 4px;">Borrowing Privileges Blocked</h4>
+                <p style="font-size: 0.92rem;">Your account currently has an outstanding fine balance exceeding &inr;0.00. Per library regulations, new book borrowing and reserved book collections are paused until outstanding dues are settled.</p>
+            </div>
+
+            <!-- Summary Cards Grid -->
+            <div class="fine-summary-grid">
+                <div class="summary-card" id="cardOutstanding">
+                    <div class="summary-label">Total Outstanding Dues</div>
+                    <div class="summary-val" id="sumOutstanding">&inr; 0.00</div>
+                    <div class="summary-sub text-secondary" id="sumUnpaidCount">0 open fines</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Total Paid via UPI</div>
+                    <div class="summary-val" id="sumPaid" style="color: var(--success);">&inr; 0.00</div>
+                    <div class="summary-sub text-secondary">Verified receipts issued</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Administrative Waivers</div>
+                    <div class="summary-val" id="sumWaived" style="color: var(--text-secondary);">&inr; 0.00</div>
+                    <div class="summary-sub text-secondary">Granted by Administration</div>
+                </div>
+            </div>
+
+            <!-- Projected Overdue Section -->
+            <div class="projected-card" id="projectedFinesSection" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h3 style="color: var(--warning) !important; margin: 0;">Projected Overdue Charges (Active Borrowings)</h3>
+                    <span class="badge" style="background: #FEF9E7; color: #B7950B; border: 1px solid #F9E79F;">Estimates Only</span>
+                </div>
+                <p style="font-size: 0.9rem; margin-bottom: 12px; color: var(--text-secondary);">
+                    Charges accrue daily at <strong>&inr; 2.00 / day</strong> for books kept past the due date. These are estimated projections; the official fine is calculated atomically on the date the physical copy is checked in at the library desk.
+                </p>
+                <div class="table-responsive">
+                    <table class="library-table" style="background: white;">
+                        <thead>
+                            <tr>
+                                <th>Book Title</th>
+                                <th>Copy Code</th>
+                                <th>Due Date</th>
+                                <th>Days Overdue</th>
+                                <th>Daily Rate</th>
+                                <th>Estimated Accrual</th>
+                            </tr>
+                        </thead>
+                        <tbody id="projectedFinesTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Section: Incurred Fines Table -->
+            <section style="margin-bottom: 36px;">
+                <div class="section-header" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2 style="font-size: 1.35rem; color: var(--primary);">Official Incurred Fines</h2>
+                        <span class="text-secondary" style="font-size: 0.9rem;">Atomic calculations recorded upon book return</span>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="library-table">
+                        <thead>
+                            <tr>
+                                <th>Fine ID</th>
+                                <th>Book Title</th>
+                                <th>Copy Code</th>
+                                <th>Return Date</th>
+                                <th>Overdue Days</th>
+                                <th>Original Fine</th>
+                                <th>Paid</th>
+                                <th>Waived</th>
+                                <th>Outstanding</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="finesTableBody">
+                            <tr>
+                                <td colspan="11" style="text-align: center; padding: 32px;" class="text-secondary">
+                                    Loading your fine records...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Section: Payment History Table -->
+            <section style="margin-bottom: 48px;">
+                <div class="section-header" style="margin-bottom: 16px;">
+                    <h2 style="font-size: 1.35rem; color: var(--primary);">UPI Payment History &amp; Receipts</h2>
+                    <span class="text-secondary" style="font-size: 0.9rem;">All UPI transactions submitted for staff verification</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="library-table">
+                        <thead>
+                            <tr>
+                                <th>Payment Code</th>
+                                <th>Date Initiated</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>UPI Reference (UTR)</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Receipt / Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paymentsTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 24px;" class="text-secondary">
+                                    Loading payment records...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Modal: Initiate / Pay Fine via UPI -->
+    <div class="modal-overlay" id="upiPaymentModal">
+        <div class="modal-container" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Pay Library Fine via UPI</h3>
+                <button type="button" class="modal-close" onclick="closeModal('upiPaymentModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modalStep1">
+                    <div style="background-color: var(--background-warm); padding: 12px 16px; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span class="text-secondary">Fine Record:</span>
+                            <strong id="modalFineRef">#--</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span class="text-secondary">Book:</span>
+                            <span id="modalFineBook" style="font-weight: 500;">--</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span class="text-secondary">Outstanding Balance:</span>
+                            <strong id="modalFineOutstanding" style="color: var(--danger);">&inr; 0.00</strong>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label for="payAmountInput" class="form-label" style="font-weight: bold;">Amount to Pay (&inr;):</label>
+                        <input type="number" id="payAmountInput" class="form-control" step="0.50" min="1.00" style="font-size: 1.1rem; font-weight: bold; padding: 8px 12px;">
+                        <small class="text-secondary" style="display: block; margin-top: 4px;">Partial payments allowed (Min &inr; 1.00 up to full outstanding).</small>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" id="btnInitiatePayment" style="width: 100%;" onclick="initiatePayment()">
+                        Proceed to UPI Payment &rarr;
+                    </button>
+                </div>
+
+                <div id="modalStep2" style="display: none;">
+                    <div style="text-align: center; margin-bottom: 12px;">
+                        <span class="badge badge-initiated" style="font-size: 0.9rem;">Payment Initiated</span>
+                        <div style="font-size: 1.4rem; font-weight: bold; color: var(--primary); margin: 6px 0;" id="modalPayAmountText">
+                            &inr; 0.00
+                        </div>
+                        <div class="text-secondary" style="font-size: 0.85rem;" id="modalPaymentCodeText">Code: --</div>
+                    </div>
+
+                    <!-- UPI Details Box -->
+                    <div style="background: #FAFAFA; border: 1px solid var(--border); padding: 12px; border-radius: 4px; text-align: center; margin-bottom: 14px;">
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Scan QR with any UPI App (GPay, PhonePe, Paytm, BHIM):</div>
+                        <div class="qr-box" id="qrContainer">
+                            <!-- Dynamic QR Code Image -->
+                            <img id="upiQrImg" src="" alt="UPI QR Code" style="width: 160px; height: 160px; display: block;">
+                        </div>
+                        <div style="font-size: 0.9rem; font-weight: bold; margin-top: 6px;">
+                            UPI ID: <span id="modalUpiIdText" style="color: var(--primary);">library@psgitech.ac.in</span>
+                        </div>
+                        <div style="font-size: 0.82rem; color: var(--text-secondary);">Payee: PSG iTech Library</div>
+
+                        <div style="margin-top: 10px;">
+                            <a id="upiDeepLinkBtn" href="#" class="btn btn-secondary btn-sm" style="display: inline-block;">
+                                &#128241; Open UPI App
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Reference Entry Form -->
+                    <div style="border-top: 1px solid var(--border); padding-top: 14px;">
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label for="upiRefInput" class="form-label" style="font-weight: bold;">Enter 12-digit UPI Reference / UTR Number:</label>
+                            <input type="text" id="upiRefInput" class="form-control" maxlength="12" placeholder="e.g. 430123456789" style="letter-spacing: 2px; font-weight: bold; font-size: 1.1rem; text-align: center;">
+                            <small class="text-secondary" style="display: block; margin-top: 4px;">Found in your UPI app payment receipt under "UPI Ref No" or "UTR".</small>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" class="btn btn-secondary" onclick="cancelActivePayment()" style="flex: 1;">Cancel Payment</button>
+                            <button type="button" class="btn btn-primary" id="btnSubmitRef" onclick="submitUpiReference()" style="flex: 2;">Submit for Verification</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Dispute Rejected Payment -->
+    <div class="modal-overlay" id="disputeModal">
+        <div class="modal-container" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Dispute Rejected Payment</h3>
+                <button type="button" class="modal-close" onclick="closeModal('disputeModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-secondary" style="font-size: 0.92rem; margin-bottom: 12px;">
+                    If your bank account was debited but the payment was rejected by library staff, you may submit a dispute to the Library Administrator along with details.
+                </p>
+                <input type="hidden" id="disputePaymentId">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="disputeReasonInput" class="form-label" style="font-weight: bold;">Dispute Explanation &amp; Transaction Details:</label>
+                    <textarea id="disputeReasonInput" class="form-control" rows="4" placeholder="Provide transaction date, time, account debit confirmation or remarks..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('disputeModal')">Close</button>
+                <button type="button" class="btn btn-primary" onclick="submitDispute()">Submit Dispute</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/fines.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMyFines();
+        });
+    </script>
+</body>
+</html>
+

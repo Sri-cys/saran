@@ -18,9 +18,11 @@ import java.io.IOException;
 
 /**
  * Filter enforcing Role-Based Access Control (RBAC) and mandatory first-login password change.
+ * Filter registration and order is defined deterministically in web.xml.
  */
-@WebFilter("/*")
 public class AuthorizationFilter implements Filter {
+
+    public static final String INVOCATION_COUNT_ATTR = "com.psgitech.library.filter.AuthorizationFilter.invocations";
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {}
@@ -31,6 +33,10 @@ public class AuthorizationFilter implements Filter {
 
         HttpServletRequest req = (HttpServletRequest) request;
         HttpServletResponse res = (HttpServletResponse) response;
+
+        // Track invocation count for filter-chain verification
+        Integer count = (Integer) req.getAttribute(INVOCATION_COUNT_ATTR);
+        req.setAttribute(INVOCATION_COUNT_ATTR, (count == null ? 1 : count + 1));
 
         String uri = req.getRequestURI();
         String contextPath = req.getContextPath();
@@ -57,10 +63,27 @@ public class AuthorizationFilter implements Filter {
             }
         }
 
-        // Admin-only protection
-        if (path.startsWith("/admin/") || path.contains("admin-users")) {
+        // Staff Interchange Monitoring (Librarian & Admin)
+        if (path.startsWith("/api/admin/interchanges")) {
             if (user == null) {
-                res.sendRedirect(contextPath + "/login.html?redirect=" + path);
+                res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
+                return;
+            }
+            if (user.getRole() != Role.LIBRARIAN && user.getRole() != Role.ADMIN) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Staff role required.");
+                return;
+            }
+        }
+
+        // Admin-only protection
+        if (path.startsWith("/admin/") || (path.startsWith("/api/admin/") && !path.startsWith("/api/admin/interchanges"))
+                || path.contains("admin-users") || path.contains("concurrency-monitor")) {
+            if (user == null) {
+                if (path.startsWith("/api/admin/") || (!path.endsWith(".html") && !path.contains("."))) {
+                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
+                } else {
+                    res.sendRedirect(contextPath + "/login.html?redirect=" + path);
+                }
                 return;
             }
             if (user.getRole() != Role.ADMIN) {
@@ -69,26 +92,50 @@ public class AuthorizationFilter implements Filter {
             }
         }
 
-        // Librarian-only protection
-        if (path.startsWith("/librarian/") || path.contains("librarian-dashboard")) {
+        // Librarian & Staff protection (Librarian Operations, Borrowing Management & Fines)
+        if (path.startsWith("/librarian/") || path.contains("librarian-dashboard") || path.contains("borrowing-management")
+                || path.startsWith("/borrow/issue") || path.startsWith("/borrow/return") || path.startsWith("/borrow/active")
+                || path.startsWith("/borrow/overdue") || path.startsWith("/borrow/lookup")
+                || path.startsWith("/fines") || path.startsWith("/payments/verify")) {
             if (user == null) {
-                res.sendRedirect(contextPath + "/login.html?redirect=" + path);
+                if (path.endsWith(".html") || !path.contains(".")) {
+                    res.sendRedirect(contextPath + "/login.html?redirect=" + path);
+                } else {
+                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
+                }
                 return;
             }
             if (user.getRole() != Role.LIBRARIAN && user.getRole() != Role.ADMIN) {
-                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Librarian role required.");
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Librarian or Administrator role required.");
                 return;
             }
         }
 
-        // Student-only protection
-        if (path.startsWith("/student/") || path.contains("student-home")) {
+        // Student-only protection (Student Portal, My Borrowings, My Reservations & My Fines)
+        if (path.startsWith("/student/") || path.contains("student-home") || path.contains("my-borrowings") 
+                || path.contains("my-reservations") || path.contains("my-books") || path.contains("my-fines")) {
             if (user == null) {
                 res.sendRedirect(contextPath + "/login.html?redirect=" + path);
                 return;
             }
             if (user.getRole() != Role.STUDENT && user.getRole() != Role.ADMIN) {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Student role required.");
+                return;
+            }
+        }
+
+        // Student & Staff API & Receipt protection
+        if (path.startsWith("/borrow/student") || path.startsWith("/borrow/history") 
+                || path.startsWith("/reservations") || path.startsWith("/allocations")
+                || path.startsWith("/my-fines") || path.startsWith("/payments") || path.startsWith("/receipt")
+                || path.startsWith("/interchanges")
+                || path.contains("receipt.html")) {
+            if (user == null) {
+                if (path.endsWith(".html")) {
+                    res.sendRedirect(contextPath + "/login.html?redirect=" + path);
+                } else {
+                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
+                }
                 return;
             }
         }

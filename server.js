@@ -345,6 +345,254 @@ function saveBooks() {
     }
 }
 
+// =============================================================================
+// Feature 3: Book Borrowing Data Store & Helpers
+// =============================================================================
+const BORROWINGS_FILE = path.join(__dirname, 'dev_borrowings.json');
+
+const DEFAULT_BORROWINGS = [
+    {
+        transactionId: 1,
+        studentId: 4,
+        bookId: 1,
+        copyId: 1,
+        issueDate: '2026-10-25',
+        dueDate: '2026-11-08',
+        returnDate: null,
+        status: 'ACTIVE',
+        issuedBy: 2,
+        returnedBy: null,
+        createdAt: '2026-10-25 10:00:00',
+        updatedAt: '2026-10-25 10:00:00'
+    },
+    {
+        transactionId: 2,
+        studentId: 5,
+        bookId: 2,
+        copyId: 5,
+        issueDate: '2026-10-01',
+        dueDate: '2026-10-15',
+        returnDate: '2026-10-14',
+        status: 'RETURNED',
+        issuedBy: 2,
+        returnedBy: 2,
+        createdAt: '2026-10-01 11:00:00',
+        updatedAt: '2026-10-14 15:30:00'
+    }
+];
+
+let borrowings = DEFAULT_BORROWINGS;
+try {
+    if (fs.existsSync(BORROWINGS_FILE)) {
+        borrowings = JSON.parse(fs.readFileSync(BORROWINGS_FILE, 'utf-8'));
+    } else {
+        fs.writeFileSync(BORROWINGS_FILE, JSON.stringify(borrowings, null, 2));
+    }
+} catch (e) {
+    borrowings = DEFAULT_BORROWINGS;
+}
+
+// Sync active borrowings with copy status
+for (const tx of borrowings) {
+    if (tx.status === 'ACTIVE') {
+        const copy = bookData.copies.find(c => c.copyId === tx.copyId);
+        if (copy) copy.status = 'BORROWED';
+    }
+}
+saveBooks();
+
+function saveBorrowings() {
+    try {
+        fs.writeFileSync(BORROWINGS_FILE, JSON.stringify(borrowings, null, 2));
+    } catch (e) {
+        console.error('Failed to save borrowings:', e);
+    }
+}
+
+// =============================================================================
+// Feature 4: Reservation Persistence & In-Memory Queue State
+// =============================================================================
+const RESERVATIONS_FILE = path.join(__dirname, 'dev_reservations.json');
+
+let reservations = [];
+try {
+    if (fs.existsSync(RESERVATIONS_FILE)) {
+        reservations = JSON.parse(fs.readFileSync(RESERVATIONS_FILE, 'utf-8'));
+    } else {
+        fs.writeFileSync(RESERVATIONS_FILE, JSON.stringify(reservations, null, 2));
+    }
+} catch (e) {
+    reservations = [];
+}
+
+function saveReservations() {
+    try {
+        fs.writeFileSync(RESERVATIONS_FILE, JSON.stringify(reservations, null, 2));
+    } catch (e) {
+        console.error('Failed to save reservations:', e);
+    }
+}
+
+const ALLOCATIONS_FILE = path.join(__dirname, 'dev_allocations.json');
+let allocations = [];
+try {
+    if (fs.existsSync(ALLOCATIONS_FILE)) {
+        allocations = JSON.parse(fs.readFileSync(ALLOCATIONS_FILE, 'utf-8'));
+    } else {
+        fs.writeFileSync(ALLOCATIONS_FILE, JSON.stringify(allocations, null, 2));
+    }
+} catch (e) {
+    allocations = [];
+}
+
+function saveAllocations() {
+    try {
+        fs.writeFileSync(ALLOCATIONS_FILE, JSON.stringify(allocations, null, 2));
+    } catch (e) {
+        console.error('Failed to save allocations:', e);
+    }
+}
+
+// =============================================================================
+// Feature 6: Fines & Payments Persistence
+// =============================================================================
+const FINES_FILE = path.join(__dirname, 'dev_fines.json');
+let fines = [];
+try {
+    if (fs.existsSync(FINES_FILE)) {
+        fines = JSON.parse(fs.readFileSync(FINES_FILE, 'utf-8'));
+    } else {
+        fs.writeFileSync(FINES_FILE, JSON.stringify(fines, null, 2));
+    }
+} catch (e) {
+    fines = [];
+}
+
+function saveFines() {
+    try {
+        fs.writeFileSync(FINES_FILE, JSON.stringify(fines, null, 2));
+    } catch (e) {
+        console.error('Failed to save fines:', e);
+    }
+}
+
+const PAYMENTS_FILE = path.join(__dirname, 'dev_payments.json');
+let payments = [];
+try {
+    if (fs.existsSync(PAYMENTS_FILE)) {
+        payments = JSON.parse(fs.readFileSync(PAYMENTS_FILE, 'utf-8'));
+    } else {
+        fs.writeFileSync(PAYMENTS_FILE, JSON.stringify(payments, null, 2));
+    }
+} catch (e) {
+    payments = [];
+}
+
+function savePayments() {
+    try {
+        fs.writeFileSync(PAYMENTS_FILE, JSON.stringify(payments, null, 2));
+    } catch (e) {
+        console.error('Failed to save payments:', e);
+    }
+}
+
+function enrichReservation(r) {
+    const student = users.find(u => u.userId === r.studentId) || {};
+    const book = bookData.books.find(b => b.bookId === r.bookId) || {};
+
+    // Compute live FIFO position
+    let queuePosition = 1;
+    let totalWaiting = 0;
+    let allocDetails = {};
+
+    if (r.status === 'WAITING') {
+        const bookQueue = reservations
+            .filter(item => item.bookId === r.bookId && item.status === 'WAITING')
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt) || (a.reservationId - b.reservationId));
+
+        totalWaiting = bookQueue.length;
+        const idx = bookQueue.findIndex(item => item.reservationId === r.reservationId);
+        queuePosition = idx >= 0 ? idx + 1 : 1;
+    } else if (r.status === 'ALLOCATED') {
+        queuePosition = null;
+        const alloc = allocations.find(a => a.reservationId === r.reservationId && a.status === 'ALLOCATED');
+        if (alloc) {
+            allocDetails = {
+                allocationId: alloc.allocationId,
+                copyId: alloc.copyId,
+                copyCode: alloc.copyCode,
+                copyIdentifier: alloc.copyCode,
+                allocationExpiresAt: alloc.expiresAt,
+                expiresAt: alloc.expiresAt,
+                allocatedAt: alloc.allocatedAt,
+                readyForCollection: true
+            };
+        }
+    }
+
+    return {
+        ...r,
+        studentName: student.name || 'Student',
+        registerNumber: student.registerNumber || '--',
+        studentDepartment: student.department || '--',
+        bookTitle: book.title || 'Book',
+        bookAuthor: book.author || 'Author',
+        bookIsbn: book.isbn || '',
+        coverImageUrl: book.coverImageUrl || '',
+        queuePosition,
+        totalWaitingInQueue: totalWaiting,
+        ...allocDetails
+    };
+}
+
+function enrichBorrowTransaction(tx) {
+    const student = users.find(u => u.userId === tx.studentId) || {};
+    const book = bookData.books.find(b => b.bookId === tx.bookId) || {};
+    const copy = bookData.copies.find(c => c.copyId === tx.copyId) || {};
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const today = new Date(todayStr);
+    const dueDate = new Date(tx.dueDate);
+
+    let overdue = false;
+    let overdueDays = 0;
+    let daysRemaining = 0;
+
+    if (tx.status === 'ACTIVE') {
+        const diffTime = today - dueDate;
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 0) {
+            overdue = true;
+            overdueDays = diffDays;
+            daysRemaining = -diffDays;
+        } else {
+            overdue = false;
+            overdueDays = 0;
+            daysRemaining = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+        }
+    } else if (tx.returnDate) {
+        const returnDate = new Date(tx.returnDate);
+        const diff = Math.floor((returnDate - dueDate) / (1000 * 60 * 60 * 24));
+        overdueDays = diff > 0 ? diff : 0;
+    }
+
+    return {
+        ...tx,
+        studentName: student.name || 'Unknown Student',
+        registerNumber: student.registerNumber || '-',
+        studentDepartment: student.department || '-',
+        studentYear: student.year || null,
+        bookTitle: book.title || 'Unknown Title',
+        bookAuthor: book.author || 'PSG iTech',
+        coverImageUrl: book.coverImageUrl || `https://covers.openlibrary.org/b/isbn/${(book.isbn || '').replace(/[^0-9X]/gi, '')}-L.jpg`,
+        copyCode: copy.copyCode || `PSG-BK${tx.bookId}-C${tx.copyId}`,
+        overdue,
+        overdueDays,
+        daysRemaining
+    };
+}
+
+
 function computeBookInventory(bookId) {
     const copies = bookData.copies.filter(c => c.bookId === bookId);
     let totalCopies = copies.length;
@@ -435,9 +683,22 @@ function sanitizeUser(u) {
     return copy;
 }
 
+function getSessionUser(req) {
+    const cookies = parseCookies(req);
+    if (cookies.psgitech_session && sessions.has(cookies.psgitech_session)) {
+        return sessions.get(cookies.psgitech_session);
+    }
+    if (cookies.psgitech_remember_me && rememberTokens.has(cookies.psgitech_remember_me)) {
+        const userId = rememberTokens.get(cookies.psgitech_remember_me);
+        return users.find(u => u.userId === userId && u.active !== false);
+    }
+    return null;
+}
+
 const server = http.createServer(async (req, res) => {
     const parsedUrl = url.parse(req.url, true);
     let pathname = parsedUrl.pathname;
+    const queryParams = parsedUrl.query || {};
 
     // Normalize Tomcat context path /psgitech-library/
     if (pathname.startsWith('/psgitech-library')) {
@@ -1120,6 +1381,1332 @@ const server = http.createServer(async (req, res) => {
 
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, message: 'Either bookId or copyId is required for archival.' }));
+        return;
+    }
+
+    // =========================================================================
+    // Feature 3: Borrowing & Circulation REST Endpoints
+    // =========================================================================
+
+    // 1. POST /borrow/issue (Issue a physical copy to student)
+    if (pathname === '/borrow/issue' && req.method === 'POST') {
+        const body = await parseRequestBody(req);
+        const regNo = (body.registerNumber || body.studentRegisterNumber || '').trim();
+        const copyId = parseInt(body.copyId, 10);
+
+        if (!regNo || !copyId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Student Register Number and Copy ID are required.' }));
+            return;
+        }
+
+        const student = users.find(u => (u.registerNumber || '').toLowerCase() === regNo.toLowerCase());
+        if (!student) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: `Student with register number "${regNo}" was not found.` }));
+            return;
+        }
+
+        if (!student.active) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Student account is inactive or suspended. Cannot issue books.' }));
+            return;
+        }
+
+        if (student.role !== 'STUDENT') {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'User is not a student. Only registered students may borrow books.' }));
+            return;
+        }
+
+        const copy = bookData.copies.find(c => c.copyId === copyId);
+        if (!copy) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: `Physical copy #${copyId} does not exist.` }));
+            return;
+        }
+
+        let isAllocatedCollection = false;
+        if (copy.status === 'ALLOCATED') {
+            const activeAlloc = allocations.find(a => a.copyId === copy.copyId && a.status === 'ALLOCATED');
+            if (!activeAlloc || activeAlloc.studentId !== student.userId) {
+                res.writeHead(409, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'This physical copy is currently held for another student.' }));
+                return;
+            }
+            isAllocatedCollection = true;
+        } else if (copy.archived || copy.status !== 'AVAILABLE') {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: `Physical copy ${copy.copyCode} is currently ${copy.status} and cannot be issued.` }));
+            return;
+        }
+
+        const book = bookData.books.find(b => b.bookId === copy.bookId);
+        if (!book || book.archived) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Cannot borrow copies from an archived book title.' }));
+            return;
+        }
+
+        // Active borrowing limit check (3 books)
+        const activeCount = borrowings.filter(t => t.studentId === student.userId && t.status === 'ACTIVE').length;
+        if (activeCount >= 3) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Student has reached the maximum borrowing limit (3 active books).' }));
+            return;
+        }
+
+        // Same-book restriction check
+        const hasSameBook = borrowings.find(t => t.studentId === student.userId && t.bookId === copy.bookId && t.status === 'ACTIVE');
+        if (hasSameBook) {
+            const existingCopy = bookData.copies.find(c => c.copyId === hasSameBook.copyId);
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                message: `Student already has an active copy of this textbook (${existingCopy ? existingCopy.copyCode : 'PSG-BK' + copy.bookId}). Students cannot borrow multiple copies of the same book simultaneously.`
+            }));
+            return;
+        }
+
+        // Check if copy is already in ACTIVE transaction
+        const copyActiveTx = borrowings.find(t => t.copyId === copyId && t.status === 'ACTIVE');
+        if (copyActiveTx) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: `Physical copy ${copy.copyCode} is already borrowed in active transaction #${copyActiveTx.transactionId}.` }));
+            return;
+        }
+
+        const today = new Date();
+        const dueDate = new Date();
+        dueDate.setDate(today.getDate() + 14);
+
+        const fmt = d => d.toISOString().split('T')[0];
+        const newTxId = (borrowings.reduce((max, t) => Math.max(max, t.transactionId || 0), 0) || 0) + 1;
+
+        const newTx = {
+            transactionId: newTxId,
+            studentId: student.userId,
+            bookId: copy.bookId,
+            copyId: copy.copyId,
+            issueDate: fmt(today),
+            dueDate: fmt(dueDate),
+            returnDate: null,
+            status: 'ACTIVE',
+            issuedBy: (currentUser && currentUser.userId) || 2,
+            returnedBy: null,
+            createdAt: today.toISOString(),
+            updatedAt: today.toISOString()
+        };
+
+        // Update physical copy status
+        copy.status = 'BORROWED';
+        saveBooks();
+
+        borrowings.push(newTx);
+        saveBorrowings();
+
+        if (isAllocatedCollection) {
+            const activeAlloc = allocations.find(a => a.copyId === copy.copyId && a.status === 'ALLOCATED');
+            if (activeAlloc) {
+                activeAlloc.status = 'COLLECTED';
+                activeAlloc.collectedAt = new Date().toISOString();
+                activeAlloc.borrowTransactionId = newTx.transactionId;
+                saveAllocations();
+
+                const resObj = reservations.find(r => r.reservationId === activeAlloc.reservationId);
+                if (resObj) {
+                    resObj.status = 'FULFILLED';
+                    resObj.updatedAt = new Date().toISOString();
+                    saveReservations();
+                }
+            }
+        }
+
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            success: true,
+            message: isAllocatedCollection ? 'Book collected and issued successfully from hold allocation.' : 'Book issued successfully',
+            data: {
+                transactionId: newTx.transactionId,
+                bookTitle: book.title,
+                copyCode: copy.copyCode,
+                issueDate: newTx.issueDate,
+                dueDate: newTx.dueDate,
+                status: 'ACTIVE',
+                collectedFromAllocation: isAllocatedCollection
+            }
+        }));
+        return;
+    }
+
+    // 2. POST /borrow/return or /borrowings/return (Process book return with automatic allocation)
+    if ((pathname === '/borrow/return' || pathname === '/borrowings/return') && req.method === 'POST') {
+        const body = await parseRequestBody(req);
+        const txId = parseInt(body.transactionId, 10);
+
+        if (!txId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Valid transaction ID is required.' }));
+            return;
+        }
+
+        const tx = borrowings.find(t => t.transactionId === txId);
+        if (!tx) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: `Borrowing transaction #${txId} was not found.` }));
+            return;
+        }
+
+        if (tx.status === 'RETURNED') {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'This book has already been returned. Duplicate return recording is prohibited.' }));
+            return;
+        }
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        tx.status = 'RETURNED';
+        tx.returnDate = todayStr;
+        tx.returnedBy = (currentUser && currentUser.userId) || 2;
+        tx.updatedAt = new Date().toISOString();
+
+        const copy = bookData.copies.find(c => c.copyId === tx.copyId);
+        const book = bookData.books.find(b => b.bookId === tx.bookId) || {};
+
+        // Feature 5: Evaluate FIFO Reservation Queue for Automatic Allocation
+        let allocationResult = null;
+        const candidates = reservations
+            .filter(r => r.bookId === tx.bookId && r.status === 'WAITING')
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt) || (a.reservationId - b.reservationId));
+
+        let selectedCandidate = null;
+        for (const cand of candidates) {
+            const student = users.find(u => u.userId === cand.studentId);
+            if (!student || student.active === false) continue;
+
+            const activeLoans = borrowings.filter(b => b.studentId === cand.studentId && b.status === 'ACTIVE').length;
+            const activeAllocs = allocations.filter(a => a.studentId === cand.studentId && a.status === 'ALLOCATED').length;
+            if ((activeLoans + activeAllocs) >= 3) continue;
+
+            const hasActiveLoanForBook = borrowings.some(b => b.studentId === cand.studentId && b.bookId === tx.bookId && b.status === 'ACTIVE');
+            if (hasActiveLoanForBook) continue;
+
+            selectedCandidate = cand;
+            break;
+        }
+
+        if (selectedCandidate && copy) {
+            selectedCandidate.status = 'ALLOCATED';
+            selectedCandidate.updatedAt = new Date().toISOString();
+
+            copy.status = 'ALLOCATED';
+
+            const newAllocId = (allocations.reduce((m, a) => Math.max(m, a.allocationId || 0), 0) || 0) + 1;
+            const expiresAtIso = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+            const student = users.find(u => u.userId === selectedCandidate.studentId) || {};
+
+            const newAlloc = {
+                allocationId: newAllocId,
+                reservationId: selectedCandidate.reservationId,
+                studentId: selectedCandidate.studentId,
+                bookId: tx.bookId,
+                copyId: copy.copyId,
+                copyCode: copy.copyCode,
+                returnTransactionId: tx.transactionId,
+                status: 'ALLOCATED',
+                allocatedAt: new Date().toISOString(),
+                expiresAt: expiresAtIso
+            };
+            allocations.push(newAlloc);
+            saveAllocations();
+            saveReservations();
+
+            allocationResult = {
+                allocationId: newAlloc.allocationId,
+                copyId: copy.copyId,
+                copyIdentifier: copy.copyCode,
+                copyCode: copy.copyCode,
+                bookTitle: book.title || 'Book',
+                studentName: student.name || 'Student',
+                registerNumber: student.registerNumber || '--',
+                expiresAt: expiresAtIso
+            };
+        } else if (copy) {
+            copy.status = 'AVAILABLE';
+        }
+
+        // Feature 6: Atomic overdue fine calculation upon return
+        let fineRecord = null;
+        if (tx.dueDate) {
+            const due = new Date(tx.dueDate);
+            const ret = new Date(tx.returnDate);
+            const diffTime = ret.getTime() - due.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays > 0) {
+                const fineAmount = (diffDays * 2.0).toFixed(2);
+                const newFineId = (fines.reduce((m, f) => Math.max(m, f.fineId || 0), 0) || 0) + 1;
+                const student = users.find(u => u.userId === tx.studentId) || {};
+                fineRecord = {
+                    fineId: newFineId,
+                    borrowTransactionId: tx.transactionId,
+                    studentId: tx.studentId,
+                    bookId: tx.bookId,
+                    copyId: tx.copyId,
+                    overdueDays: diffDays,
+                    chargeableDays: diffDays,
+                    finePerDay: "2.00",
+                    originalAmount: fineAmount,
+                    paidAmount: "0.00",
+                    waivedAmount: "0.00",
+                    outstandingAmount: fineAmount,
+                    status: 'UNPAID',
+                    createdAt: new Date().toISOString(),
+                    bookTitle: book.title || 'Book',
+                    copyCode: copy ? copy.copyCode : '',
+                    studentName: student.name || 'Student',
+                    registerNumber: student.registerNumber || '--',
+                    returnDate: tx.returnDate
+                };
+                fines.push(fineRecord);
+                saveFines();
+            }
+        }
+
+        saveBooks();
+        saveBorrowings();
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            success: true,
+            message: 'Book returned successfully',
+            data: {
+                transactionId: tx.transactionId,
+                returnDate: tx.returnDate,
+                status: 'RETURNED',
+                copyCode: copy ? copy.copyCode : '',
+                allocation: allocationResult,
+                fine: fineRecord ? {
+                    fineId: fineRecord.fineId,
+                    overdueDays: fineRecord.overdueDays,
+                    amount: fineRecord.originalAmount,
+                    outstanding: fineRecord.outstandingAmount,
+                    status: fineRecord.status
+                } : null
+            }
+        }));
+        return;
+    }
+
+    // 3. GET /borrow/student (Student currently borrowed & history)
+    if (pathname === '/borrow/student' && req.method === 'GET') {
+        let studentId = null;
+        if (currentUser && currentUser.role === 'STUDENT') {
+            studentId = currentUser.userId;
+        } else if (currentUser && (currentUser.role === 'LIBRARIAN' || currentUser.role === 'ADMIN')) {
+            if (queryParams.studentId) studentId = parseInt(queryParams.studentId, 10);
+            else if (queryParams.registerNumber) {
+                const s = users.find(u => (u.registerNumber || '').toLowerCase() === queryParams.registerNumber.toLowerCase());
+                if (s) studentId = s.userId;
+            } else {
+                studentId = currentUser.userId;
+            }
+        } else {
+            // Default to demo student if not logged in (e.g. preview mode)
+            studentId = 4;
+        }
+
+        const type = (queryParams.type || 'active').toLowerCase();
+        let list = borrowings.filter(t => t.studentId === studentId);
+
+        if (type === 'history') {
+            // All records
+        } else if (type === 'returned') {
+            list = list.filter(t => t.status === 'RETURNED');
+        } else if (type === 'overdue') {
+            const todayStr = new Date().toISOString().split('T')[0];
+            list = list.filter(t => t.status === 'ACTIVE' && t.dueDate < todayStr);
+        } else {
+            // Default active
+            list = list.filter(t => t.status === 'ACTIVE');
+        }
+
+        const enrichedList = list.map(enrichBorrowTransaction);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, count: enrichedList.length, data: enrichedList }));
+        return;
+    }
+
+    // 4. GET /borrow/active (All active borrowings for staff)
+    if (pathname === '/borrow/active' && req.method === 'GET') {
+        let list = borrowings.filter(t => t.status === 'ACTIVE').map(enrichBorrowTransaction);
+        const q = (queryParams.q || queryParams.query || '').trim().toLowerCase();
+
+        if (q) {
+            list = list.filter(tx =>
+                tx.bookTitle.toLowerCase().includes(q) ||
+                tx.studentName.toLowerCase().includes(q) ||
+                tx.registerNumber.toLowerCase().includes(q) ||
+                tx.copyCode.toLowerCase().includes(q)
+            );
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, count: list.length, data: list }));
+        return;
+    }
+
+    // 5. GET /borrow/history (Borrowing history)
+    if (pathname === '/borrow/history' && req.method === 'GET') {
+        let list = borrowings.map(enrichBorrowTransaction);
+
+        if (currentUser && currentUser.role === 'STUDENT') {
+            list = list.filter(tx => tx.studentId === currentUser.userId);
+        } else {
+            const q = (queryParams.q || queryParams.query || '').trim().toLowerCase();
+            if (q) {
+                list = list.filter(tx =>
+                    tx.bookTitle.toLowerCase().includes(q) ||
+                    tx.studentName.toLowerCase().includes(q) ||
+                    tx.registerNumber.toLowerCase().includes(q) ||
+                    tx.copyCode.toLowerCase().includes(q)
+                );
+            }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, count: list.length, data: list }));
+        return;
+    }
+
+    // 6. GET /borrow/overdue (Active overdue loans)
+    if (pathname === '/borrow/overdue' && req.method === 'GET') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const list = borrowings.filter(t => t.status === 'ACTIVE' && t.dueDate < todayStr).map(enrichBorrowTransaction);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, count: list.length, data: list }));
+        return;
+    }
+
+    // 7. GET /borrow/lookup (Staff issue and return desk lookups)
+    if (pathname === '/borrow/lookup' && req.method === 'GET') {
+        const type = (queryParams.type || '').toLowerCase();
+
+        if (type === 'student') {
+            const regNo = (queryParams.registerNumber || queryParams.regNo || '').trim();
+            if (!regNo) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'Register number is required.' }));
+                return;
+            }
+
+            const student = users.find(u => (u.registerNumber || '').toLowerCase() === regNo.toLowerCase());
+            if (!student) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: `Student with register number "${regNo}" was not found.` }));
+                return;
+            }
+
+            const activeBorrowings = borrowings.filter(t => t.studentId === student.userId && t.status === 'ACTIVE').length;
+            const remainingCapacity = Math.max(0, 3 - activeBorrowings);
+            const isEligible = student.active && remainingCapacity > 0;
+
+            let alreadyHasSameBook = false;
+            if (queryParams.bookId) {
+                const bId = parseInt(queryParams.bookId, 10);
+                alreadyHasSameBook = borrowings.some(t => t.studentId === student.userId && t.bookId === bId && t.status === 'ACTIVE');
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                data: {
+                    studentId: student.userId,
+                    studentName: student.name,
+                    registerNumber: student.registerNumber,
+                    department: student.department,
+                    year: student.year,
+                    accountStatus: student.active ? 'ACTIVE' : 'INACTIVE',
+                    activeBorrowings,
+                    maxLimit: 3,
+                    remainingCapacity,
+                    isEligible,
+                    alreadyHasSameBook
+                }
+            }));
+            return;
+        }
+
+        if (type === 'return') {
+            const q = (queryParams.q || queryParams.query || '').trim().toLowerCase();
+            let activeList = borrowings.filter(t => t.status === 'ACTIVE').map(enrichBorrowTransaction);
+
+            if (q) {
+                activeList = activeList.filter(tx =>
+                    String(tx.transactionId) === q ||
+                    tx.copyCode.toLowerCase() === q ||
+                    tx.registerNumber.toLowerCase() === q ||
+                    tx.bookTitle.toLowerCase().includes(q)
+                );
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, count: activeList.length, data: activeList }));
+            return;
+        }
+
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Valid lookup type ("student" or "return") is required.' }));
+        return;
+    }
+
+    // =========================================================================
+    // FEATURE 4: RESERVATION QUEUE ENDPOINTS
+    // =========================================================================
+
+    // 1. POST /reservations (Student joins waiting queue)
+    if ((pathname === '/reservations' || pathname === '/reservations/') && req.method === 'POST') {
+        const user = getSessionUser(req);
+        if (!user) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Authentication required. Please log in.' }));
+            return;
+        }
+        if (user.role !== 'STUDENT') {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Access denied. Only registered students may reserve books.' }));
+            return;
+        }
+
+        const body = await parseRequestBody(req);
+        const bookId = parseInt(body.bookId || queryParams.bookId, 10);
+        if (!bookId || isNaN(bookId) || bookId <= 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Valid book ID is required.' }));
+            return;
+        }
+
+        const book = bookData.books.find(b => b.bookId === bookId);
+        if (!book) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Book not found.' }));
+            return;
+        }
+        if (book.isArchived) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Cannot reserve copies of an archived book title.' }));
+            return;
+        }
+
+        const copies = bookData.copies.filter(c => c.bookId === bookId);
+        const reservableCopies = copies.filter(c => c.status !== 'ARCHIVED');
+        const availableCopies = copies.filter(c => c.status === 'AVAILABLE');
+
+        if (reservableCopies.length === 0) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'This book has no physical copies in active circulation to reserve.' }));
+            return;
+        }
+
+        if (availableCopies.length > 0) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                message: 'Copies of this book are currently available for borrowing at the library desk. Reservations are only permitted when all copies are checked out.'
+            }));
+            return;
+        }
+
+        // Active borrow check
+        const activeBorrow = borrowings.find(t => t.studentId === user.userId && t.bookId === bookId && t.status === 'ACTIVE');
+        if (activeBorrow) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                message: 'You are currently borrowing an active copy of this book. Students cannot hold both a borrow loan and a reservation for the same title.'
+            }));
+            return;
+        }
+
+        // Duplicate reservation check
+        const existingRes = reservations.find(r => r.studentId === user.userId && r.bookId === bookId && (r.status === 'WAITING' || r.status === 'ALLOCATED'));
+        if (existingRes) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'You already hold an active reservation for this book.' }));
+            return;
+        }
+
+        // Student active reservation limit check (3 max)
+        const studentActiveResCount = reservations.filter(r => r.studentId === user.userId && (r.status === 'WAITING' || r.status === 'ALLOCATED')).length;
+        if (studentActiveResCount >= 3) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'You have reached the maximum active reservation limit (3 active reservations).' }));
+            return;
+        }
+
+        const newId = (reservations.reduce((max, r) => Math.max(max, r.reservationId || 0), 0) || 0) + 1;
+        const nowIso = new Date().toISOString();
+        const todayStr = nowIso.split('T')[0];
+
+        const newRes = {
+            reservationId: newId,
+            studentId: user.userId,
+            bookId,
+            reservationDate: todayStr,
+            status: 'WAITING',
+            cancelledAt: null,
+            cancelledBy: null,
+            createdAt: nowIso,
+            updatedAt: nowIso
+        };
+        reservations.push(newRes);
+        saveReservations();
+
+        const enriched = enrichReservation(newRes);
+
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            success: true,
+            message: `Reservation placed successfully. You are #${enriched.queuePosition} in queue.`,
+            data: {
+                reservationId: enriched.reservationId,
+                bookId: enriched.bookId,
+                bookTitle: enriched.bookTitle,
+                reservationDate: enriched.reservationDate,
+                status: enriched.status,
+                queuePosition: enriched.queuePosition,
+                totalWaitingInQueue: enriched.totalWaitingInQueue
+            }
+        }));
+        return;
+    }
+
+    // 2. GET /reservations (Book queue status OR staff all-queues)
+    if ((pathname === '/reservations' || pathname === '/reservations/') && req.method === 'GET') {
+        const user = getSessionUser(req);
+        if (!user) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Authentication required. Please log in.' }));
+            return;
+        }
+
+        const bookId = parseInt(queryParams.bookId, 10);
+        if (bookId && !isNaN(bookId) && bookId > 0) {
+            const bookQueue = reservations
+                .filter(r => r.bookId === bookId && r.status === 'WAITING')
+                .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt) || a.reservationId - b.reservationId);
+
+            const waitingCount = bookQueue.length;
+            const resData = {
+                success: true,
+                bookId,
+                waitingCount
+            };
+
+            if (user.role === 'LIBRARIAN' || user.role === 'ADMIN') {
+                resData.queue = bookQueue.map((r, idx) => {
+                    const enriched = enrichReservation(r);
+                    return {
+                        reservationId: r.reservationId,
+                        queuePosition: idx + 1,
+                        studentName: enriched.studentName,
+                        registerNumber: enriched.registerNumber,
+                        reservationDate: r.reservationDate,
+                        status: r.status
+                    };
+                });
+            } else if (user.role === 'STUDENT') {
+                const myRes = reservations.find(r => r.studentId === user.userId && r.bookId === bookId && (r.status === 'WAITING' || r.status === 'ALLOCATED'));
+                if (myRes) {
+                    const enriched = enrichReservation(myRes);
+                    resData.myReservation = {
+                        reservationId: myRes.reservationId,
+                        queuePosition: enriched.queuePosition,
+                        status: myRes.status
+                    };
+                } else {
+                    resData.myReservation = null;
+                }
+
+                const currentlyBorrowed = borrowings.some(t => t.studentId === user.userId && t.bookId === bookId && t.status === 'ACTIVE');
+                resData.currentlyBorrowedByMe = currentlyBorrowed;
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(resData));
+            return;
+        } else {
+            // Staff all-queues
+            if (user.role !== 'LIBRARIAN' && user.role !== 'ADMIN') {
+                res.writeHead(403, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'Access denied. Only Librarians and Administrators can view all library queues.' }));
+                return;
+            }
+
+            const activeQueue = reservations
+                .filter(r => r.status === 'WAITING')
+                .map(enrichReservation)
+                .sort((a, b) => (a.bookTitle || '').localeCompare(b.bookTitle || '') || (a.queuePosition - b.queuePosition));
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                page: 1,
+                pageSize: 50,
+                count: activeQueue.length,
+                reservations: activeQueue
+            }));
+            return;
+        }
+    }
+
+    // 3. GET /reservations/my (Student view)
+    if (pathname === '/reservations/my' && req.method === 'GET') {
+        const user = getSessionUser(req);
+        if (!user) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Authentication required. Please log in.' }));
+            return;
+        }
+
+        let targetStudentId = user.userId;
+        if ((user.role === 'LIBRARIAN' || user.role === 'ADMIN') && queryParams.studentId) {
+            targetStudentId = parseInt(queryParams.studentId, 10) || user.userId;
+        }
+
+        const activeReservations = reservations
+            .filter(r => r.studentId === targetStudentId && (r.status === 'WAITING' || r.status === 'ALLOCATED'))
+            .map(enrichReservation)
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+        const reservationHistory = reservations
+            .filter(r => r.studentId === targetStudentId && r.status !== 'WAITING' && r.status !== 'ALLOCATED')
+            .map(enrichReservation)
+            .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            success: true,
+            data: {
+                activeReservations,
+                reservationHistory,
+                summary: {
+                    activeCount: activeReservations.length,
+                    maxLimit: 3,
+                    remainingCapacity: Math.max(0, 3 - activeReservations.length)
+                }
+            }
+        }));
+        return;
+    }
+
+    // 4. POST /reservations/cancel (Cancel WAITING reservation)
+    if (pathname === '/reservations/cancel' && req.method === 'POST') {
+        const user = getSessionUser(req);
+        if (!user) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Authentication required. Please log in.' }));
+            return;
+        }
+
+        const body = await parseRequestBody(req);
+        const resId = parseInt(body.reservationId || queryParams.reservationId, 10);
+        if (!resId || isNaN(resId) || resId <= 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Valid reservation ID is required.' }));
+            return;
+        }
+
+        const resObj = reservations.find(r => r.reservationId === resId);
+        if (!resObj) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: `Reservation #${resId} not found.` }));
+            return;
+        }
+
+        // Ownership or staff check
+        if (user.role === 'STUDENT' && resObj.studentId !== user.userId) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: `Reservation #${resId} not found.` }));
+            return;
+        }
+
+        if (resObj.status !== 'WAITING' && resObj.status !== 'ALLOCATED') {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: `Reservation #${resId} cannot be cancelled because its status is ${resObj.status}.` }));
+            return;
+        }
+
+        const nowIso = new Date().toISOString();
+        let copyOutcome = null;
+        let nextStudentName = null;
+        let nextStudentRegisterNumber = null;
+
+        if (resObj.status === 'ALLOCATED') {
+            const activeAlloc = allocations.find(a => a.reservationId === resObj.reservationId && a.status === 'ALLOCATED');
+            if (activeAlloc) {
+                activeAlloc.status = 'CANCELLED';
+                activeAlloc.cancelledAt = nowIso;
+                activeAlloc.cancelledBy = user.userId;
+                saveAllocations();
+
+                const copy = bookData.copies.find(c => c.copyId === activeAlloc.copyId);
+                const nextCandidates = reservations
+                    .filter(r => r.bookId === resObj.bookId && r.status === 'WAITING')
+                    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt) || (a.reservationId - b.reservationId));
+
+                let nextCand = null;
+                for (const cand of nextCandidates) {
+                    const st = users.find(u => u.userId === cand.studentId);
+                    if (!st || st.active === false) continue;
+                    const activeLoans = borrowings.filter(b => b.studentId === cand.studentId && b.status === 'ACTIVE').length;
+                    const activeAllocs = allocations.filter(a => a.studentId === cand.studentId && a.status === 'ALLOCATED').length;
+                    if ((activeLoans + activeAllocs) >= 3) continue;
+                    nextCand = cand;
+                    break;
+                }
+
+                if (nextCand && copy) {
+                    nextCand.status = 'ALLOCATED';
+                    nextCand.updatedAt = nowIso;
+                    copy.status = 'ALLOCATED';
+
+                    const newAllocId = (allocations.reduce((m, a) => Math.max(m, a.allocationId || 0), 0) || 0) + 1;
+                    const expiresAtIso = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+                    const newAlloc = {
+                        allocationId: newAllocId,
+                        reservationId: nextCand.reservationId,
+                        studentId: nextCand.studentId,
+                        bookId: resObj.bookId,
+                        copyId: copy.copyId,
+                        copyCode: copy.copyCode,
+                        status: 'ALLOCATED',
+                        allocatedAt: nowIso,
+                        expiresAt: expiresAtIso
+                    };
+                    allocations.push(newAlloc);
+                    saveAllocations();
+
+                    copyOutcome = 'REALLOCATED';
+                    const nextSt = users.find(u => u.userId === nextCand.studentId) || {};
+                    nextStudentName = nextSt.name;
+                    nextStudentRegisterNumber = nextSt.registerNumber;
+                } else if (copy) {
+                    copy.status = 'AVAILABLE';
+                    copyOutcome = 'MADE_AVAILABLE';
+                }
+                saveBooks();
+            }
+        }
+
+        resObj.status = 'CANCELLED';
+        resObj.cancelledAt = nowIso;
+        resObj.cancelledBy = user.userId;
+        resObj.updatedAt = nowIso;
+        saveReservations();
+
+        const respData = {
+            reservationId: resObj.reservationId,
+            status: 'CANCELLED',
+            cancelledAt: resObj.cancelledAt
+        };
+        if (copyOutcome) {
+            respData.copyOutcome = copyOutcome;
+            if (user.role !== 'STUDENT' && copyOutcome === 'REALLOCATED') {
+                respData.nextStudentName = nextStudentName;
+                respData.nextStudentRegisterNumber = nextStudentRegisterNumber;
+            }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            success: true,
+            message: 'Reservation cancelled successfully.',
+            data: respData
+        }));
+        return;
+    }
+
+    // 5. GET /allocations (Staff Hold Shelf / Student view)
+    if ((pathname === '/allocations' || pathname === '/allocations/') && req.method === 'GET') {
+        const user = getSessionUser(req);
+        if (!user) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Authentication required. Please log in.' }));
+            return;
+        }
+
+        const isMine = queryParams.mine === 'true' || user.role === 'STUDENT';
+        if (isMine) {
+            const studentAllocs = allocations
+                .filter(a => a.studentId === user.userId && a.status === 'ALLOCATED')
+                .map(a => {
+                    const b = bookData.books.find(bk => bk.bookId === a.bookId) || {};
+                    const u = users.find(usr => usr.userId === a.studentId) || {};
+                    return {
+                        ...a,
+                        bookTitle: b.title || 'Book',
+                        bookIsbn: b.isbn || '',
+                        studentName: u.name || '',
+                        registerNumber: u.registerNumber || ''
+                    };
+                });
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, data: studentAllocs }));
+            return;
+        }
+
+        if (user.role !== 'LIBRARIAN' && user.role !== 'ADMIN') {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Access denied.' }));
+            return;
+        }
+
+        const statusFilter = queryParams.status || 'ALLOCATED';
+        const filteredAllocs = allocations
+            .filter(a => !statusFilter || a.status === statusFilter)
+            .map(a => {
+                const b = bookData.books.find(bk => bk.bookId === a.bookId) || {};
+                const u = users.find(usr => usr.userId === a.studentId) || {};
+                return {
+                    ...a,
+                    bookTitle: b.title || 'Book',
+                    bookIsbn: b.isbn || '',
+                    studentName: u.name || '',
+                    registerNumber: u.registerNumber || ''
+                };
+            })
+            .sort((a, b) => new Date(b.allocatedAt) - new Date(a.allocatedAt));
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            success: true,
+            data: {
+                allocations: filteredAllocs,
+                totalCount: filteredAllocs.length,
+                page: 1,
+                limit: 50,
+                totalPages: 1
+            }
+        }));
+        return;
+    }
+
+    // =========================================================================
+    // Feature 6: Fines & UPI Payments APIs
+    // =========================================================================
+
+    // 1. GET /my-fines
+    if ((pathname === '/my-fines' || pathname === '/fines/my') && req.method === 'GET') {
+        const user = getSessionUser(req);
+        if (!user) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Authentication required. Please log in.' }));
+            return;
+        }
+
+        const studentId = user.userId;
+        const studentFines = fines.filter(f => f.studentId === studentId);
+        const studentPayments = payments.filter(p => p.studentId === studentId);
+
+        let totalOutstanding = 0;
+        let totalPaid = 0;
+        let totalWaived = 0;
+        let unpaidCount = 0;
+
+        for (const f of studentFines) {
+            if (f.status === 'UNPAID' || f.status === 'PARTIALLY_PAID') {
+                unpaidCount++;
+                totalOutstanding += parseFloat(f.outstandingAmount || 0);
+            }
+            totalPaid += parseFloat(f.paidAmount || 0);
+            totalWaived += parseFloat(f.waivedAmount || 0);
+        }
+
+        // Projected fines
+        const projectedFines = [];
+        const activeLoans = borrowings.filter(b => b.studentId === studentId && b.status === 'ACTIVE');
+        const now = new Date();
+        for (const loan of activeLoans) {
+            if (loan.dueDate) {
+                const due = new Date(loan.dueDate);
+                if (now > due) {
+                    const days = Math.ceil((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
+                    if (days > 0) {
+                        const b = bookData.books.find(bk => bk.bookId === loan.bookId) || {};
+                        const c = bookData.copies.find(cp => cp.copyId === loan.copyId) || {};
+                        projectedFines.push({
+                            transactionId: loan.transactionId,
+                            bookTitle: b.title || 'Book',
+                            copyCode: c.copyCode || 'PSG-BK-C01',
+                            dueDate: loan.dueDate,
+                            overdueDays: days,
+                            ratePerDay: "2.00",
+                            projectedAmount: (days * 2.0).toFixed(2)
+                        });
+                    }
+                }
+            }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            success: true,
+            summary: {
+                totalOutstanding: totalOutstanding.toFixed(2),
+                totalPaid: totalPaid.toFixed(2),
+                totalWaived: totalWaived.toFixed(2),
+                unpaidCount: unpaidCount,
+                borrowingBlocked: totalOutstanding > 0
+            },
+            fines: studentFines,
+            projectedFines: projectedFines,
+            payments: studentPayments
+        }));
+        return;
+    }
+
+    // 2. GET /fines & POST /fines (Staff Search / Admin Waiver)
+    if ((pathname === '/fines' || pathname === '/fines/') && req.method === 'GET') {
+        const user = getSessionUser(req);
+        if (!user || (user.role !== 'LIBRARIAN' && user.role !== 'ADMIN')) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Access denied. Staff only.' }));
+            return;
+        }
+
+        let filtered = [...fines];
+        if (queryParams.registerNumber) {
+            const q = queryParams.registerNumber.toLowerCase();
+            filtered = filtered.filter(f => (f.registerNumber || '').toLowerCase().includes(q));
+        }
+        if (queryParams.status && queryParams.status !== 'ALL') {
+            filtered = filtered.filter(f => f.status === queryParams.status);
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            success: true,
+            fines: filtered,
+            totalCount: filtered.length,
+            page: 1,
+            pageSize: 50,
+            totalPages: 1
+        }));
+        return;
+    }
+
+    if ((pathname === '/fines' || pathname === '/fines/') && req.method === 'POST') {
+        const user = getSessionUser(req);
+        if (!user || user.role !== 'ADMIN') {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Access denied. Only Administrators can grant fine waivers.' }));
+            return;
+        }
+
+        const body = await parseRequestBody(req);
+        const fineId = parseInt(body.fineId, 10);
+        const amount = parseFloat(body.amount);
+        const reason = (body.reason || '').trim();
+
+        if (!fineId || isNaN(amount) || amount <= 0 || !reason) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Fine ID, valid positive amount, and mandatory reason are required.' }));
+            return;
+        }
+
+        const fine = fines.find(f => f.fineId === fineId);
+        if (!fine) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Fine record not found.' }));
+            return;
+        }
+
+        const out = parseFloat(fine.outstandingAmount || 0);
+        if (amount > out) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: `Waiver amount exceeds outstanding balance (${out.toFixed(2)}).` }));
+            return;
+        }
+
+        const currentWaived = parseFloat(fine.waivedAmount || 0);
+        const newWaived = currentWaived + amount;
+        const newOut = out - amount;
+
+        fine.waivedAmount = newWaived.toFixed(2);
+        fine.outstandingAmount = newOut.toFixed(2);
+        fine.status = newOut <= 0 ? 'WAIVED' : 'PARTIALLY_PAID';
+        saveFines();
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            success: true,
+            message: `Waiver of INR ${amount.toFixed(2)} applied successfully.`,
+            fine: fine
+        }));
+        return;
+    }
+
+    // 3. GET /payments & POST /payments
+    if ((pathname === '/payments' || pathname === '/payments/') && req.method === 'GET') {
+        const user = getSessionUser(req);
+        if (!user) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Authentication required.' }));
+            return;
+        }
+
+        if (user.role === 'STUDENT') {
+            const studentPayments = payments.filter(p => p.studentId === user.userId);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, payments: studentPayments }));
+            return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, payments: payments, totalCount: payments.length }));
+        return;
+    }
+
+    if ((pathname === '/payments' || pathname === '/payments/') && req.method === 'POST') {
+        const user = getSessionUser(req);
+        if (!user) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Authentication required.' }));
+            return;
+        }
+
+        const body = await parseRequestBody(req);
+        const action = (body.action || 'initiate').toLowerCase();
+
+        if (action === 'initiate') {
+            const fineId = parseInt(body.fineId, 10);
+            const fine = fines.find(f => f.fineId === fineId);
+            if (!fine) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'Fine record not found.' }));
+                return;
+            }
+
+            const activeAttempt = payments.find(p => p.fineId === fineId && (p.status === 'INITIATED' || p.status === 'PENDING_VERIFICATION'));
+            if (activeAttempt) {
+                res.writeHead(409, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'An active payment attempt is already in progress for this fine.' }));
+                return;
+            }
+
+            const requestedAmt = body.amount ? parseFloat(body.amount) : parseFloat(fine.outstandingAmount);
+            const newPaymentId = (payments.reduce((m, p) => Math.max(m, p.paymentId || 0), 0) || 0) + 1;
+            const paymentCode = `FINE-${fineId}-${Date.now() % 1000000}`;
+            const student = users.find(u => u.userId === user.userId) || {};
+
+            const newPayment = {
+                paymentId: newPaymentId,
+                fineId: fineId,
+                studentId: user.userId,
+                amount: requestedAmt.toFixed(2),
+                method: 'UPI_MANUAL',
+                status: 'INITIATED',
+                paymentCode: paymentCode,
+                referenceId: null,
+                disputed: false,
+                studentName: student.name || 'Student',
+                registerNumber: student.registerNumber || '--',
+                bookTitle: fine.bookTitle || 'Book',
+                createdAt: new Date().toISOString()
+            };
+            payments.push(newPayment);
+            savePayments();
+
+            const upiUri = `upi://pay?pa=library@psgitech.ac.in&pn=PSG+iTech+Library&am=${requestedAmt.toFixed(2)}&cu=INR&tn=${paymentCode}`;
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                payment: newPayment,
+                instructions: {
+                    upiUri: upiUri,
+                    upiId: 'library@psgitech.ac.in',
+                    payeeName: 'PSG iTech Library',
+                    paymentCode: paymentCode
+                }
+            }));
+            return;
+        }
+
+        if (action === 'submit_reference' || action === 'submitreference') {
+            const paymentId = parseInt(body.paymentId, 10);
+            const ref = (body.reference || '').trim();
+            const payment = payments.find(p => p.paymentId === paymentId);
+
+            if (!payment || payment.studentId !== user.userId) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'Payment attempt not found.' }));
+                return;
+            }
+
+            const dup = payments.find(p => p.paymentId !== paymentId && p.referenceId === ref);
+            if (dup) {
+                res.writeHead(409, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'UPI reference ID has already been recorded on another payment.' }));
+                return;
+            }
+
+            payment.referenceId = ref;
+            payment.status = 'PENDING_VERIFICATION';
+            payment.updatedAt = new Date().toISOString();
+            savePayments();
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'UPI reference submitted.', payment: payment }));
+            return;
+        }
+
+        if (action === 'cancel') {
+            const paymentId = parseInt(body.paymentId, 10);
+            const payment = payments.find(p => p.paymentId === paymentId);
+            if (payment && payment.studentId === user.userId && payment.status === 'INITIATED') {
+                payment.status = 'CANCELLED';
+                savePayments();
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'Payment cancelled.' }));
+            return;
+        }
+
+        if (action === 'dispute') {
+            const paymentId = parseInt(body.paymentId, 10);
+            const payment = payments.find(p => p.paymentId === paymentId);
+            if (payment && payment.studentId === user.userId) {
+                payment.disputed = true;
+                payment.disputeNote = body.reason || body.note || '';
+                savePayments();
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'Dispute submitted.' }));
+            return;
+        }
+    }
+
+    // 4. GET /payments/verify & POST /payments/verify
+    if ((pathname === '/payments/verify' || pathname === '/payments/verify/') && req.method === 'GET') {
+        const user = getSessionUser(req);
+        if (!user || (user.role !== 'LIBRARIAN' && user.role !== 'ADMIN')) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Access denied.' }));
+            return;
+        }
+
+        const pending = payments.filter(p => p.status === 'PENDING_VERIFICATION');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, pendingVerifications: pending, count: pending.length }));
+        return;
+    }
+
+    if ((pathname === '/payments/verify' || pathname === '/payments/verify/') && req.method === 'POST') {
+        const user = getSessionUser(req);
+        if (!user || (user.role !== 'LIBRARIAN' && user.role !== 'ADMIN')) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Access denied.' }));
+            return;
+        }
+
+        const body = await parseRequestBody(req);
+        const action = (body.action || 'verify').toLowerCase();
+        const paymentId = parseInt(body.paymentId, 10);
+        const payment = payments.find(p => p.paymentId === paymentId);
+
+        if (!payment) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Payment not found.' }));
+            return;
+        }
+
+        if (action === 'verify') {
+            const fine = fines.find(f => f.fineId === payment.fineId);
+            if (!fine) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'Fine record not found.' }));
+                return;
+            }
+
+            const pAmt = parseFloat(payment.amount);
+            const currentPaid = parseFloat(fine.paidAmount || 0);
+            const currentOut = parseFloat(fine.outstandingAmount || 0);
+
+            const newPaid = currentPaid + pAmt;
+            const newOut = Math.max(0, currentOut - pAmt);
+
+            fine.paidAmount = newPaid.toFixed(2);
+            fine.outstandingAmount = newOut.toFixed(2);
+            fine.status = newOut <= 0 ? 'PAID' : 'PARTIALLY_PAID';
+
+            payment.status = 'SUCCESS';
+            payment.receiptNumber = `RCPT-2026-${String(payment.paymentId).padStart(5, '0')}`;
+            payment.verifiedBy = user.userId;
+            payment.verifiedAt = new Date().toISOString();
+
+            saveFines();
+            savePayments();
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: `Payment verified. Receipt: ${payment.receiptNumber}`, payment: payment }));
+            return;
+        }
+
+        if (action === 'reject') {
+            const reason = (body.reason || '').trim();
+            if (!reason) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'Rejection reason is mandatory.' }));
+                return;
+            }
+
+            payment.status = 'REJECTED';
+            payment.rejectionReason = reason;
+            savePayments();
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'Payment rejected.', payment: payment }));
+            return;
+        }
+    }
+
+    // 5. GET /receipt
+    if ((pathname === '/receipt' || pathname === '/payments/receipt') && req.method === 'GET') {
+        const paymentId = parseInt(queryParams.paymentId, 10);
+        const payment = payments.find(p => p.paymentId === paymentId);
+
+        if (!payment || (payment.status !== 'SUCCESS' && payment.status !== 'REFUNDED')) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Verified receipt not found.' }));
+            return;
+        }
+
+        const fine = fines.find(f => f.fineId === payment.fineId) || {};
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            success: true,
+            receipt: {
+                receiptNumber: payment.receiptNumber || 'RCPT-PREVIEW',
+                paymentId: payment.paymentId,
+                paymentCode: payment.paymentCode,
+                fineId: payment.fineId,
+                borrowTransactionId: fine.borrowTransactionId,
+                studentName: payment.studentName,
+                registerNumber: payment.registerNumber,
+                bookTitle: payment.bookTitle,
+                originalFineAmount: fine.originalAmount || payment.amount,
+                amountPaidThisPayment: payment.amount,
+                totalPaidSoFar: fine.paidAmount || payment.amount,
+                totalWaived: fine.waivedAmount || "0.00",
+                remainingOutstanding: fine.outstandingAmount || "0.00",
+                paymentMethod: 'UPI_MANUAL',
+                referenceId: payment.referenceId,
+                paymentDate: payment.verifiedAt || payment.createdAt,
+                status: payment.status,
+                isRefunded: payment.status === 'REFUNDED'
+            }
+        }));
         return;
     }
 

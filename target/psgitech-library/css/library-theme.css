@@ -135,9 +135,11 @@ a:hover {
 }
 
 .logo-icon {
-    width: 32px;
+    width: auto;
     height: 32px;
-    color: var(--primary);
+    max-height: 36px;
+    object-fit: contain;
+    vertical-align: middle;
 }
 
 .brand-text {
@@ -1335,4 +1337,127 @@ a:hover {
     color: #64748B;
     border: 1px solid #CBD5E1;
 }
+
+/* ==========================================================================
+   Feature 3: Book Borrowing & Return Management Styles
+   ========================================================================== */
+.badge-overdue {
+    background-color: #FDE8E8;
+    color: #C0392B;
+    border: 1px solid #F5C6CB;
+    font-weight: bold;
+}
+
+.badge-due-today {
+    background-color: #FEF6E8;
+    color: #C58B24;
+    border: 1px solid #FFEBAA;
+    font-weight: bold;
+}
+
+.badge-returned {
+    background-color: #EFECE6;
+    color: #444444;
+    border: 1px solid #E2E8F0;
+}
+
+.borrowing-card {
+    background-color: #FFFFFF;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    display: flex;
+    gap: 20px;
+    transition: box-shadow 0.2s ease;
+}
+
+.borrowing-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.borrowing-card-cover {
+    width: 100px;
+    height: 145px;
+    flex-shrink: 0;
+    border-radius: 3px;
+    overflow: hidden;
+    background-color: var(--secondary);
+}
+
+.borrowing-card-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.borrowing-card-title {
+    font-size: 1.25rem;
+    color: var(--primary);
+    margin-bottom: 4px;
+    font-weight: bold;
+}
+
+.borrowing-card-meta {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.borrowing-card-dates {
+    display: flex;
+    gap: 24px;
+    font-size: 0.9rem;
+    background-color: var(--background-warm);
+    padding: 10px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    margin-top: auto;
+}
+
+.borrowing-date-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.borrowing-date-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+.borrowing-date-val {
+    font-weight: bold;
+    color: #000000;
+}
+
+.desk-search-box {
+    position: relative;
+}
+
+.desk-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #FFFFFF;
+    border: 1px solid var(--border);
+    border-radius: 0 0 4px 4px;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.desk-search-item {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+}
+
+.desk-search-item:hover {
+    background-color: var(--background-warm);
+}
+
 

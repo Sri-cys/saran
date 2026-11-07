@@ -57,3 +57,16 @@ INSERT INTO book_copies (copy_code, book_id, status) VALUES
 
 ('PSG-BK10-C01', 10, 'AVAILABLE'),
 ('PSG-BK10-C02', 10, 'AVAILABLE');
+
+INSERT INTO borrow_transactions 
+(transaction_id, student_id, book_id, copy_id, issue_date, due_date, return_date, status, issued_by, returned_by)
+VALUES 
+(1, 4, 1, 1, '2026-10-25', '2026-11-08', NULL, 'ACTIVE', 2, NULL);
+
+UPDATE book_copies SET status = 'BORROWED' WHERE copy_id = 1;
+
+INSERT INTO borrow_transactions 
+(transaction_id, student_id, book_id, copy_id, issue_date, due_date, return_date, status, issued_by, returned_by)
+VALUES 
+(2, 5, 2, 5, '2026-10-01', '2026-10-15', '2026-10-14', 'RETURNED', 2, 2);
+

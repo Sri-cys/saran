@@ -12,12 +12,18 @@
     <header class="navbar">
         <div class="nav-container">
             <a href="admin-users.html" class="nav-left">
-                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                </svg>
+                <img src="images/psgitech-logo.png" alt="PSG iTech Logo" class="logo-icon">
                 <span class="brand-text">PSG iTECH LIBRARY &bull; ADMIN</span>
             </a>
+
+            <div class="nav-middle">
+                <ul class="nav-menu">
+                    <li><a href="admin-users.html" class="active">User Management</a></li>
+                    <li><a href="manage-books.html">Manage Books</a></li>
+                    <li><a href="borrowing-management.html">Borrowing Management</a></li>
+                    <li><a href="concurrency-monitor.html">Concurrency Monitor</a></li>
+                </ul>
+            </div>
 
             <div class="nav-right">
                 <span class="badge badge-role" style="font-weight: bold;">ADMINISTRATOR</span>
@@ -30,6 +36,8 @@
                         <a href="profile.html" class="dropdown-item">Admin Profile</a>
                         <a href="admin-users.html" class="dropdown-item active">User Management</a>
                         <a href="manage-books.html" class="dropdown-item">Manage Books</a>
+                        <a href="borrowing-management.html" class="dropdown-item">Borrowing Management</a>
+                        <a href="concurrency-monitor.html" class="dropdown-item">Concurrency Monitor</a>
                         <div class="dropdown-divider"></div>
                         <a href="logout" class="dropdown-item" data-action="logout" style="color: var(--danger);">Log Out</a>
                     </div>
