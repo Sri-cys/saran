@@ -41,8 +41,39 @@ public class AppContextListener implements ServletContextListener {
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
         LOGGER.info("PSG iTech Library System shutting down...");
-        com.psgitech.library.scheduler.AllocationExpiryScheduler.getInstance().stop();
-        TransactionRetryHelper.removeListener(ConcurrencyManager.getInstance().getMetrics());
+        try {
+            com.psgitech.library.scheduler.AllocationExpiryScheduler.getInstance().stop();
+        } catch (Throwable t) {
+            LOGGER.warning("Error stopping AllocationExpiryScheduler: " + t.getMessage());
+        }
+
+        try {
+            TransactionRetryHelper.removeListener(ConcurrencyManager.getInstance().getMetrics());
+        } catch (Throwable t) {
+            LOGGER.warning("Error removing retry listener: " + t.getMessage());
+        }
+
+        // Deregister JDBC drivers to prevent Tomcat memory leaks
+        java.util.Enumeration<java.sql.Driver> drivers = java.sql.DriverManager.getDrivers();
+        while (drivers.hasMoreElements()) {
+            java.sql.Driver driver = drivers.nextElement();
+            if (driver.getClass().getClassLoader() == getClass().getClassLoader()) {
+                try {
+                    java.sql.DriverManager.deregisterDriver(driver);
+                    LOGGER.info("Deregistered JDBC driver: " + driver);
+                } catch (Throwable t) {
+                    LOGGER.warning("Error deregistering JDBC driver " + driver + ": " + t.getMessage());
+                }
+            }
+        }
+
+        // Stop MySQL AbandonedConnectionCleanupThread
+        try {
+            com.mysql.cj.jdbc.AbandonedConnectionCleanupThread.checkedShutdown();
+            LOGGER.info("MySQL AbandonedConnectionCleanupThread stopped successfully.");
+        } catch (Throwable t) {
+            LOGGER.warning("Could not stop MySQL AbandonedConnectionCleanupThread: " + t.getMessage());
+        }
     }
 }
 

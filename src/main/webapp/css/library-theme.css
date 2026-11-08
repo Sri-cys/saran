@@ -1460,4 +1460,60 @@ a:hover {
     background-color: var(--background-warm);
 }
 
+/* Student Dashboard & Semantic Helpers */
+.student-dashboard-container {
+    margin-top: 32px;
+}
+.page-header-banner {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+}
+.welcome-heading {
+    font-size: 2.1rem;
+    margin-bottom: 4px;
+}
+.activity-section-title {
+    font-size: 1.25rem;
+}
+.activity-indicator-link {
+    text-decoration: none;
+    color: inherit;
+}
+.indicator-label-bold {
+    font-weight: bold;
+}
+.indicator-subtext {
+    font-size: 0.85rem;
+}
+.current-books-section {
+    margin: 36px 0;
+}
+.categories-section-clean {
+    border: none;
+    padding-top: 10px;
+}
+.scroll-controls-row {
+    display: flex;
+    gap: 6px;
+}
+.featured-books-section-transparent {
+    background: transparent;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.mock-cover-cs {
+    background: linear-gradient(135deg, #203B60 0%, #102540 100%);
+}
+.mock-cover-se {
+    background: linear-gradient(135deg, #1B4D3E 0%, #0F2D24 100%);
+}
+.mock-cover-ai {
+    background: linear-gradient(135deg, #5C2751 0%, #35142E 100%);
+}
+.footer-content-centered {
+    text-align: center;
+    font-size: 0.9rem;
+}
+
 
