@@ -211,6 +211,20 @@ public class ReservationRepository {
                 }
             }
 
+            // Record Feature 11: RESERVATION_CREATED
+            try {
+                com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                        .builder(com.psgitech.library.enums.NotificationType.RESERVATION_CREATED, studentId, "RES_CREATED:" + generatedId)
+                        .entity("RESERVATION", generatedId)
+                        .param("bookTitle", bookTitle)
+                        .param("queuePosition", String.valueOf(queuePosition))
+                        .build();
+                new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
+            } catch (SQLException e) {
+                if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                LOGGER.log(Level.WARNING, "Failed to record reservation notification", e);
+            }
+
             conn.commit();
 
             Reservation res = new Reservation(generatedId, studentId, bookId, today,
@@ -301,6 +315,19 @@ public class ReservationRepository {
                 if (affected == 0) {
                     throw new InvalidReservationException("Reservation #" + reservationId + " could not be cancelled. It may have been updated concurrently.");
                 }
+            }
+
+            // Record Feature 11: RESERVATION_CANCELLED
+            try {
+                com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                        .builder(com.psgitech.library.enums.NotificationType.RESERVATION_CANCELLED, res.getStudentId(), "RES_CANCELLED:" + reservationId)
+                        .entity("RESERVATION", reservationId)
+                        .param("bookTitle", res.getBookTitle())
+                        .build();
+                new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
+            } catch (SQLException e) {
+                if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                LOGGER.log(Level.WARNING, "Failed to record reservation cancellation notification", e);
             }
 
             conn.commit();

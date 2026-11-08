@@ -90,6 +90,20 @@ public class FineService {
         );
         auditRepository.recordAuditEvent(conn, audit);
 
+        // Record Feature 11: FINE_CREATED
+        try {
+            com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                    .builder(com.psgitech.library.enums.NotificationType.FINE_CREATED, studentId, "FINE_CREATED:" + saved.getFineId())
+                    .entity("FINE", saved.getFineId())
+                    .param("amount", saved.getOriginalAmount() != null ? saved.getOriginalAmount().toPlainString() : "0.00")
+                    .param("bookTitle", "Overdue Book Loan #" + txId)
+                    .build();
+            new NotificationRecorder().record(conn, notifDraft);
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+            LOGGER.log(Level.WARNING, "Failed to record fine created notification", e);
+        }
+
         return saved;
     }
 
@@ -235,6 +249,20 @@ public class FineService {
                         "Waiver of INR " + waiverAmount.toPlainString() + " applied by Admin #" + adminUserId + ". Reason: " + reason.trim()
                 );
                 auditRepository.recordAuditEvent(conn, audit);
+
+                // Record Feature 11: FINE_WAIVED
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.FINE_WAIVED, fine.getStudentId(), "FINE_WAIVED:" + fineId + ":" + waiverAmount)
+                            .entity("FINE", fineId)
+                            .param("amount", waiverAmount.toPlainString())
+                            .param("bookTitle", "Library Fine #" + fineId)
+                            .build();
+                    new NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record fine waiver notification", e);
+                }
 
                 conn.commit();
                 return fine;

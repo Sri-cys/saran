@@ -13,14 +13,22 @@ public class NotificationOutboxRecord {
     private long notificationId;
     private int recipientUserId;
     private NotificationType notificationType;
-    private DeliveryStatus deliveryStatus;
-    private int attemptCount;
+    private DeliveryStatus deliveryStatus = DeliveryStatus.PENDING;
+    private int attemptCount = 0;
     private Timestamp nextAttemptAt;
     private Timestamp claimedAt;
     private String claimToken;
     private Timestamp createdAt;
     private Timestamp sentAt;
     private String lastErrorCode;
+
+    // Populated dynamically from joins or templates during dispatch
+    private String recipientEmail;
+    private String title;
+    private String message;
+    private String actionUrl;
+    private String subject;
+    private String bodyHtml;
 
     public NotificationOutboxRecord() {}
 
@@ -126,5 +134,53 @@ public class NotificationOutboxRecord {
 
     public void setLastErrorCode(String lastErrorCode) {
         this.lastErrorCode = lastErrorCode;
+    }
+
+    public String getRecipientEmail() {
+        return recipientEmail;
+    }
+
+    public void setRecipientEmail(String recipientEmail) {
+        this.recipientEmail = recipientEmail;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public String getActionUrl() {
+        return actionUrl;
+    }
+
+    public void setActionUrl(String actionUrl) {
+        this.actionUrl = actionUrl;
+    }
+
+    public String getSubject() {
+        return subject;
+    }
+
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+
+    public String getBodyHtml() {
+        return bodyHtml;
+    }
+
+    public void setBodyHtml(String bodyHtml) {
+        this.bodyHtml = bodyHtml;
     }
 }

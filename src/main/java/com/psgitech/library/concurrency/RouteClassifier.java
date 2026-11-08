@@ -61,6 +61,11 @@ public class RouteClassifier {
         routes.put("/interchanges/cancel", ConcurrencyOperation.BOOK_INTERCHANGE);
         routes.put("/interchanges/otp/generate", ConcurrencyOperation.BOOK_INTERCHANGE);
 
+        // Feature 11: Notifications
+        routes.put("/notifications/read", ConcurrencyOperation.NOTIFICATION);
+        routes.put("/notifications/read-all", ConcurrencyOperation.NOTIFICATION);
+        routes.put("/notifications/preferences", ConcurrencyOperation.NOTIFICATION);
+
         POST_ROUTES = Collections.unmodifiableMap(routes);
     }
 

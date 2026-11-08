@@ -36,11 +36,20 @@ public class AppContextListener implements ServletContextListener {
 
         // Start Background Allocation Expiry & Reminder Scheduler
         com.psgitech.library.scheduler.AllocationExpiryScheduler.getInstance().start();
+
+        // Start Unified Notification Worker (Feature 11 Decision D7)
+        com.psgitech.library.scheduler.NotificationWorker.getInstance().start();
     }
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
         LOGGER.info("PSG iTech Library System shutting down...");
+        try {
+            com.psgitech.library.scheduler.NotificationWorker.getInstance().stop();
+        } catch (Throwable t) {
+            LOGGER.warning("Error stopping NotificationWorker: " + t.getMessage());
+        }
+
         try {
             com.psgitech.library.scheduler.AllocationExpiryScheduler.getInstance().stop();
         } catch (Throwable t) {

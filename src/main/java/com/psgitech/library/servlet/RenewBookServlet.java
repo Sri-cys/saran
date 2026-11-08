@@ -108,6 +108,21 @@ public class RenewBookServlet extends HttpServlet {
             responseData.put("message", e.getMessage());
             resp.getWriter().write(gson.toJson(responseData));
         } catch (InvalidBorrowingOperationException | IllegalArgumentException | IllegalStateException e) {
+            // Record Feature 11: RENEWAL_REJECTED in separate transaction (Decision D10)
+            try (java.sql.Connection notifConn = com.psgitech.library.util.DBConnection.getConnection()) {
+                notifConn.setAutoCommit(false);
+                com.psgitech.library.model.NotificationDraft draft = com.psgitech.library.model.NotificationDraft
+                        .builder(com.psgitech.library.enums.NotificationType.RENEWAL_REJECTED, currentUser.getUserId(), "RENEWAL_REJECTED:" + transactionId + ":" + System.currentTimeMillis())
+                        .entity("BORROW_TRANSACTION", transactionId)
+                        .param("bookTitle", "Book Loan #" + transactionId)
+                        .param("reason", e.getMessage())
+                        .build();
+                new com.psgitech.library.service.NotificationRecorder().record(notifConn, draft);
+                notifConn.commit();
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "Failed to record renewal rejection notification", ex);
+            }
+
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             responseData.put("success", false);
             responseData.put("message", e.getMessage());

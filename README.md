@@ -51,7 +51,7 @@ Traditional college library systems suffer from:
 
 ---
 
-## C. Implemented Features (Features 1 – 10)
+## C. Implemented Features (Features 1 – 11)
 
 Every feature listed below is **fully implemented across all architectural layers** (Database DDL, Repositories, Domain Services, Servlets, and Frontend UI):
 
@@ -66,10 +66,11 @@ Every feature listed below is **fully implemented across all architectural layer
 │ Feature 5     │ Feature 6     │ Feature 7     │ Feature 8                   │
 │ Automated     │ Fines & UPI   │ Concurrency & │ Peer-to-Peer                │
 │ Allocation    │ Payment Recon │ Limiter       │ Book Interchange            │
-├───────────────┴───────────────┴───────────────┴─────────────────────────────┤
-│ Feature 9                                     │ Feature 10                  │
-│ Reservation Expiry & Auto Book Release        │ Smart Discovery & Recs      │
-└───────────────────────────────────────────────┴─────────────────────────────┘
+├───────────────┴───────────────┼───────────────┴─────────────────────────────┤
+│ Feature 9                     │ Feature 10    │ Feature 11                  │
+│ Reservation Expiry Engine     │ Smart Search  │ Smart Notification & Alerts │
+│ & Auto Book Release           │ & Recs Engine │ Center & Asynchronous Outbox│
+└───────────────────────────────┴───────────────┴─────────────────────────────┘
 ```
 
 ---
@@ -161,6 +162,18 @@ Every feature listed below is **fully implemented across all architectural layer
 - **Module 10.7: Categorical Exploration** (`GET /books/categories`): Aggregates all book categories with Decision D13 canonical normalization (case-insensitive trimming), reporting title counts and live available copies per category.
 - **Academic Frontend Presentation** (`smart-discovery.html`): Implements PSG iTech's institutional design language (Times New Roman typography, Deep Navy `#203B60`, Warm Parchment `#F8F6F0`), independent parallel loading skeletons, empty/error retry states, and URL query parameter two-way synchronization.
 
+### Feature 11 – Smart Notification and Alert Management System
+- **Comprehensive Institutional Notification Center**: Centralized notifications covering all 24 discrete library event types across reservations, book loans, renewals, peer transfers, fines, payments, and account security.
+- **Transactional Recording & Savepoint Failure Isolation**: Implements Decisions D1 and D2; business operations commit notification records in the same transaction. Failures during notification creation roll back to a dedicated JDBC `Savepoint`, ensuring zero business disruption if notifications fail.
+- **Zero Foreign Key Isolation**: In accordance with Decision D3, the `notifications` table maintains zero database FK constraints to `users` or business tables (`recipient_user_id`, `source_entity_id`), allowing notifications to survive user deactivation or record pruning without referential cascading issues.
+- **Asynchronous Mail Outbox & Leased Delivery Worker**: High-reliability background worker daemon `PsgItech-NotificationWorker` (runs every 30s) processes transactional outbox records (`notification_outbox`) with atomic row-level leasing (`claimed_at`, `claim_token`), exponential backoff retries (1m, 5m, 15m, 1h, 4h), stale lease recovery, and dead-letter classification (`FAILED`) after 5 failed delivery attempts.
+- **Periodic Loan Reminder Scans**: The notification worker runs a scheduled sweep (every 15 min) for active loans, detecting due-soon titles (within 2 days) and overdue titles (1, 7, and 14 days overdue), dispatching idempotent alerts.
+- **Idempotency & Deduplication Engine**: Enforces idempotency via `(recipient_user_id, deduplication_key)` unique composite index using atomic `INSERT ... ON DUPLICATE KEY UPDATE`, preventing duplicate notifications even under heavy concurrent retries.
+- **Keyset Pagination & High-Speed Polling**: `GET /notifications` utilizes cursor-based keyset pagination (`cursor` = `notification_id`), avoiding deep `OFFSET` performance traps. Real-time header bell component (`notification-bell.js`) polls `GET /notifications/unread-count` every 45s with HTML5 Tab Visibility API awareness to pause polling when tabs are hidden.
+- **Bounded Bulk State Transitions**: `POST /notifications/read-all` caps mark-all-read updates to batches of $\le 500$ rows per transaction using `upToId` watermark to prevent long-held lock contention on high-volume user inboxes.
+- **User Notification Preferences & Immutable Policies**: Self-service institutional channel settings (`GET/POST /notifications/preferences`) allow students and staff to customize email and in-app channels by category, while enforcing locked system security alerts (`PASSWORD_CHANGED`) and mandatory financial notifications (`FINES_PAYMENTS`).
+- **Security & Data Sanitization**: Strict HTML entity encoding, message length caps (100-character titles, 500-character bodies), CRLF email header injection prevention, action URL whitelisting, and zero sensitive data leakage (UTRs masked to last 4 digits; passwords, tokens, and OTPs strictly prohibited).
+
 ---
 
 ## D. User Roles and Permissions
@@ -188,6 +201,8 @@ Permissions are enforced on the backend by [`AuthorizationFilter.java`](file:///
 | **Audit Peer Transfers** (`/api/admin/interchanges`) | No | Yes | Yes | `AuthorizationFilter` (`LIBRARIAN` or `ADMIN`) |
 | **User Management** (`/admin/users`, `admin-users.html`) | No | No | Yes | `AuthorizationFilter` (`ADMIN` only) |
 | **Concurrency Monitoring & Control** (`/api/admin/concurrency/*`) | No | No | Yes | `AuthorizationFilter` (`ADMIN` only) |
+| **Notification Center & Preferences** (`/notifications`, `/notifications/unread-count`, `/notifications/read`, `/notifications/read-all`, `/notifications/preferences`, `notifications.html`) | Yes | Yes | Yes | `AuthorizationFilter` (Authenticated session) |
+| **Notification Outbox Admin Telemetry** (`/admin/notifications/stats`) | No | No | Yes | `AuthorizationFilter` (`ADMIN` only) |
 
 ---
 
@@ -402,9 +417,14 @@ Running com.psgitech.library.WaitEstimatorTest                 [ 3 tests - PASS]
 Running com.psgitech.library.LoanRenewalTest                  [ 5 tests - PASS]
 Running com.psgitech.library.ConcurrencyFilterTest             [ 3 tests - PASS]
 Running com.psgitech.library.RouteCoverageTest                 [ 1 test  - PASS]
+Running com.psgitech.library.NotificationPolicyAndTemplateTest       [ 7 tests - PASS]
+Running com.psgitech.library.NotificationRecordingAndTransactionTest [ 4 tests - PASS]
+Running com.psgitech.library.NotificationPreferencesAndReadStateTest [ 4 tests - PASS]
+Running com.psgitech.library.NotificationWorkerAndDeliveryTest       [ 4 tests - PASS]
+Running com.psgitech.library.NotificationSecurityAndConcurrencyTest  [ 5 tests - PASS]
 
 Results:
-Tests run: 190, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 214, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
 
@@ -443,22 +463,22 @@ Library-Management/
     │   │   ├── listener/                    # AppContextListener (lifecycle initialization)
     │   │   ├── model/                       # Domain models and entities (Book, DTOs, Criteria)
     │   │   ├── repository/                  # JDBC DAOs with row-level locks & search repositories
-    │   │   ├── scheduler/                   # Background expiry schedulers
-    │   │   ├── service/                     # Business logic, discovery, and recommendation strategies
-    │   │   ├── servlet/                     # 39 HTTP Servlets (@WebServlet)
+    │   │   ├── scheduler/                   # Background expiry and notification delivery workers
+    │   │   ├── service/                     # Business logic, discovery, and notification delivery services
+    │   │   ├── servlet/                     # 45 HTTP Servlets (@WebServlet)
     │   │   └── util/                        # DBConnection, PasswordUtil, AutocompleteRateLimiter
     │   ├── resources/
     │   │   ├── db.properties                # Database connection & concurrency configuration
-    │   │   ├── schema.sql                   # Complete unified MySQL schema (12 tables)
+    │   │   ├── schema.sql                   # Complete unified MySQL schema (16 tables)
     │   │   └── seed_data.sql                # Default accounts and catalog seed data
     │   └── webapp/
     │       ├── META-INF/context.xml         # Tomcat JNDI DataSource configuration
     │       ├── WEB-INF/web.xml              # Filter chain and servlet mapping definitions
     │       ├── css/library-theme.css        # Academic Times New Roman design system
-    │       ├── js/                          # Vanilla JS client logic (discovery.js, books.js, etc.)
-    │       └── *.html                       # 18 responsive web portal pages (incl. smart-discovery.html)
+    │       ├── js/                          # Vanilla JS client logic (notification-bell.js, discovery.js, etc.)
+    │       └── *.html                       # 19 responsive web portal pages (incl. notifications.html, smart-discovery.html)
     └── test/
-        ├── java/com/psgitech/library/       # 30 JUnit test classes (190 automated tests)
+        ├── java/com/psgitech/library/       # 35 JUnit test classes (214 automated tests)
         └── resources/db.properties          # Test database credentials
 ```
 
@@ -487,11 +507,13 @@ Library-Management/
    mysql -u root psgitech_library < src/main/resources/schema.sql
    mysql -u root psgitech_library < src/main/resources/seed_data.sql
    mysql -u root psgitech_library < sql/08_book_interchange.sql
+   mysql -u root psgitech_library < sql/11_notifications.sql
    ```
 4. Execute the schema on `psgitech_library_test` for automated tests:
    ```bash
    mysql -u root psgitech_library_test < src/main/resources/schema.sql
    mysql -u root psgitech_library_test < sql/08_book_interchange.sql
+   mysql -u root psgitech_library_test < sql/11_notifications.sql
    ```
 
 ### Step 2: Build Application with Maven
@@ -499,7 +521,7 @@ Run the full test suite and build the WAR package:
 ```bash
 mvn clean package
 ```
-*Verification: Confirms 190 tests pass and generates `target/psgitech-library.war`.*
+*Verification: Confirms 214 tests pass and generates `target/psgitech-library.war`.*
 
 ### Step 3: Deploy to Apache Tomcat 10.1
 Because Tomcat 10.1 uses Jakarta EE (`jakarta.servlet.*`), migrate and deploy the WAR using Tomcat's migration tool:
@@ -544,6 +566,7 @@ http://localhost:8081/psgitech-library/
 | **Feature 8: Peer Book Interchange** | **Fully Implemented (+ Handover OTP Verification)** | `BookInterchangeService.java`, `BookInterchangeRepository.java`, `InterchangeOtpServlet.java`, `InterchangeServlet.java`, `InterchangeActionServlet.java`, `book_interchanges` table |
 | **Feature 9: Reservation Expiry** | **Fully Implemented (+ Auto Release & Reallocation)** | `AllocationExpiryScheduler.java`, `AllocationService.java`, `FIFOAllocationStrategy.java`, `AllocationServlet.java`, `allocations` table |
 | **Feature 10: Smart Book Discovery** | **Fully Implemented (+ Autocomplete & Recommendations)** | `SmartDiscoveryService.java`, `BookRecommendationService.java`, `BookPopularityService.java`, `DiscoveryRepository.java`, `RecommendationRepository.java`, `RecommendationStrategy.java`, `PopularBookStrategy.java`, `SimilarBookStrategy.java`, `CategoryBasedStrategy.java`, `AutocompleteRateLimiter.java`, `SmartDiscoveryServlet.java`, `BookSuggestionServlet.java`, `PopularBooksServlet.java`, `PersonalizedRecommendationsServlet.java`, `SimilarBooksServlet.java`, `BookCategoriesServlet.java`, `smart-discovery.html`, `discovery.js` |
+| **Feature 11: Smart Notification & Alert System** | **Fully Implemented (+ Transactional Outbox)** | `NotificationService.java`, `NotificationRecorder.java`, `NotificationRepository.java`, `NotificationOutboxRepository.java`, `NotificationPreferenceRepository.java`, `NotificationDeliveryService.java`, `NotificationReminderService.java`, `NotificationTemplateService.java`, `NotificationWorker.java`, `NotificationsServlet.java`, `NotificationUnreadCountServlet.java`, `NotificationReadServlet.java`, `NotificationReadAllServlet.java`, `NotificationPreferencesServlet.java`, `AdminNotificationStatsServlet.java`, `notifications.html`, `notification-bell.js`, `notifications-page.js`, `notifications` & `notification_outbox` tables |
 | **Node.js Server (`server.js`)** | **Mock / Dev Artifact** | `server.js` (Used strictly as a lightweight local mockup for early UI prototype review; independent of Java Tomcat backend) |
 
 ---

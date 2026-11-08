@@ -162,9 +162,18 @@ if [[ "${SUCCESS}" == "true" ]]; then
     echo "=============================================================================="
     echo "Application Home URL:  http://localhost:8081/psgitech-library/"
     echo "Login Portal URL:      http://localhost:8081/psgitech-library/login.html"
+    echo "Notifications URL:     http://localhost:8081/psgitech-library/notifications.html"
     echo "Concurrency Monitor:   http://localhost:8081/psgitech-library/concurrency-monitor.html"
     echo "Tomcat Server Logs:    ${CATALINA_HOME}/logs/catalina.out"
     echo "=============================================================================="
+    
+    # Feature 11: Verify notification unread-count endpoint returns 401 for anonymous access
+    NOTIF_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081/psgitech-library/notifications/unread-count" || echo "000")
+    if [[ "${NOTIF_CODE}" == "401" ]]; then
+        echo "  [Feature 11] Notification unread-count endpoint verified (401 Unauthorized for anonymous request)."
+    else
+        echo "  WARNING: Notification endpoint returned status: ${NOTIF_CODE} (expected 401)."
+    fi
     
     if command -v open >/dev/null 2>&1; then
         open "${TARGET_URL}" || true

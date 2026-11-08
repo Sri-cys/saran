@@ -12,12 +12,15 @@ import com.psgitech.library.util.PasswordUtil;
 import com.psgitech.library.util.ValidationUtil;
 
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Service managing user registration, profile updates, password change,
  * librarian account creation, and admin user administration.
  */
 public class UserService {
+    private static final Logger LOGGER = Logger.getLogger(UserService.class.getName());
     private final UserRepository userRepository;
 
     public UserService() {
@@ -193,6 +196,20 @@ public class UserService {
 
         // Revoke active Remember Me tokens to require re-authentication with new password
         userRepository.revokeAllUserTokens(userId);
+
+        // Record Feature 11: PASSWORD_CHANGED security alert (Mandatory Email + In-App)
+        try (java.sql.Connection notifConn = com.psgitech.library.util.DBConnection.getConnection()) {
+            notifConn.setAutoCommit(false);
+            com.psgitech.library.model.NotificationDraft draft = com.psgitech.library.model.NotificationDraft
+                    .builder(com.psgitech.library.enums.NotificationType.PASSWORD_CHANGED, userId, "PASSWORD_CHANGED:" + userId + ":" + System.currentTimeMillis())
+                    .entity("USER", userId)
+                    .recipientEmail(user.getEmail())
+                    .build();
+            new com.psgitech.library.service.NotificationRecorder().record(notifConn, draft);
+            notifConn.commit();
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to record password changed security alert notification", e);
+        }
     }
 
     /**

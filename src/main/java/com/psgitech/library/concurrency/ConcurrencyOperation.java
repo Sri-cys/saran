@@ -17,7 +17,8 @@ public enum ConcurrencyOperation {
     USER_ADMIN_MUTATION("Admin user account creation, status change, or role update"),
     USER_PROFILE_MUTATION("User profile update or password change"),
     BOOK_RENEWAL("Renew active book loan"),
-    BOOK_INTERCHANGE("Student-to-student book interchange request, acceptance, rejection, or cancellation");
+    BOOK_INTERCHANGE("Student-to-student book interchange request, acceptance, rejection, or cancellation"),
+    NOTIFICATION("Read state update or notification preference change");
 
     private final String description;
 

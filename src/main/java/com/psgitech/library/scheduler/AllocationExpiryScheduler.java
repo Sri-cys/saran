@@ -118,26 +118,35 @@ public class AllocationExpiryScheduler {
     public int sendUpcomingDeadlineReminders() {
         List<AllocationRecord> needingReminder = allocationRepository.findAllocationsNeedingReminder();
         int count = 0;
-        MailService mailService = MailServiceFactory.getMailService();
+        com.psgitech.library.service.NotificationRecorder recorder = new com.psgitech.library.service.NotificationRecorder();
 
         for (AllocationRecord alloc : needingReminder) {
-            try {
-                String toEmail = alloc.getStudentEmail();
-                if (toEmail != null && !toEmail.trim().isEmpty()) {
-                    String subject = "PSG iTech Library - Action Required: Book Hold Expires in Less Than 6 Hours";
-                    String body = "Dear " + alloc.getStudentName() + ",\n\n" +
-                            "This is a reminder that your reserved book hold at PSG iTech Library is nearing its deadline:\n\n" +
-                            "Book Title: " + alloc.getBookTitle() + "\n" +
-                            "Physical Copy: " + alloc.getCopyCode() + "\n" +
-                            "Collection Deadline: " + alloc.getExpiresAt() + "\n\n" +
-                            "Please collect your book at the circulation desk before the deadline. " +
-                            "Uncollected books will be automatically released to the next student in the reservation queue.\n\n" +
-                            "Regards,\nPSG iTech Library Circulation Desk";
-
-                    mailService.send(toEmail, subject, body);
+            try (java.sql.Connection conn = com.psgitech.library.util.DBConnection.getConnection()) {
+                conn.setAutoCommit(false);
+                // Atomic claim update to ensure only one worker claims the reminder
+                String claimSql = "UPDATE allocations SET reminder_sent_at = NOW(), reminder_status = 'SENT' " +
+                        "WHERE allocation_id = ? AND reminder_sent_at IS NULL";
+                int claimed = 0;
+                try (java.sql.PreparedStatement ps = conn.prepareStatement(claimSql)) {
+                    ps.setInt(1, alloc.getAllocationId());
+                    claimed = ps.executeUpdate();
                 }
-                allocationRepository.markReminderSent(alloc.getAllocationId());
-                count++;
+
+                if (claimed > 0) {
+                    com.psgitech.library.model.NotificationDraft draft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.ALLOCATION_REMINDER, alloc.getStudentId(), "ALLOC_REMINDER:" + alloc.getAllocationId())
+                            .recipientEmail(alloc.getStudentEmail())
+                            .entity("ALLOCATION", alloc.getAllocationId())
+                            .param("bookTitle", alloc.getBookTitle())
+                            .param("pickupDeadline", alloc.getExpiresAt() != null ? alloc.getExpiresAt().toString() : "")
+                            .build();
+
+                    recorder.record(conn, draft);
+                    conn.commit();
+                    count++;
+                } else {
+                    conn.rollback();
+                }
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Failed to send reminder for allocation #" + alloc.getAllocationId(), e);
             }

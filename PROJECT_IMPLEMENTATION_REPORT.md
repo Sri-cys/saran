@@ -590,13 +590,112 @@ A massive synthetic stress dataset was loaded via `sql/10_smart_discovery_perf_s
 
 ---
 
-## 12. Conclusion & Operational Sign-Off
+## 12. Feature 11: Smart Notification and Alert Management System
 
-The **PSG iTech Library Resource and Queue Management System** now encompasses Features 1 through 10, comprising:
-- **39 Production Servlets** handling 45 endpoints.
-- **12 Relational Database Tables** with 5 additive performance indexes.
-- **18 Responsive Web Portal Pages** adhering to institutional academic styling.
-- **30 JUnit Test Classes with 190 Passing Automated Tests** (0 failures, 0 errors, 0 skipped).
-- Complete backward compatibility with circulation desk operations, FIFO waitlists, hold shelves, fine UPI payments, fair concurrency admission control, and peer book transfers.
+### 12.1 Technical Architecture & Architectural Decisions
+
+Feature 11 introduces a high-reliability institutional notification subsystem designed to guarantee zero business disruption while providing real-time in-app alerts and asynchronous email dispatch.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   FEATURE 11 NOTIFICATION ARCHITECTURE                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Business Service (Borrow / Reserve / Fine / Interchange / Password)        │
+│    │                                                                        │
+│    ├── 1. Connection with Savepoint (`notif_sp`)                            │
+│    ├── 2. Snapshot Preference Read (`getDeliveryPreference`)                │
+│    ├── 3. NotificationRecorder (`recordNotification`)                      │
+│    │     ├─ INSERT notifications (ON DUPLICATE KEY UPDATE)                  │
+│    │     └─ INSERT notification_outbox (if email eligible)                  │
+│    │                                                                        │
+│    └── 4. Catch Exception -> Rollback to Savepoint (Zero Business Failures) │
+│                                                                             │
+│  Asynchronous Delivery Layer (`PsgItech-NotificationWorker` Daemon)         │
+│    │                                                                        │
+│    ├── 30s Loop: Atomic Lease Claim (`claimed_at`, `claim_token`)           │
+│    │    ├─ Dispatch via MailService (`sendHtml`)                            │
+│    │    ├─ Success -> `SENT`, `sent_at = NOW()`                             │
+│    │    └─ Failure -> Exponential Backoff Retries (1m, 5m, 15m, 1h, 4h)     │
+│    │                                                                        │
+│    └── 15m Sweep: NotificationReminderService (Due Soon & Overdue Scan)     │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Key Architecture & Reliability Decisions (D1 – D18)
+1. **D1: Same-Transaction Recording**: In-app notifications and email outbox entries are committed within the primary business transaction, guaranteeing absolute consistency between business state changes and notifications.
+2. **D2: Savepoint Failure Isolation**: The transactional recorder establishes a JDBC `Savepoint` (`notif_sp`) before inserting notification rows. If notification generation fails, it rolls back exclusively to the savepoint while preserving the parent business transaction. Deadlocks (MySQL error 1213/1205) are rethrown to allow outer transaction retries.
+3. **D3: Zero Foreign Key Isolation**: The `notifications` table maintains zero database FK constraints to `users` or business tables (`recipient_user_id`, `source_entity_id`), allowing notification histories to survive user deactivation or cascade cleanup.
+4. **D4: Idempotency & Deduplication Engine**: Composite unique key `(recipient_user_id, deduplication_key)` with atomic `INSERT ... ON DUPLICATE KEY UPDATE` ensures duplicate operations do not generate duplicate notifications even under concurrent retries.
+5. **D5: Immutable Policy Matrix**: Locked categories (`SYSTEM`, `FINES_PAYMENTS`) cannot be opted-out by users; security and financial alerts are mandatory across in-app and email channels.
+6. **D6: Asynchronous Outbox Pattern**: Email dispatch is entirely decoupled from user request threads via `notification_outbox`, eliminating network latency overhead from mail servers during interactive transactions.
+7. **D7: Single Background Worker Thread**: A unified daemon `PsgItech-NotificationWorker` manages outbox leasing every 30 seconds and periodic loan reminder sweeps every 15 minutes, avoiding thread explosion in the JVM.
+8. **D8: Automated Due-Soon & Overdue Loan Sweeps**: Scheduled loan scans detect titles due within 2 days (48 hours) and overdue titles at 1, 7, and 14 calendar days, generating deduplicated alerts.
+9. **D9: Hold-Shelf Deadline Reminders**: Allocation reminders 6 hours prior to expiry are routed through `NotificationRecorder` within the scheduler transaction, ensuring unified audit and tracking.
+10. **D10: Renewal Rejection Alerts**: Renewal rejections trigger in-app notifications in a dedicated short transaction to ensure students understand why renewal was not granted.
+11. **D11: Template Sanitization & Strict Length Caps**: Titles are capped at 100 characters, bodies at 500 characters, with HTML entity escaping, action URL whitelisting, and CRLF header injection stripping.
+12. **D12: Zero Sensitive Data Leakage**: Banking UTRs are strictly masked to the last 4 digits (`XXXXXXXX1234`), and passwords, OTPs, or authorization tokens are barred from notification bodies.
+13. **D13: Administrative Staff Broadcast**: High-value staff events (such as `PAYMENT_PENDING_VERIFICATION`) use `recordForStaff` to dynamically query and fan out notifications to all active `LIBRARIAN` and `ADMIN` personnel.
+14. **D14: Keyset Pagination**: `GET /notifications` uses `cursor` (`notification_id < cursor`) with index `idx_notif_recipient_id`, providing $O(1)$ page traversal without deep `OFFSET` scanning.
+15. **D15: Bounded Mark-All-Read Batching**: `POST /notifications/read-all` updates at most 500 rows per transaction using an `upToId` boundary, preventing row lock exhaustion on large user inboxes.
+16. **D16: Tab Visibility Aware High-Speed Polling**: The frontend header bell component (`notification-bell.js`) queries `/notifications/unread-count` every 45 seconds, automatically pausing when the browser tab is inactive via the HTML5 Visibility API.
+17. **D17: Authorization Guardrails**: All notification endpoints enforce session authentication; `/admin/notifications/stats` strictly requires `Role.ADMIN`.
+18. **D18: Dead-Letter Classification**: Outbox records failing after 5 attempts transition to `FAILED` with logged error codes, preventing infinite retry loops.
+
+---
+
+### 12.2 Full Catalog of 24 Event Triggers
+
+| Category | Event Type | In-App Policy | Email Policy | Trigger Location & Context |
+|---|---|:---:|:---:|---|
+| **RESERVATIONS** | `RESERVATION_CREATED` | Mandatory | Opt-Out | `ReservationRepository.createReservationTransaction` |
+| **RESERVATIONS** | `ALLOCATION_READY` | Mandatory | Mandatory | `AllocationService.allocateReturnedCopy` |
+| **RESERVATIONS** | `ALLOCATION_REMINDER` | Mandatory | Mandatory | `AllocationExpiryScheduler.sendUpcomingDeadlineReminders` |
+| **RESERVATIONS** | `RESERVATION_EXPIRED` | Mandatory | Opt-Out | `AllocationService.expireAndReallocate` |
+| **RESERVATIONS** | `RESERVATION_CANCELLED` | Mandatory | Opt-Out | `ReservationRepository.cancelReservationTransaction` |
+| **BORROWING** | `LOAN_ISSUED` | Mandatory | Opt-Out | `BorrowRepository.issueBookTransaction` |
+| **BORROWING** | `LOAN_DUE_SOON` | Mandatory | Opt-Out | `NotificationReminderService.scanDueSoonLoans` |
+| **BORROWING** | `LOAN_OVERDUE` | Mandatory | Mandatory | `NotificationReminderService.scanOverdueLoans` |
+| **BORROWING** | `LOAN_RENEWED` | Mandatory | Opt-Out | `BorrowRepository.renewLoan` |
+| **BORROWING** | `RENEWAL_REJECTED` | Mandatory | Never | `RenewBookServlet.doPost` |
+| **BORROWING** | `LOAN_RETURNED` | Mandatory | Opt-Out | `BorrowRepository.returnBookTransaction` |
+| **FINES_PAYMENTS** | `FINE_CREATED` | Mandatory | Mandatory | `FineService.createFineForReturn` |
+| **FINES_PAYMENTS** | `PAYMENT_SUBMITTED` | Mandatory | Mandatory | `PaymentService.submitReference` |
+| **FINES_PAYMENTS** | `PAYMENT_PENDING_VERIFICATION` | Mandatory | Opt-Out | `PaymentService.submitReference` (Staff Broadcast) |
+| **FINES_PAYMENTS** | `PAYMENT_VERIFIED` | Mandatory | Mandatory | `PaymentService.verifyPayment` |
+| **FINES_PAYMENTS** | `PAYMENT_REJECTED` | Mandatory | Mandatory | `PaymentService.rejectPayment` |
+| **FINES_PAYMENTS** | `REFUND_RECORDED` | Mandatory | Mandatory | `PaymentService.recordRefund` |
+| **FINES_PAYMENTS** | `FINE_WAIVED` | Mandatory | Mandatory | `FineService.applyWaiver` |
+| **INTERCHANGES** | `INTERCHANGE_REQUEST_RECEIVED` | Mandatory | Opt-Out | `BookInterchangeService.initiateInterchange` |
+| **INTERCHANGES** | `INTERCHANGE_COMPLETED` | Mandatory | Mandatory | `BookInterchangeService.acceptInterchange` |
+| **INTERCHANGES** | `INTERCHANGE_REJECTED` | Mandatory | Opt-Out | `BookInterchangeService.rejectInterchange` |
+| **INTERCHANGES** | `INTERCHANGE_CANCELLED` | Mandatory | Opt-Out | `BookInterchangeService.cancelInterchange` |
+| **INTERCHANGES** | `INTERCHANGE_INVALIDATED` | Mandatory | Opt-Out | `BorrowRepository.returnBookTransaction` |
+| **SYSTEM** | `PASSWORD_CHANGED` | Mandatory | Mandatory | `UserService.changePassword` |
+
+---
+
+### 12.3 Automated Test Suite Verification
+
+The Feature 11 test suite validates all policy rules, transaction isolations, user preferences, outbox retry mechanics, and concurrency:
+
+| Test Class | Test Count | Focus Areas | Status |
+|---|:---:|---|:---:|
+| `NotificationPolicyAndTemplateTest` | 7 | Policy matrix rules, locked categories, template sanitization, sensitive data masking, URL validation | **PASS** |
+| `NotificationRecordingAndTransactionTest` | 4 | Savepoint isolation, rollback survival, staff broadcasting, deduplication key updates | **PASS** |
+| `NotificationPreferencesAndReadStateTest` | 4 | Keyset cursor pagination, single-read mutation, bounded batch read-all, category preference toggles | **PASS** |
+| `NotificationWorkerAndDeliveryTest` | 4 | Atomic lease claiming, exponential backoff scheduling, dead-letter transitions, due-soon reminder scans | **PASS** |
+| `NotificationSecurityAndConcurrencyTest` | 5 | Role-based endpoint authorization, anonymous access rejection, 20-thread concurrent unread counter race safety | **PASS** |
+
+---
+
+## 13. Conclusion & Operational Sign-Off
+
+The **PSG iTech Library Resource and Queue Management System** now encompasses Features 1 through 11, comprising:
+- **45 Production Servlets** handling 51 endpoints.
+- **16 Relational Database Tables** with 9 additive performance indexes.
+- **19 Responsive Web Portal Pages** adhering to institutional academic styling.
+- **35 JUnit Test Classes with 214 Passing Automated Tests** (0 failures, 0 errors, 0 skipped).
+- Complete backward compatibility with circulation desk operations, FIFO waitlists, hold shelves, fine UPI payments, fair concurrency admission control, peer book transfers, smart discovery, and the notification management center.
+
 
 

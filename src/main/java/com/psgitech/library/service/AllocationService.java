@@ -113,6 +113,22 @@ public class AllocationService {
 
             AllocationRecord inserted = allocationRepository.insert(conn, record);
 
+            // Record Feature 11: ALLOCATION_READY
+            if (inserted != null) {
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.ALLOCATION_READY, studentId, "ALLOC_READY:" + inserted.getAllocationId())
+                            .entity("ALLOCATION", inserted.getAllocationId())
+                            .param("bookTitle", selected.getBookTitle())
+                            .param("pickupDeadline", expiresAt.toString())
+                            .build();
+                    new NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record allocation ready notification", e);
+                }
+            }
+
             return AllocationResult.allocated(copyId, copyCode, inserted);
 
         } else {
@@ -285,6 +301,19 @@ public class AllocationService {
                 // 10. Re-run automatic allocation for the freed copy
                 AllocationResult outcome = allocateReturnedCopy(conn, copyId, bookId, null);
 
+                // Record Feature 11: RESERVATION_CANCELLED on allocation release
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.RESERVATION_CANCELLED, lockedRes.getStudentId(), "RES_CANCELLED:ALLOC:" + activeAlloc.getAllocationId())
+                            .entity("ALLOCATION", activeAlloc.getAllocationId())
+                            .param("bookTitle", lockedRes.getBookTitle())
+                            .build();
+                    new NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record allocation release notification", e);
+                }
+
                 conn.commit();
                 return outcome;
 
@@ -391,6 +420,19 @@ public class AllocationService {
                 AllocationResult outcome = allocateReturnedCopy(conn, copyId, bookId, null);
                 if (outcome != null && outcome.getAllocation() != null) {
                     allocationRepository.setSuccessorAllocation(conn, allocationId, outcome.getAllocation().getAllocationId());
+                }
+
+                // Record Feature 11: RESERVATION_EXPIRED
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.RESERVATION_EXPIRED, lockedAlloc.getStudentId(), "ALLOC_EXPIRED:" + allocationId)
+                            .entity("ALLOCATION", allocationId)
+                            .param("bookTitle", lockedAlloc.getBookTitle())
+                            .build();
+                    new NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record allocation expiration notification", e);
                 }
 
                 conn.commit();

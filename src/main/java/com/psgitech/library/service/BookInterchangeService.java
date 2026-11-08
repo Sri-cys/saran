@@ -155,7 +155,40 @@ public class BookInterchangeService {
         interchange.setCopyCode(tx.getCopyCode());
         interchange.setCoverImageUrl(tx.getCoverImageUrl());
 
-        return interchangeRepository.insert(interchange);
+        Connection conn = null;
+        boolean originalAutoCommit = true;
+        try {
+            conn = DBConnection.getConnection();
+            originalAutoCommit = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+
+            BookInterchange inserted = interchangeRepository.insert(conn, interchange);
+
+            // Record Feature 11: INTERCHANGE_REQUEST_RECEIVED
+            try {
+                com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                        .builder(com.psgitech.library.enums.NotificationType.INTERCHANGE_REQUEST_RECEIVED, recipient.getUserId(), "INTERCHANGE_REQUEST:" + inserted.getInterchangeId())
+                        .entity("INTERCHANGE", inserted.getInterchangeId())
+                        .param("bookTitle", tx.getBookTitle())
+                        .build();
+                new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
+            } catch (SQLException e) {
+                if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                LOGGER.log(Level.WARNING, "Failed to record interchange request notification", e);
+            }
+
+            conn.commit();
+            return inserted;
+        } catch (SQLException e) {
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { e.addSuppressed(ex); }
+            }
+            throw new RuntimeException("Database error creating interchange request: " + e.getMessage(), e);
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(originalAutoCommit); conn.close(); } catch (SQLException ignored) {}
+            }
+        }
     }
 
     /**
@@ -354,6 +387,27 @@ public class BookInterchangeService {
                 // 4. Conditional Update: Transition interchange to COMPLETED
                 interchangeRepository.completeInterchange(conn, interchangeId, recipientUserId);
 
+                // Record Feature 11: INTERCHANGE_COMPLETED for both sender and recipient
+                try {
+                    com.psgitech.library.service.NotificationRecorder recorder = new com.psgitech.library.service.NotificationRecorder();
+                    com.psgitech.library.model.NotificationDraft fromDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.INTERCHANGE_COMPLETED, lockedInterchange.getFromStudentId(), "INTERCHANGE_COMPLETED:" + interchangeId + ":FROM")
+                            .entity("INTERCHANGE", interchangeId)
+                            .param("bookTitle", lockedInterchange.getBookTitle())
+                            .build();
+                    recorder.record(conn, fromDraft);
+
+                    com.psgitech.library.model.NotificationDraft toDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.INTERCHANGE_COMPLETED, lockedInterchange.getToStudentId(), "INTERCHANGE_COMPLETED:" + interchangeId + ":TO")
+                            .entity("INTERCHANGE", interchangeId)
+                            .param("bookTitle", lockedInterchange.getBookTitle())
+                            .build();
+                    recorder.record(conn, toDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record interchange completion notifications", e);
+                }
+
                 // Commit the atomic transfer
                 conn.commit();
 
@@ -407,6 +461,20 @@ public class BookInterchangeService {
                 }
 
                 interchangeRepository.rejectInterchange(conn, interchangeId, recipientUserId, reason);
+
+                // Record Feature 11: INTERCHANGE_REJECTED for the sender
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.INTERCHANGE_REJECTED, interchange.getFromStudentId(), "INTERCHANGE_REJECTED:" + interchangeId)
+                            .entity("INTERCHANGE", interchangeId)
+                            .param("bookTitle", interchange.getBookTitle())
+                            .build();
+                    new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record interchange rejection notification", e);
+                }
+
                 conn.commit();
 
                 interchange.reject(recipientUserId, reason);
@@ -450,6 +518,20 @@ public class BookInterchangeService {
                 }
 
                 interchangeRepository.cancelInterchange(conn, interchangeId, senderUserId, reason);
+
+                // Record Feature 11: INTERCHANGE_CANCELLED for the recipient
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.INTERCHANGE_CANCELLED, interchange.getToStudentId(), "INTERCHANGE_CANCELLED:" + interchangeId)
+                            .entity("INTERCHANGE", interchangeId)
+                            .param("bookTitle", interchange.getBookTitle())
+                            .build();
+                    new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record interchange cancellation notification", e);
+                }
+
                 conn.commit();
 
                 interchange.cancel(senderUserId, reason);

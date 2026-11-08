@@ -144,6 +144,8 @@ public class AuthorizationFilter implements Filter {
                 || path.startsWith("/reservations") || path.startsWith("/allocations")
                 || path.startsWith("/my-fines") || path.startsWith("/payments") || path.startsWith("/receipt")
                 || path.startsWith("/interchanges")
+                || path.startsWith("/notifications")
+                || path.contains("notifications.html")
                 || path.contains("receipt.html")) {
             if (user == null) {
                 if (path.endsWith(".html")) {

@@ -6,6 +6,7 @@ import com.psgitech.library.enums.CopyStatus;
 import com.psgitech.library.enums.Role;
 import com.psgitech.library.exception.*;
 import com.psgitech.library.model.BorrowTransaction;
+import com.psgitech.library.model.BookInterchange;
 import com.psgitech.library.model.AllocationRecord;
 import com.psgitech.library.model.AllocationResult;
 import com.psgitech.library.model.FineRecord;
@@ -233,6 +234,20 @@ public class BorrowRepository {
                     }
                 }
 
+                // Record Feature 11: LOAN_ISSUED
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.LOAN_ISSUED, studentId, "LOAN_ISSUED:" + generatedId)
+                            .entity("BORROW_TRANSACTION", generatedId)
+                            .param("bookTitle", bookTitle)
+                            .param("dueDate", dueDate != null ? dueDate.toString() : "")
+                            .build();
+                    new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record loan issued notification", e);
+                }
+
                 // Commit the complete transaction
                 conn.commit();
 
@@ -410,7 +425,33 @@ public class BorrowRepository {
 
                     // 7. Feature 8: Cancel any pending REQUESTED interchange record for this transaction (Level 11)
                     BookInterchangeRepository interchangeRepo = new BookInterchangeRepository();
-                    interchangeRepo.cancelPendingForTransaction(conn, transactionId, returnedBy, "Auto-cancelled: Book copy returned to library desk");
+                    // Check if there is an active pending interchange before cancelling
+                    BookInterchange pendingInterchange = interchangeRepo.findActiveByTransactionId(transactionId);
+                    int cancelledInterchanges = interchangeRepo.cancelPendingForTransaction(conn, transactionId, returnedBy, "Auto-cancelled: Book copy returned to library desk");
+
+                    // Record Feature 11: LOAN_RETURNED
+                    try {
+                        com.psgitech.library.service.NotificationRecorder recorder = new com.psgitech.library.service.NotificationRecorder();
+                        com.psgitech.library.model.NotificationDraft returnDraft = com.psgitech.library.model.NotificationDraft
+                                .builder(com.psgitech.library.enums.NotificationType.LOAN_RETURNED, lockedStudentId, "LOAN_RETURNED:" + transactionId)
+                                .entity("BORROW_TRANSACTION", transactionId)
+                                .param("bookTitle", bookTitle)
+                                .build();
+                        recorder.record(conn, returnDraft);
+
+                        // If pending interchange was cancelled, notify target student
+                        if (cancelledInterchanges > 0 && pendingInterchange != null) {
+                            com.psgitech.library.model.NotificationDraft invDraft = com.psgitech.library.model.NotificationDraft
+                                    .builder(com.psgitech.library.enums.NotificationType.INTERCHANGE_INVALIDATED, pendingInterchange.getToStudentId(), "INTERCHANGE_INVALIDATED:" + pendingInterchange.getInterchangeId())
+                                    .entity("INTERCHANGE", pendingInterchange.getInterchangeId())
+                                    .param("bookTitle", bookTitle)
+                                    .build();
+                            recorder.record(conn, invDraft);
+                        }
+                    } catch (SQLException e) {
+                        if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                        LOGGER.log(Level.WARNING, "Failed to record loan return notification", e);
+                    }
 
                     // Commit the complete transaction
                     conn.commit();
@@ -850,11 +891,15 @@ public class BorrowRepository {
                 }
 
                 // 2b. Lock book
-                try (PreparedStatement psBook = conn.prepareStatement("SELECT book_id, is_archived FROM books WHERE book_id = ? FOR UPDATE")) {
+                String bookTitle = "Book Loan";
+                try (PreparedStatement psBook = conn.prepareStatement("SELECT book_id, title, is_archived FROM books WHERE book_id = ? FOR UPDATE")) {
                     psBook.setInt(1, bookId);
                     try (ResultSet rs = psBook.executeQuery()) {
                         if (!rs.next()) {
                             throw new BookNotFoundException("Book #" + bookId + " not found.");
+                        }
+                        if (rs.getString("title") != null) {
+                            bookTitle = rs.getString("title");
                         }
                         if (rs.getBoolean("is_archived")) {
                             throw new InvalidBorrowingOperationException("Cannot renew loan for an archived catalog title.");
@@ -946,6 +991,20 @@ public class BorrowRepository {
                 );
                 RenewalRepository renewalRepo = new RenewalRepository();
                 renewalRepo.saveRenewal(conn, renewalRec);
+
+                // Record Feature 11: LOAN_RENEWED
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.LOAN_RENEWED, candidateStudentId, "LOAN_RENEWED:" + transactionId + ":" + (currentRenewalCount + 1))
+                            .entity("BORROW_TRANSACTION", transactionId)
+                            .param("bookTitle", bookTitle)
+                            .param("dueDate", newDueDate.toString())
+                            .build();
+                    new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record loan renewal notification", e);
+                }
 
                 conn.commit();
                 LOGGER.info("Successfully renewed loan #" + transactionId + " to new due date: " + newDueDate);

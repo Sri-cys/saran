@@ -16,6 +16,10 @@ public final class NotificationDraft {
     private final String deduplicationKey;
     private final String entityType;
     private final Integer entityId;
+    private final String recipientEmail;
+    private final String customTitle;
+    private final String customMessage;
+    private final String customActionUrl;
     private final Map<String, String> parameters;
 
     private NotificationDraft(Builder builder) {
@@ -27,6 +31,10 @@ public final class NotificationDraft {
         this.deduplicationKey = Objects.requireNonNull(builder.deduplicationKey, "DeduplicationKey is required");
         this.entityType = builder.entityType;
         this.entityId = builder.entityId;
+        this.recipientEmail = builder.recipientEmail;
+        this.customTitle = builder.customTitle;
+        this.customMessage = builder.customMessage;
+        this.customActionUrl = builder.customActionUrl;
         this.parameters = Collections.unmodifiableMap(new HashMap<>(builder.parameters));
     }
 
@@ -50,6 +58,22 @@ public final class NotificationDraft {
         return entityId;
     }
 
+    public String getRecipientEmail() {
+        return recipientEmail;
+    }
+
+    public String getCustomTitle() {
+        return customTitle;
+    }
+
+    public String getCustomMessage() {
+        return customMessage;
+    }
+
+    public String getCustomActionUrl() {
+        return customActionUrl;
+    }
+
     public Map<String, String> getParameters() {
         return parameters;
     }
@@ -68,6 +92,10 @@ public final class NotificationDraft {
         private final String deduplicationKey;
         private String entityType;
         private Integer entityId;
+        private String recipientEmail;
+        private String customTitle;
+        private String customMessage;
+        private String customActionUrl;
         private final Map<String, String> parameters = new HashMap<>();
 
         public Builder(NotificationType type, int recipientUserId, String deduplicationKey) {
@@ -79,6 +107,26 @@ public final class NotificationDraft {
         public Builder entity(String entityType, Integer entityId) {
             this.entityType = entityType;
             this.entityId = entityId;
+            return this;
+        }
+
+        public Builder recipientEmail(String email) {
+            this.recipientEmail = email;
+            return this;
+        }
+
+        public Builder customTitle(String title) {
+            this.customTitle = title;
+            return this;
+        }
+
+        public Builder customMessage(String message) {
+            this.customMessage = message;
+            return this;
+        }
+
+        public Builder customActionUrl(String actionUrl) {
+            this.customActionUrl = actionUrl;
             return this;
         }
 

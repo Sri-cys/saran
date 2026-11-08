@@ -308,6 +308,28 @@ public class PaymentService {
                 );
                 auditRepository.recordAuditEvent(conn, audit);
 
+                // Record Feature 11: PAYMENT_SUBMITTED and Staff PAYMENT_PENDING_VERIFICATION
+                try {
+                    com.psgitech.library.service.NotificationRecorder recorder = new com.psgitech.library.service.NotificationRecorder();
+                    com.psgitech.library.model.NotificationDraft studentDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.PAYMENT_SUBMITTED, studentId, "PAYMENT_SUBMITTED:" + paymentId)
+                            .entity("PAYMENT", paymentId)
+                            .param("amount", payment.getAmount() != null ? payment.getAmount().toPlainString() : "0.00")
+                            .param("utr", cleanRef)
+                            .build();
+                    recorder.record(conn, studentDraft);
+
+                    recorder.recordForStaff(conn, com.psgitech.library.enums.NotificationType.PAYMENT_PENDING_VERIFICATION,
+                            "Payment Verification Pending",
+                            "Student submitted payment of Rs. " + (payment.getAmount() != null ? payment.getAmount().toPlainString() : "0.00") +
+                                    " (ref ending in " + com.psgitech.library.service.NotificationTemplateService.maskUtr(cleanRef) + ")",
+                            "borrowing-management.html",
+                            "STAFF_PAYMENT_PENDING:" + paymentId);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record payment submission notifications", e);
+                }
+
                 conn.commit();
                 return payment;
 
@@ -401,6 +423,19 @@ public class PaymentService {
                 );
                 auditRepository.recordAuditEvent(conn, audit);
 
+                // Record Feature 11: PAYMENT_VERIFIED
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.PAYMENT_VERIFIED, payment.getStudentId(), "PAYMENT_VERIFIED:" + paymentId)
+                            .entity("PAYMENT", paymentId)
+                            .param("amount", payment.getAmount() != null ? payment.getAmount().toPlainString() : "0.00")
+                            .build();
+                    new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record payment verification notification", e);
+                }
+
                 conn.commit();
                 return payment;
 
@@ -461,6 +496,20 @@ public class PaymentService {
                         "Payment rejected by " + staffRole.name() + " #" + staffUserId + ". Reason: " + reason.trim()
                 );
                 auditRepository.recordAuditEvent(conn, audit);
+
+                // Record Feature 11: PAYMENT_REJECTED
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.PAYMENT_REJECTED, payment.getStudentId(), "PAYMENT_REJECTED:" + paymentId)
+                            .entity("PAYMENT", paymentId)
+                            .param("amount", payment.getAmount() != null ? payment.getAmount().toPlainString() : "0.00")
+                            .param("reason", reason.trim())
+                            .build();
+                    new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record payment rejection notification", e);
+                }
 
                 conn.commit();
                 return payment;
@@ -657,6 +706,19 @@ public class PaymentService {
                         "Refund of INR " + payment.getAmount() + " recorded by Admin #" + adminUserId + ". Reason: " + reason.trim()
                 );
                 auditRepository.recordAuditEvent(conn, audit);
+
+                // Record Feature 11: REFUND_RECORDED
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.REFUND_RECORDED, payment.getStudentId(), "REFUND_RECORDED:" + paymentId)
+                            .entity("PAYMENT", paymentId)
+                            .param("amount", payment.getAmount() != null ? payment.getAmount().toPlainString() : "0.00")
+                            .build();
+                    new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record refund notification", e);
+                }
 
                 conn.commit();
                 return payment;
