@@ -44,3 +44,4 @@ SET @sql := IF(@idx_exists > 0,
     'ALTER TABLE borrow_transactions DROP INDEX idx_borrow_student_issued', 
     'SELECT "Index idx_borrow_student_issued does not exist on borrow_transactions" AS notice');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+

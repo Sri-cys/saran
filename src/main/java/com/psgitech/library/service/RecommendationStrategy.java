@@ -23,3 +23,4 @@ public interface RecommendationStrategy {
      */
     String getStrategyName();
 }
+

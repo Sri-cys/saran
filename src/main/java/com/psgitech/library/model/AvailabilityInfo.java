@@ -65,3 +65,4 @@ public class AvailabilityInfo {
         return availableCopies > 0;
     }
 }
+

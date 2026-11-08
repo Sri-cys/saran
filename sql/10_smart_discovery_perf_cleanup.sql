@@ -42,3 +42,4 @@ DELETE FROM books WHERE isbn LIKE 'TEST-978-%';
 DELETE FROM users WHERE email LIKE 'test_user_%@psgitech.ac.in';
 
 SELECT "Cleaned up all TEST-marked synthetic benchmarking records successfully." AS status;
+

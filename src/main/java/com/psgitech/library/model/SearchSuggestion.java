@@ -60,3 +60,4 @@ public class SearchSuggestion {
         return Objects.hash(type, text.toLowerCase());
     }
 }
+

@@ -32,3 +32,4 @@ public class PopularBookStrategy implements RecommendationStrategy {
         return "POPULAR_FALLBACK";
     }
 }
+

@@ -189,3 +189,4 @@ public class SmartDiscoverySearchTest {
                 resLarge.getItems().get(0).getInventory().getTotalActiveCopies() >= 0);
     }
 }
+

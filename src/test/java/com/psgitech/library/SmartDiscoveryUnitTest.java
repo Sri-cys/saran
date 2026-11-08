@@ -138,3 +138,4 @@ public class SmartDiscoveryUnitTest {
         assertTrue(expiredCache.isExpired());
     }
 }
+

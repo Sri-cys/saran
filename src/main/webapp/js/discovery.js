@@ -803,3 +803,4 @@ function renderPagination(container, paged) {
 
     container.appendChild(nav);
 }
+

@@ -44,3 +44,4 @@ SET @sql := IF(@idx_exists = 0,
     'ALTER TABLE borrow_transactions ADD INDEX idx_borrow_student_issued (student_id, issue_date)', 
     'SELECT "Index idx_borrow_student_issued already exists on borrow_transactions" AS notice');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+

@@ -178,3 +178,4 @@ public class SmartDiscoveryPopularAndRecommendationTest {
         assertTrue("Non-existent book ID must return empty similar list", similar.isEmpty());
     }
 }
+

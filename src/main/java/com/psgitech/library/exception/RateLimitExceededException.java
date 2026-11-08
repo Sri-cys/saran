@@ -8,3 +8,4 @@ public class RateLimitExceededException extends RuntimeException {
         super(message);
     }
 }
+

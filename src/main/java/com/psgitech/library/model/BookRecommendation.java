@@ -105,3 +105,4 @@ public class BookRecommendation {
         return asOf;
     }
 }
+

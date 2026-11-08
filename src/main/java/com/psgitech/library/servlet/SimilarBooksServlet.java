@@ -106,3 +106,4 @@ public class SimilarBooksServlet extends HttpServlet {
         resp.getWriter().write(gson.toJson(json));
     }
 }
+

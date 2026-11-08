@@ -15,3 +15,4 @@ WHERE TABLE_SCHEMA = DATABASE()
     'idx_borrow_student_issued'
   )
 ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX;
+

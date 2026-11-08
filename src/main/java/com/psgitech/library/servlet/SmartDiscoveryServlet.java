@@ -111,3 +111,4 @@ public class SmartDiscoveryServlet extends HttpServlet {
         resp.getWriter().write(gson.toJson(json));
     }
 }
+

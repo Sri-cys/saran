@@ -51,3 +51,4 @@ public class RecommendationContext {
         return recommendationType;
     }
 }
+

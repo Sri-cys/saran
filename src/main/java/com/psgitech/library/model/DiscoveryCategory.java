@@ -39,3 +39,4 @@ public class DiscoveryCategory implements Comparable<DiscoveryCategory> {
         return this.displayName.compareToIgnoreCase(other.displayName);
     }
 }
+

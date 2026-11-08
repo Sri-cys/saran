@@ -187,3 +187,4 @@ public class CategoryBasedStrategy implements RecommendationStrategy {
         return "PERSONALIZED";
     }
 }
+

@@ -70,3 +70,4 @@ public class SimilarBookStrategy implements RecommendationStrategy {
         return "SIMILAR";
     }
 }
+
