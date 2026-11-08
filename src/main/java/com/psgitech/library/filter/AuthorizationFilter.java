@@ -75,6 +75,18 @@ public class AuthorizationFilter implements Filter {
             }
         }
 
+        // Student-Only Personalized Recommendations (Feature 10 Decision D8)
+        if (path.startsWith("/books/recommendations")) {
+            if (user == null) {
+                res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
+                return;
+            }
+            if (user.getRole() != Role.STUDENT) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Student role required.");
+                return;
+            }
+        }
+
         // Admin-only protection (including fine waivers via POST /fines)
         if (path.startsWith("/admin/") || (path.startsWith("/api/admin/") && !path.startsWith("/api/admin/interchanges"))
                 || path.contains("admin-users") || path.contains("concurrency-monitor")

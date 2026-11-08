@@ -326,6 +326,7 @@ function initBookDetailsPage() {
             throw new Error(data.message || 'Book could not be retrieved.');
         }
         renderBookDetailsView(data.book, data.isStaff);
+        loadSimilarBooks(bookId);
     })
     .catch(err => {
         container.innerHTML = `
@@ -1050,3 +1051,89 @@ window.closeModal = function (modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.classList.remove('show');
 };
+
+/**
+ * Feature 10 (Module 10.6): Similar books loader for book-details.html
+ */
+function loadSimilarBooks(bookId) {
+    const section = document.getElementById('similarBooksSection');
+    const container = document.getElementById('similarBooksContainer');
+    if (!section || !container) return;
+
+    fetch(`books/similar?id=${encodeURIComponent(bookId)}&limit=6`, {
+        headers: { 'Accept': 'application/json' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success && data.books && data.books.length > 0) {
+            container.innerHTML = '';
+            data.books.forEach(b => {
+                const card = document.createElement('div');
+                card.className = 'book-card';
+                card.style.minWidth = '220px';
+
+                const coverCont = document.createElement('div');
+                coverCont.className = 'book-cover-container';
+                const mock = document.createElement('div');
+                mock.className = 'book-cover-mock mock-cover-cs';
+                const dept = document.createElement('span');
+                dept.className = 'mock-dept';
+                dept.textContent = b.department || b.category || 'PSG iTech';
+                const title = document.createElement('span');
+                title.className = 'mock-title';
+                title.textContent = b.title;
+                const author = document.createElement('span');
+                author.className = 'mock-author';
+                author.textContent = b.author;
+                mock.appendChild(dept);
+                mock.appendChild(title);
+                mock.appendChild(author);
+                coverCont.appendChild(mock);
+                card.appendChild(coverCont);
+
+                const info = document.createElement('div');
+                info.className = 'book-info';
+                const cardTitle = document.createElement('div');
+                cardTitle.className = 'book-title';
+                cardTitle.textContent = b.title;
+                const cardAuthor = document.createElement('div');
+                cardAuthor.className = 'author-name';
+                cardAuthor.textContent = b.author;
+                const badgeDiv = document.createElement('div');
+                badgeDiv.className = 'book-meta';
+                const badge = document.createElement('span');
+                const avail = b.availability;
+                if (avail && avail.availableCopies > 0) {
+                    badge.className = 'badge badge-available';
+                    badge.textContent = `Available (${avail.availableCopies})`;
+                } else {
+                    badge.className = 'badge badge-borrowed';
+                    badge.textContent = 'All Borrowed';
+                }
+                badgeDiv.appendChild(badge);
+
+                const viewBtn = document.createElement('a');
+                viewBtn.href = `book-details.html?id=${encodeURIComponent(b.bookId)}`;
+                viewBtn.className = 'btn btn-secondary btn-sm';
+                viewBtn.style.marginTop = '8px';
+                viewBtn.style.display = 'block';
+                viewBtn.style.textAlign = 'center';
+                viewBtn.textContent = 'View Details';
+
+                info.appendChild(cardTitle);
+                info.appendChild(cardAuthor);
+                info.appendChild(badgeDiv);
+                info.appendChild(viewBtn);
+                card.appendChild(info);
+
+                container.appendChild(card);
+            });
+            section.style.display = 'block';
+        } else {
+            section.style.display = 'none';
+        }
+    })
+    .catch(() => {
+        section.style.display = 'none';
+    });
+}

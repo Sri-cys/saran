@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discover Books & Recommendations | PSG iTech Library</title>
+    <meta name="description" content="Discover textbooks, monographs, and academic resources through smart search, campus trends, and personalized recommendations at PSG iTech Library.">
+    <link rel="stylesheet" href="css/library-theme.css">
+</head>
+<body>
+
+    <!-- =====================================================================
+         Global Navigation Bar
+         ===================================================================== -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-left" id="navBrandLogo">
+                <img src="images/psgitech-logo.png" alt="PSG iTech Logo" class="logo-icon">
+                <span class="brand-text">PSG iTECH LIBRARY</span>
+            </a>
+
+            <div class="nav-middle">
+                <ul class="nav-menu">
+                    <li><a href="smart-discovery.html" class="active" id="navDiscoverLink">Discover</a></li>
+                    <li><a href="browse.html" id="navBrowseLink">Catalog</a></li>
+                    <li><a href="my-books.html" id="navMyBooksLink">My Books</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-right">
+                <!-- Logged Out View -->
+                <div class="nav-actions" id="navLoggedOut">
+                    <a href="login.html" class="btn btn-secondary btn-sm" id="navLoginBtn">Log In</a>
+                    <a href="register.html" class="btn btn-primary btn-sm" id="navRegisterBtn">Sign Up</a>
+                </div>
+
+                <!-- Logged In View -->
+                <div class="nav-actions" id="navLoggedIn" style="display: none;">
+                    <div class="profile-dropdown">
+                        <button class="profile-trigger" id="profileTrigger" aria-label="Student Account Menu">
+                            <span class="avatar-icon" id="navAvatar">U</span>
+                            <span id="navUsername" style="font-weight: bold;">User</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu" id="profileDropdownMenu">
+                            <div class="dropdown-header">PSG iTech Portal</div>
+                            <a href="student-home.html" class="dropdown-item" id="navDashboardLink">My Dashboard</a>
+                            <a href="profile.html" class="dropdown-item">My Profile</a>
+                            <a href="my-books.html" class="dropdown-item">Borrowed Books</a>
+                            <a href="my-reservations.html" class="dropdown-item">My Reservations</a>
+                            <a href="my-fines.html" class="dropdown-item">Outstanding Dues</a>
+                            <div class="dropdown-divider"></div>
+                            <a href="logout" class="dropdown-item" data-action="logout" style="color: var(--danger);">Log Out</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- =====================================================================
+         Hero Banner & Autocomplete Search Bar
+         ===================================================================== -->
+    <section class="discovery-hero-section">
+        <div class="container">
+            <div class="discovery-hero-content">
+                <h1 class="discovery-hero-title">Discover Books</h1>
+                <p class="discovery-hero-subtitle">
+                    Explore textbook collections, discover campus trends, and receive tailored recommendations for your academic courses.
+                </p>
+
+                <!-- Search Box with WAI-ARIA Combobox Autocomplete -->
+                <div class="discovery-search-wrapper">
+                    <form class="discovery-search-form" id="discoverySearchForm" role="search">
+                        <div class="combobox-container" role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-owns="autocompleteListbox">
+                            <input type="text"
+                                   id="discoverySearchInput"
+                                   class="discovery-search-input"
+                                   placeholder="Search by title, author, category, or course department..."
+                                   autocomplete="off"
+                                   aria-autocomplete="list"
+                                   aria-controls="autocompleteListbox"
+                                   aria-label="Search catalog books">
+                            <button type="submit" class="btn btn-primary discovery-search-btn" aria-label="Search">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                                <span>Search</span>
+                            </button>
+                        </div>
+                        <!-- Dropdown Suggestion Listbox -->
+                        <div id="autocompleteListbox" class="autocomplete-listbox" role="listbox" aria-label="Search suggestions" style="display: none;"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =====================================================================
+         Main Content Container
+         ===================================================================== -->
+    <main class="main-content">
+        <div class="container">
+
+            <!-- =================================================================
+                 Section 1: Popular and Trending Across Campus (Module 10.4)
+                 ================================================================= -->
+            <section class="discovery-shelf-section">
+                <div class="section-header shelf-header">
+                    <div class="shelf-title-group">
+                        <h2 class="shelf-heading">Campus Highlights</h2>
+                        <div class="discovery-tabs" role="tablist">
+                            <button type="button" class="tab-btn active" id="tabBtnPopular" role="tab" aria-selected="true">Most Popular</button>
+                            <button type="button" class="tab-btn" id="tabBtnTrending" role="tab" aria-selected="false">Trending Now</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="books-scroll-row" id="popularScrollContainer">
+                    <!-- Skeletons rendered by discovery.js -->
+                </div>
+            </section>
+
+            <!-- =================================================================
+                 Section 2: Recommended For You (Module 10.5, Student Only)
+                 ================================================================= -->
+            <section class="discovery-shelf-section" id="personalizedSection" style="display: none;">
+                <div class="section-header shelf-header">
+                    <div>
+                        <h2 class="shelf-heading" id="personalizedTitle">Recommended For You</h2>
+                        <p class="text-secondary" style="font-size: 0.9rem; margin-top: 2px;">
+                            Curated selections based on your recent borrowing profile and branch requirements
+                        </p>
+                    </div>
+                </div>
+                <div class="books-scroll-row" id="personalizedScrollContainer">
+                    <!-- Skeletons rendered by discovery.js -->
+                </div>
+            </section>
+
+            <!-- =================================================================
+                 Section 3: Explore Categories (Module 10.7)
+                 ================================================================= -->
+            <section class="discovery-shelf-section">
+                <div class="section-header">
+                    <h2 class="shelf-heading">Explore Academic Categories</h2>
+                </div>
+                <div class="categories-pill-grid" id="categoriesGridContainer">
+                    <!-- Rendered by discovery.js -->
+                </div>
+            </section>
+
+            <!-- =================================================================
+                 Section 4: Advanced Catalog Filters & Results (Modules 10.1 & 10.3)
+                 ================================================================= -->
+            <section class="discovery-catalog-section" id="resultsSection">
+                <div class="discovery-layout-grid">
+
+                    <!-- Left Sidebar / Filter Panel -->
+                    <aside class="discovery-filter-sidebar">
+                        <div class="filter-panel-card">
+                            <div class="filter-header">
+                                <h3>Filter Catalog</h3>
+                                <button type="button" class="btn btn-secondary btn-sm" id="resetFiltersBtn">Reset</button>
+                            </div>
+
+                            <form id="advancedFilterForm">
+                                <div class="filter-group">
+                                    <label for="filterCategory" class="filter-label">Category</label>
+                                    <input type="text" id="filterCategory" name="category" class="form-control" placeholder="e.g. Computer Science">
+                                </div>
+
+                                <div class="filter-group">
+                                    <label for="filterAuthor" class="filter-label">Author</label>
+                                    <input type="text" id="filterAuthor" name="author" class="form-control" placeholder="e.g. Cormen">
+                                </div>
+
+                                <div class="filter-group">
+                                    <label for="filterPublisher" class="filter-label">Publisher</label>
+                                    <input type="text" id="filterPublisher" name="publisher" class="form-control" placeholder="e.g. Pearson">
+                                </div>
+
+                                <div class="filter-group">
+                                    <label for="filterDepartment" class="filter-label">Department</label>
+                                    <select id="filterDepartment" name="department" class="form-control">
+                                        <option value="">All Departments</option>
+                                        <option value="CSE">CSE</option>
+                                        <option value="IT">IT</option>
+                                        <option value="AI&DS">AI&DS</option>
+                                        <option value="ECE">ECE</option>
+                                        <option value="MECH">MECH</option>
+                                        <option value="CIVIL">CIVIL</option>
+                                        <option value="S&H">Science & Humanities</option>
+                                    </select>
+                                </div>
+
+                                <div class="filter-group">
+                                    <label class="filter-label">Publication Year</label>
+                                    <div class="year-range-inputs">
+                                        <input type="number" id="filterYearFrom" name="yearFrom" class="form-control" placeholder="From (e.g. 2018)" min="1900" max="2100">
+                                        <span class="range-separator">&ndash;</span>
+                                        <input type="number" id="filterYearTo" name="yearTo" class="form-control" placeholder="To (e.g. 2026)" min="1900" max="2100">
+                                    </div>
+                                </div>
+
+                                <div class="filter-group">
+                                    <label for="filterAvailability" class="filter-label">Copy Availability</label>
+                                    <select id="filterAvailability" name="availability" class="form-control">
+                                        <option value="ALL">All Items</option>
+                                        <option value="AVAILABLE">Available on Shelf Only</option>
+                                        <option value="UNAVAILABLE">Currently Borrowed / Reserved</option>
+                                        <option value="WAITING">Has Active Waitlist</option>
+                                    </select>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary btn-block" style="margin-top: 16px;">Apply Filters</button>
+                            </form>
+                        </div>
+                    </aside>
+
+                    <!-- Main Results Column -->
+                    <div class="discovery-results-column">
+                        <!-- Controls Bar: Active Chips, Sort, Page Size -->
+                        <div class="results-controls-bar">
+                            <div class="results-info-group">
+                                <span class="results-count" id="resultsCountText" aria-live="polite">Loading catalog...</span>
+                                <div class="active-chips-container" id="activeFilterChipsContainer"></div>
+                            </div>
+
+                            <div class="results-sort-group">
+                                <div class="sort-control">
+                                    <label for="sortBySelect" class="sort-label">Sort:</label>
+                                    <select id="sortBySelect" class="form-control form-control-sm">
+                                        <option value="RELEVANCE">Best Relevance</option>
+                                        <option value="RECENTLY_ADDED">Recently Added</option>
+                                        <option value="YEAR_DESC">Year (Newest First)</option>
+                                        <option value="YEAR_ASC">Year (Oldest First)</option>
+                                        <option value="TITLE_ASC">Title (A &ndash; Z)</option>
+                                    </select>
+                                </div>
+
+                                <div class="page-size-control">
+                                    <label for="pageSizeSelect" class="sort-label">Show:</label>
+                                    <select id="pageSizeSelect" class="form-control form-control-sm">
+                                        <option value="12">12</option>
+                                        <option value="24">24</option>
+                                        <option value="48">48</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Results Grid -->
+                        <div class="discovery-results-grid" id="resultsGridContainer">
+                            <!-- Skeletons & Cards rendered by discovery.js -->
+                        </div>
+
+                        <!-- Pagination Controls -->
+                        <div class="pagination-wrapper" id="paginationControlsContainer"></div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- =====================================================================
+         Footer
+         ===================================================================== -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h4 style="color: #203B60;">PSG Institute of Technology and Applied Research</h4>
+                    <p class="text-secondary">Avinashi Road, Neelambur, Coimbatore, Tamil Nadu 641062.</p>
+                    <p class="text-secondary" style="margin-top: 8px;">Central Library & Academic Resource Management System.</p>
+                </div>
+                <div class="footer-col">
+                    <h4 style="color: #203B60;">Quick Access</h4>
+                    <ul class="footer-links">
+                        <li><a href="smart-discovery.html">Smart Discovery</a></li>
+                        <li><a href="browse.html">Catalog Search</a></li>
+                        <li><a href="my-books.html">My Borrowed Books</a></li>
+                        <li><a href="login.html">Student / Staff Login</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4 style="color: #203B60;">Library Hours</h4>
+                    <p class="text-secondary">Monday &ndash; Saturday: 8:00 AM &ndash; 8:00 PM</p>
+                    <p class="text-secondary">Sunday: 9:00 AM &ndash; 1:00 PM</p>
+                    <p class="text-secondary" style="margin-top: 8px;">Email: library@psgitech.ac.in</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 PSG iTech Library System. All academic rights reserved. Strict Times New Roman & Navy Theme Applied.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/discovery.js"></script>
+</body>
+</html>

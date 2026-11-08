@@ -51,7 +51,7 @@ Traditional college library systems suffer from:
 
 ---
 
-## C. Implemented Features (Features 1 – 8)
+## C. Implemented Features (Features 1 – 10)
 
 Every feature listed below is **fully implemented across all architectural layers** (Database DDL, Repositories, Domain Services, Servlets, and Frontend UI):
 
@@ -66,7 +66,10 @@ Every feature listed below is **fully implemented across all architectural layer
 │ Feature 5     │ Feature 6     │ Feature 7     │ Feature 8                   │
 │ Automated     │ Fines & UPI   │ Concurrency & │ Peer-to-Peer                │
 │ Allocation    │ Payment Recon │ Limiter       │ Book Interchange            │
-└───────────────┴───────────────┴───────────────┴─────────────────────────────┘
+├───────────────┴───────────────┴───────────────┴─────────────────────────────┤
+│ Feature 9                                     │ Feature 10                  │
+│ Reservation Expiry & Auto Book Release        │ Smart Discovery & Recs      │
+└───────────────────────────────────────────────┴─────────────────────────────┘
 ```
 
 ---
@@ -135,6 +138,29 @@ Every feature listed below is **fully implemented across all architectural layer
 - **Desk Return Race Protection**: If a book is returned to the desk while a transfer is pending, the desk return auto-cancels the interchange. If return and transfer race, `BorrowRepository` verifies borrower identity under lock, rolling back and retrying with the new borrower if changed.
 - **Dual History Visibility**: Sender sees the loan marked *"Transferred to [Recipient] on [Date]"*; recipient sees the active loan tagged *"Acquired via Peer Transfer from [Sender]"*.
 
+### Feature 9 – Reservation Expiry and Automatic Book Release
+- **Strict 24-Hour Collection Window**: Allocated physical copies are reserved on the hold shelf for exactly 24 hours (`ALLOCATION_COLLECTION_HOURS = 24`).
+- **Autonomous Expiry Engine**: Background daemon thread [`AllocationExpiryScheduler`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/scheduler/AllocationExpiryScheduler.java) scans every 60 seconds for allocations where `expires_at <= NOW()` and `status = 'ALLOCATED'`.
+- **Cascading Re-allocation**: When an allocation expires:
+  - Allocation transitions to `EXPIRED`.
+  - Copy lock is released.
+  - The allocation engine immediately invokes `FIFOAllocationStrategy` to offer the physical copy to the next eligible student in the reservation queue.
+  - If no eligible waiting reservations exist, the physical copy transitions to `AVAILABLE`.
+- **Urgency Reminders**: Automated notifications dispatched 6 hours prior to expiry to maximize collection rates.
+- **Race Condition Prevention**: Collection attempts at the circulation desk verify expiry against live MySQL server time (`expires_at <= NOW()`), rejecting expired claims with HTTP `409 Conflict`.
+
+### Feature 10 – Smart Book Discovery and Personalized Recommendations
+- **Module 10.1: Deterministic Smart Search** (`GET /books/discover`): Multi-term search with token limit (up to 8 words), LIKE wildcard escaping (`%` and `_` escaped via `!`), and deterministic SQL composite scoring: Title match (weight 40), Author match (weight 30), Category match (weight 20), and Description match (weight 10). Hydrates live copy counts in a single batch query (0 $N+1$ query overhead).
+- **Module 10.2: Autocomplete Suggestions** (`GET /books/suggestions`): Instant keyword suggestions with prefix-first ordering followed by contains matching, deduplicated and capped at 8 results. Frontend implements WAI-ARIA combobox accessibility, 250ms debounce, and `AbortController` to cancel in-flight stale requests.
+- **Rate-Limited Suggestion Perimeter**: Enforces [`AutocompleteRateLimiter`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/util/AutocompleteRateLimiter.java) capping search suggestions at 20 requests per 10-second rolling window per session/IP, shedding abusive traffic with HTTP `429 Too Many Requests`.
+- **Module 10.3: Multi-Criteria Filter Engine**: Supports simultaneous faceted filtering by category, author, publisher, publication year range (`yearFrom`, `yearTo`), availability status (`ALL`, `AVAILABLE`, `UNAVAILABLE`, `WAITING`), deterministic sorting (`relevance`, `title`, `year`, `popular`), and bounded pagination.
+- **Module 10.4: Campus Highlights & Popular Titles** (`GET /books/popular?type=popular|trending`): Implements Decision D4/D5 popularity scoring over a 90-day rolling window: $\text{Borrows} \times 5 \text{ (exponential decay)} + \text{Reservations} \times 2 \text{ (exponential decay)}$, requiring a minimum of 3 distinct student borrowers. Provides an honest fallback chain for new catalogs.
+- **Snapshot Caching with Live Availability**: Aggregated popularity rankings are cached in-memory for 300 seconds (`BookPopularityService`), while physical copy availability (`available_copies`, `total_copies`) is hydrated live on every request so students never see stale shelf statuses.
+- **Module 10.5: Personalized Recommendations for Students** (`GET /books/recommendations`): Accessible strictly to authenticated students (`Role.STUDENT`; 401 for anonymous, 403 for staff). Constructs an interest profile from past loans and reservations (Category: 50%, Author: 30%, Campus Popularity: 15%, Recency: 5%). Strictly excludes active loans, active reservations, and past borrowings. Employs cold-start fallback (department matching followed by campus highlights). Guaranteed zero student identity leakage in responses.
+- **Module 10.6: Content-Based Similar Books** (`GET /books/similar?id={bookId}`): Calculates candidate title similarity based on Category match (weight 50), Author match (weight 35), and Academic Department match (weight 15). Seamlessly integrated into `book-details.html` with cover thumbnails and live availability badges.
+- **Module 10.7: Categorical Exploration** (`GET /books/categories`): Aggregates all book categories with Decision D13 canonical normalization (case-insensitive trimming), reporting title counts and live available copies per category.
+- **Academic Frontend Presentation** (`smart-discovery.html`): Implements PSG iTech's institutional design language (Times New Roman typography, Deep Navy `#203B60`, Warm Parchment `#F8F6F0`), independent parallel loading skeletons, empty/error retry states, and URL query parameter two-way synchronization.
+
 ---
 
 ## D. User Roles and Permissions
@@ -144,6 +170,12 @@ Permissions are enforced on the backend by [`AuthorizationFilter.java`](file:///
 | Operation / Path | Student | Librarian | Admin | Enforcement Mechanism |
 |---|:---:|:---:|:---:|---|
 | **Browse Catalog & Details** (`/books`, `/books/details`) | Yes | Yes | Yes | Public / Authenticated read |
+| **Smart Search & Filters** (`/books/discover`) | Yes | Yes | Yes | Public / Authenticated read |
+| **Autocomplete Suggestions** (`/books/suggestions`) | Yes | Yes | Yes | Public / Rate-limited read (20 req/10s) |
+| **Popular & Trending Highlights** (`/books/popular`) | Yes | Yes | Yes | Public / Authenticated read (300s cache) |
+| **Category Exploration** (`/books/categories`) | Yes | Yes | Yes | Public / Authenticated read |
+| **Similar Book Recommendations** (`/books/similar`) | Yes | Yes | Yes | Public / Authenticated read |
+| **Personalized Recommendations** (`/books/recommendations`) | Yes | No | No | `AuthorizationFilter` (`STUDENT` only; 401/403) |
 | **Self-Registration & Login** (`/register`, `/login`) | Yes | Yes | Yes | Open unauthenticated endpoints |
 | **View Student Portal** (`/student-home.html`, `/my-borrowings.html`) | Yes | No | Yes | `AuthorizationFilter` (Role check) |
 | **Place & Cancel Reservations** (`/reservations`, `/reservations/cancel`) | Yes | No | Yes | `AuthorizationFilter` + Session validation |
@@ -309,12 +341,12 @@ erDiagram
 | **Encapsulation** | [`BookInterchange.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/model/BookInterchange.java) | All fields are private; state transitions (`complete()`, `reject()`, `cancel()`) require valid status preconditions. |
 | **Abstraction** | [`User.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/model/User.java) | Abstract base class defining common properties while requiring subclasses to define role-specific identities. |
 | **Inheritance** | [`Student.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/model/Student.java), [`Librarian.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/model/Librarian.java), [`Admin.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/model/Admin.java) | Subclasses inherit user fields from `User` and extend with register number, employee ID, and department. |
-| **Polymorphism** | [`AllocationStrategy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/interfaces/AllocationStrategy.java) | Dynamic strategy dispatch where `AllocationService` invokes `selectNext()` without depending on concrete queue algorithms. |
-| **Interfaces** | [`EligibilityChecker.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/interfaces/EligibilityChecker.java), [`FinePolicy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/interfaces/FinePolicy.java) | Contracts defining eligibility checks and fine calculation rules across borrowing, allocation, and fine services. |
-| **Strategy Pattern** | [`FIFOAllocationStrategy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/FIFOAllocationStrategy.java), [`StandardFinePolicy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/StandardFinePolicy.java) | Interchangeable algorithmic strategies for reservation queue allocation and overdue fine calculation. |
+| **Polymorphism** | [`AllocationStrategy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/interfaces/AllocationStrategy.java), [`RecommendationStrategy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/RecommendationStrategy.java) | Dynamic strategy dispatch: `AllocationService` invokes queue allocation algorithms; recommendation servlets select dynamic discovery strategies (`PopularBookStrategy`, `SimilarBookStrategy`, `CategoryBasedStrategy`). |
+| **Interfaces** | [`EligibilityChecker.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/interfaces/EligibilityChecker.java), [`FinePolicy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/interfaces/FinePolicy.java), [`RecommendationStrategy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/RecommendationStrategy.java) | Contracts defining eligibility checks, fine calculations, and recommendation discovery pipelines. |
+| **Strategy Pattern** | [`FIFOAllocationStrategy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/FIFOAllocationStrategy.java), [`PopularBookStrategy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/PopularBookStrategy.java), [`SimilarBookStrategy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/SimilarBookStrategy.java), [`CategoryBasedStrategy.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/CategoryBasedStrategy.java) | Interchangeable algorithmic strategies for reservation queue allocation, popularity scoring, content similarity, and categorical recommendations. |
 | **Enums** | [`Role.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/enums/Role.java), [`CopyStatus.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/enums/CopyStatus.java), [`InterchangeStatus.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/enums/InterchangeStatus.java) | Type-safe domain representations preventing invalid status transitions across the application. |
-| **Exception Hierarchy** | [`com.psgitech.library.exception.*`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/exception/) | 23 fine-grained domain exceptions (e.g., `ActiveReservationQueueException`, `RecipientNotEligibleException`) mapped to clean HTTP status codes. |
-| **Multithreading** | [`ConcurrencyManager.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/concurrency/ConcurrencyManager.java) | Fair `Semaphore` permit acquisition, `AtomicInteger` counters, and concurrent in-flight map coordination. |
+| **Exception Hierarchy** | [`com.psgitech.library.exception.*`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/exception/) | 24 fine-grained domain exceptions (e.g., `ActiveReservationQueueException`, `RateLimitExceededException`) mapped to clean HTTP status codes. |
+| **Multithreading** | [`ConcurrencyManager.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/concurrency/ConcurrencyManager.java), [`AutocompleteRateLimiter.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/util/AutocompleteRateLimiter.java), [`BookPopularityService.java`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/service/BookPopularityService.java) | Fair `Semaphore` permit acquisition, sliding-window rate limit deques with concurrent pruning, and volatile snapshot cache with `AtomicBoolean` single refresh guard. |
 
 ---
 
@@ -340,27 +372,39 @@ The test suite runs against an isolated MySQL database (`psgitech_library_test`)
 -------------------------------------------------------
  T E S T S
 -------------------------------------------------------
-Running com.psgitech.library.ReservationServiceTest          [15 tests - PASS]
-Running com.psgitech.library.UserServiceTest                 [ 6 tests - PASS]
-Running com.psgitech.library.AllocationServiceTest            [11 tests - PASS]
-Running com.psgitech.library.FineServiceTest                  [13 tests - PASS]
-Running com.psgitech.library.ConcurrencyIntegrationTest       [ 9 tests - PASS]
-Running com.psgitech.library.BookServiceTest                  [10 tests - PASS]
-Running com.psgitech.library.AuthenticationServiceTest        [ 4 tests - PASS]
-Running com.psgitech.library.ConcurrencyConfigTest            [ 2 tests - PASS]
-Running com.psgitech.library.ConcurrencyFilterTest            [ 3 tests - PASS]
-Running com.psgitech.library.ConcurrencyManagerTest           [ 6 tests - PASS]
-Running com.psgitech.library.ConcurrencyMetricsTest           [ 2 tests - PASS]
-Running com.psgitech.library.FilterChainInvocationTest        [ 1 test  - PASS]
-Running com.psgitech.library.BorrowingServiceTest             [11 tests - PASS]
-Running com.psgitech.library.PasswordUtilTest                 [ 2 tests - PASS]
-Running com.psgitech.library.RouteClassifierTest              [ 2 tests - PASS]
-Running com.psgitech.library.RouteCoverageTest                [ 1 test  - PASS]
-Running com.psgitech.library.ValidationUtilTest               [ 5 tests - PASS]
-Running com.psgitech.library.BookInterchangeServiceTest       [16 tests - PASS]
+Running com.psgitech.library.BarcodeServiceTest               [ 3 tests - PASS]
+Running com.psgitech.library.ReservationServiceTest           [15 tests - PASS]
+Running com.psgitech.library.UserServiceTest                  [ 6 tests - PASS]
+Running com.psgitech.library.SmartDiscoverySecurityAndEndpointTest [10 tests - PASS]
+Running com.psgitech.library.SmartDiscoveryUnitTest           [12 tests - PASS]
+Running com.psgitech.library.AllocationServiceTest             [11 tests - PASS]
+Running com.psgitech.library.ValidationUtilTest                [ 5 tests - PASS]
+Running com.psgitech.library.PdfReceiptTest                   [ 2 tests - PASS]
+Running com.psgitech.library.SmartDiscoverySearchTest         [ 8 tests - PASS]
+Running com.psgitech.library.FineServiceTest                   [13 tests - PASS]
+Running com.psgitech.library.ConcurrencyManagerTest            [ 6 tests - PASS]
+Running com.psgitech.library.ConcurrencyIntegrationTest        [ 9 tests - PASS]
+Running com.psgitech.library.BookServiceTest                   [10 tests - PASS]
+Running com.psgitech.library.AuthenticationServiceTest         [ 4 tests - PASS]
+Running com.psgitech.library.ConcurrencyConfigTest             [ 2 tests - PASS]
+Running com.psgitech.library.ConcurrencyMetricsTest            [ 3 tests - PASS]
+Running com.psgitech.library.PasswordUtilTest                  [ 2 tests - PASS]
+Running com.psgitech.library.RouteClassifierTest               [ 2 tests - PASS]
+Running com.psgitech.library.AllocationExpiryTest              [ 3 tests - PASS]
+Running com.psgitech.library.OtpServiceTest                   [ 4 tests - PASS]
+Running com.psgitech.library.BookInterchangeServiceTest        [16 tests - PASS]
+Running com.psgitech.library.SmartDiscoveryFilterAndCategoryTest [ 7 tests - PASS]
+Running com.psgitech.library.CsrfFilterTest                    [ 6 tests - PASS]
+Running com.psgitech.library.FilterChainInvocationTest         [ 1 test  - PASS]
+Running com.psgitech.library.BorrowingServiceTest              [11 tests - PASS]
+Running com.psgitech.library.SmartDiscoveryPopularAndRecommendationTest [ 7 tests - PASS]
+Running com.psgitech.library.WaitEstimatorTest                 [ 3 tests - PASS]
+Running com.psgitech.library.LoanRenewalTest                  [ 5 tests - PASS]
+Running com.psgitech.library.ConcurrencyFilterTest             [ 3 tests - PASS]
+Running com.psgitech.library.RouteCoverageTest                 [ 1 test  - PASS]
 
 Results:
-Tests run: 119, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 190, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
 
@@ -381,22 +425,28 @@ Library-Management/
 │   ├── 04_reservation_queue.sql
 │   ├── 05_automatic_allocation.sql
 │   ├── 06_fine_payment.sql
-│   └── 08_book_interchange.sql
+│   ├── 08_book_interchange.sql
+│   ├── 10_smart_discovery.sql               # Additive discovery indexes
+│   ├── 10_smart_discovery_rollback.sql      # Discovery index teardown
+│   ├── 10_smart_discovery_diagnostics.sql   # Index & schema validation
+│   ├── 10_smart_discovery_perf_seed.sql     # 20k book performance benchmark seed
+│   └── 10_smart_discovery_perf_cleanup.sql  # Benchmark seed cleanup
 └── src/
     ├── main/
     │   ├── java/com/psgitech/library/
     │   │   ├── concurrency/                 # Semaphore limiter, metrics, admission tickets
     │   │   ├── config/                      # Borrowing & fine institutional policies
     │   │   ├── enums/                       # Domain status and role enumerations
-    │   │   ├── exception/                   # 23 domain runtime exceptions
-    │   │   ├── filter/                      # RequestId, Auth, RBAC, Concurrency filters
+    │   │   ├── exception/                   # 24 domain runtime exceptions
+    │   │   ├── filter/                      # RequestId, Auth, RBAC, Csrf, Concurrency filters
     │   │   ├── interfaces/                  # Strategy, Policy, and Checker interfaces
     │   │   ├── listener/                    # AppContextListener (lifecycle initialization)
-    │   │   ├── model/                       # Domain models and entities
-    │   │   ├── repository/                  # JDBC DAOs with row-level locks
-    │   │   ├── service/                     # Business logic and coordination services
-    │   │   ├── servlet/                     # 33 HTTP Servlets (@WebServlet)
-    │   │   └── util/                        # DBConnection, PasswordUtil, TransactionRetryHelper
+    │   │   ├── model/                       # Domain models and entities (Book, DTOs, Criteria)
+    │   │   ├── repository/                  # JDBC DAOs with row-level locks & search repositories
+    │   │   ├── scheduler/                   # Background expiry schedulers
+    │   │   ├── service/                     # Business logic, discovery, and recommendation strategies
+    │   │   ├── servlet/                     # 39 HTTP Servlets (@WebServlet)
+    │   │   └── util/                        # DBConnection, PasswordUtil, AutocompleteRateLimiter
     │   ├── resources/
     │   │   ├── db.properties                # Database connection & concurrency configuration
     │   │   ├── schema.sql                   # Complete unified MySQL schema (12 tables)
@@ -405,10 +455,10 @@ Library-Management/
     │       ├── META-INF/context.xml         # Tomcat JNDI DataSource configuration
     │       ├── WEB-INF/web.xml              # Filter chain and servlet mapping definitions
     │       ├── css/library-theme.css        # Academic Times New Roman design system
-    │       ├── js/                          # Vanilla JS client logic (books, borrowing, fines, etc.)
-    │       └── *.html                       # 17 responsive web portal pages
+    │       ├── js/                          # Vanilla JS client logic (discovery.js, books.js, etc.)
+    │       └── *.html                       # 18 responsive web portal pages (incl. smart-discovery.html)
     └── test/
-        ├── java/com/psgitech/library/       # 18 JUnit test classes (119 automated tests)
+        ├── java/com/psgitech/library/       # 30 JUnit test classes (190 automated tests)
         └── resources/db.properties          # Test database credentials
 ```
 
@@ -449,7 +499,7 @@ Run the full test suite and build the WAR package:
 ```bash
 mvn clean package
 ```
-*Verification: Confirms 119 tests pass and generates `target/psgitech-library.war`.*
+*Verification: Confirms 190 tests pass and generates `target/psgitech-library.war`.*
 
 ### Step 3: Deploy to Apache Tomcat 10.1
 Because Tomcat 10.1 uses Jakarta EE (`jakarta.servlet.*`), migrate and deploy the WAR using Tomcat's migration tool:
@@ -492,6 +542,8 @@ http://localhost:8081/psgitech-library/
 | **Feature 6: Fines & UPI Payment** | **Fully Implemented (+ PDF Receipts)** | `FineService.java`, `PaymentService.java`, `PdfReceiptService.java`, `PdfReceiptServlet.java`, `FineRepository.java`, `PaymentRepository.java`, `PaymentServlet.java`, `receipt.html` |
 | **Feature 7: Concurrency Management** | **Fully Implemented (+ Latency Percentiles & Histogram)** | `ConcurrencyManager.java`, `ConcurrencyFilter.java`, `ConcurrencyMetrics.java`, `CsrfFilter.java`, `RouteClassifier.java`, `ConcurrencyMonitorServlet.java`, `concurrency-monitor.html` |
 | **Feature 8: Peer Book Interchange** | **Fully Implemented (+ Handover OTP Verification)** | `BookInterchangeService.java`, `BookInterchangeRepository.java`, `InterchangeOtpServlet.java`, `InterchangeServlet.java`, `InterchangeActionServlet.java`, `book_interchanges` table |
+| **Feature 9: Reservation Expiry** | **Fully Implemented (+ Auto Release & Reallocation)** | `AllocationExpiryScheduler.java`, `AllocationService.java`, `FIFOAllocationStrategy.java`, `AllocationServlet.java`, `allocations` table |
+| **Feature 10: Smart Book Discovery** | **Fully Implemented (+ Autocomplete & Recommendations)** | `SmartDiscoveryService.java`, `BookRecommendationService.java`, `BookPopularityService.java`, `DiscoveryRepository.java`, `RecommendationRepository.java`, `RecommendationStrategy.java`, `PopularBookStrategy.java`, `SimilarBookStrategy.java`, `CategoryBasedStrategy.java`, `AutocompleteRateLimiter.java`, `SmartDiscoveryServlet.java`, `BookSuggestionServlet.java`, `PopularBooksServlet.java`, `PersonalizedRecommendationsServlet.java`, `SimilarBooksServlet.java`, `BookCategoriesServlet.java`, `smart-discovery.html`, `discovery.js` |
 | **Node.js Server (`server.js`)** | **Mock / Dev Artifact** | `server.js` (Used strictly as a lightweight local mockup for early UI prototype review; independent of Java Tomcat backend) |
 
 ---
