@@ -70,3 +70,4 @@ public class AdminNotificationStatsServlet extends HttpServlet {
         resp.getWriter().write(gson.toJson(result));
     }
 }
+

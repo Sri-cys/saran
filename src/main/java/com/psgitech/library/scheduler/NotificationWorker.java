@@ -99,3 +99,4 @@ public class NotificationWorker {
         return running;
     }
 }
+

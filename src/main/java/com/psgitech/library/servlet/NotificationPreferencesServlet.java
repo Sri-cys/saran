@@ -129,3 +129,4 @@ public class NotificationPreferencesServlet extends HttpServlet {
         resp.getWriter().write(gson.toJson(result));
     }
 }
+

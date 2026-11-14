@@ -43,3 +43,4 @@ public class NotificationService {
         return notificationRepo.markAllAsRead(userId, upToId, 500);
     }
 }
+

@@ -83,3 +83,4 @@ public class NotificationReadAllServlet extends HttpServlet {
         resp.getWriter().write(gson.toJson(result));
     }
 }
+

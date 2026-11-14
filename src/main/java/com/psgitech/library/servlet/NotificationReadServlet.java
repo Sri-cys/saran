@@ -92,3 +92,4 @@ public class NotificationReadServlet extends HttpServlet {
         resp.getWriter().write(gson.toJson(result));
     }
 }
+

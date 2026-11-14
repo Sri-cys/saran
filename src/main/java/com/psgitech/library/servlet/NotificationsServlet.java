@@ -108,3 +108,4 @@ public class NotificationsServlet extends HttpServlet {
         resp.getWriter().write(gson.toJson(result));
     }
 }
+

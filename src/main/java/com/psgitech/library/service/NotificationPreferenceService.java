@@ -78,3 +78,4 @@ public class NotificationPreferenceService {
         preferenceRepo.upsertBatch(userId, sanitized);
     }
 }
+

@@ -63,3 +63,4 @@ public class NotificationUnreadCountServlet extends HttpServlet {
         resp.getWriter().write(gson.toJson(result));
     }
 }
+
