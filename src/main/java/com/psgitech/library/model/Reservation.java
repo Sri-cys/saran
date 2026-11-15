@@ -45,6 +45,11 @@ public class Reservation {
     private Integer estimatedWaitDays;
     private String estimatedWaitMessage;
 
+    // Feature 12 Dynamic Borrowing Policy Preview
+    private String policyCode;
+    private Integer previewLoanDays;
+    private String policyLabel;
+
     public Reservation() {
         this.status = ReservationStatus.WAITING;
         this.reservationDate = LocalDate.now();
@@ -315,6 +320,30 @@ public class Reservation {
 
     public void setEstimatedWaitMessage(String estimatedWaitMessage) {
         this.estimatedWaitMessage = estimatedWaitMessage;
+    }
+
+    public String getPolicyCode() {
+        return policyCode;
+    }
+
+    public void setPolicyCode(String policyCode) {
+        this.policyCode = policyCode;
+    }
+
+    public Integer getPreviewLoanDays() {
+        return previewLoanDays;
+    }
+
+    public void setPreviewLoanDays(Integer previewLoanDays) {
+        this.previewLoanDays = previewLoanDays;
+    }
+
+    public String getPolicyLabel() {
+        return policyLabel;
+    }
+
+    public void setPolicyLabel(String policyLabel) {
+        this.policyLabel = policyLabel;
     }
 
     @Override

@@ -325,6 +325,9 @@ function initBookDetailsPage() {
         if (!res.ok || !data.success || !data.book) {
             throw new Error(data.message || 'Book could not be retrieved.');
         }
+        if (data.loanPolicy) {
+            data.book.loanPolicy = data.loanPolicy;
+        }
         renderBookDetailsView(data.book, data.isStaff);
         loadSimilarBooks(bookId);
     })
@@ -463,6 +466,7 @@ function renderBookDetailsView(book, isStaff) {
                     <span class="badge badge-role">${escapeHtml(book.category)}</span>
                     <span class="badge badge-active">${escapeHtml(book.department)}</span>
                     ${book.archived ? '<span class="badge badge-copy-archived">ARCHIVED TITLE</span>' : ''}
+                    ${book.loanPolicy && book.loanPolicy.isHighDemand ? `<span class="badge badge-high-demand" title="High-demand item: ${book.loanPolicy.loanDays}-day loan, no renewals">🔥 ${escapeHtml(book.loanPolicy.label || 'High Demand')} (${book.loanPolicy.loanDays} Days)</span>` : (book.loanPolicy ? `<span class="badge badge-standard-demand">Standard Loan (14 Days)</span>` : '')}
                 </div>
 
                 <h1 style="margin-bottom: 6px; line-height: 1.25;">${escapeHtml(book.title)}</h1>
@@ -499,6 +503,14 @@ function renderBookDetailsView(book, isStaff) {
                             <td class="meta-label">Shelf Availability</td>
                             <td>
                                 <strong>${avail}</strong> copy(ies) available on library racks out of <strong>${total}</strong> active physical copies.${isStaff && book.inventory && book.inventory.allocatedCopies > 0 ? ` <span class="badge badge-copy-allocated" style="margin-left: 6px;">${book.inventory.allocatedCopies} on Hold</span>` : ''}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="meta-label">Borrowing Policy</td>
+                            <td>
+                                ${book.loanPolicy && book.loanPolicy.isHighDemand 
+                                    ? `<strong style="color: #856404;">🔥 ${escapeHtml(book.loanPolicy.label || 'High Demand Policy')}</strong> &bull; ${book.loanPolicy.loanDays}-day loan period (Renewals disabled due to high queue pressure)` 
+                                    : `<strong>Standard Policy</strong> &bull; 14-day loan period (Renewals permitted)`}
                             </td>
                         </tr>
                     </tbody>

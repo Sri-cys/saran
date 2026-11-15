@@ -87,8 +87,32 @@ public class AuthorizationFilter implements Filter {
             }
         }
 
+        // Feature 12: Dynamic Loan Policy Access Control (Decision D11)
+        if (path.startsWith("/admin/loan-policy") || path.contains("loan-policy")) {
+            if (user == null) {
+                if (path.endsWith(".html")) {
+                    res.sendRedirect(contextPath + "/login.html?redirect=" + path);
+                } else {
+                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
+                }
+                return;
+            }
+            if ("POST".equalsIgnoreCase(req.getMethod())) {
+                if (user.getRole() != Role.ADMIN) {
+                    res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Administrator role required to modify loan policy.");
+                    return;
+                }
+            } else {
+                if (user.getRole() != Role.LIBRARIAN && user.getRole() != Role.ADMIN) {
+                    res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Staff role required to view loan policy.");
+                    return;
+                }
+            }
+        }
+
         // Admin-only protection (including fine waivers via POST /fines)
-        if (path.startsWith("/admin/") || (path.startsWith("/api/admin/") && !path.startsWith("/api/admin/interchanges"))
+        if ((path.startsWith("/admin/") && !path.startsWith("/admin/loan-policy")) 
+                || (path.startsWith("/api/admin/") && !path.startsWith("/api/admin/interchanges"))
                 || path.contains("admin-users") || path.contains("concurrency-monitor")
                 || (path.startsWith("/fines") && "POST".equalsIgnoreCase(req.getMethod()))) {
             if (user == null) {

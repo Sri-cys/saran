@@ -107,7 +107,8 @@ public class WaitEstimator {
             } else {
                 int cycles = index / expectedDates.size();
                 int rem = index % expectedDates.size();
-                targetDate = expectedDates.get(rem).plusDays(cycles * 14L);
+                int effectiveLoanDays = com.psgitech.library.policy.LoanPolicyManager.getInstance().effectiveLoanDays(bookId);
+                targetDate = expectedDates.get(rem).plusDays(cycles * (long) effectiveLoanDays);
             }
 
             long daysBetween = ChronoUnit.DAYS.between(today, targetDate);

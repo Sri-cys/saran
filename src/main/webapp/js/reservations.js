@@ -118,6 +118,9 @@ async function loadMyReservations() {
                                     <div style="font-size: 0.82rem; color: #444444; margin-top: 3px;">
                                         Deadline: <strong>${escapeHtml(expiresAt ? expiresAt.substring(0, 16) : '24 Hours')}</strong>
                                     </div>
+                                    <div style="font-size: 0.82rem; color: #444444; margin-top: 3px;">
+                                        Loan Duration upon Collection: <strong>${res.previewLoanDays || 14} Days</strong> ${res.policyCode === 'HIGH_DEMAND' ? '<span class="badge badge-high-demand" style="font-size: 0.72rem; padding: 2px 4px; margin-left: 4px;">High Demand Policy</span>' : ''}
+                                    </div>
                                     <div class="allocation-countdown" data-expires-at="${escapeHtml(expiresAt)}" style="font-size: 0.85rem; margin-top: 6px; color: var(--primary);">
                                         Calculating time remaining...
                                     </div>
@@ -142,6 +145,11 @@ async function loadMyReservations() {
                                     <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">
                                         Estimated Wait: <strong style="color: #203B60;">${escapeHtml(res.estimatedWaitMessage || 'Available soon')}</strong>
                                     </div>
+                                    ${res.policyCode === 'HIGH_DEMAND' ? `
+                                        <div style="font-size: 0.8rem; color: #856404; margin-top: 6px; font-weight: 500;">
+                                            🔥 High Demand Book &bull; Loans limited to ${res.previewLoanDays || 5} days upon issue (renewals barred)
+                                        </div>
+                                    ` : ''}
                                 </div>
 
                                 <div style="display: flex; gap: 8px; justify-content: flex-end;">

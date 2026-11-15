@@ -127,10 +127,15 @@ function renderStudentBorrowingCard(tx) {
         dueStatusHtml = `<span class="badge badge-available">${tx.daysRemaining} days remaining</span>`;
     }
 
+    const isHighDemand = (tx.policyCode === 'HIGH_DEMAND' || tx.policy_code === 'HIGH_DEMAND');
+    const loanDays = tx.loanDays || tx.loan_days || (isHighDemand ? 5 : 14);
+
     const renewalCount = tx.renewalCount || 0;
-    const canRenew = (!tx.overdue && tx.status === 'ACTIVE' && renewalCount < 1);
+    const canRenew = (!tx.overdue && tx.status === 'ACTIVE' && renewalCount < 1 && !isHighDemand);
     let renewBtnHtml = '';
-    if (canRenew) {
+    if (isHighDemand) {
+        renewBtnHtml = `<span class="badge badge-high-demand" title="Renewals barred due to high queue demand">High Demand &bull; No Renewal</span>`;
+    } else if (canRenew) {
         renewBtnHtml = `
             <button class="btn btn-outline btn-sm" onclick="handleRenewLoan(${tx.transactionId})">
                 &#8635; Renew Loan (+14 Days)
@@ -179,8 +184,8 @@ function renderStudentBorrowingCard(tx) {
                         <span class="borrowing-date-val" style="color: ${tx.overdue ? 'var(--danger)' : 'var(--primary)'}; font-weight: bold;">${dueDate}</span>
                     </div>
                     <div class="borrowing-date-item">
-                        <span class="borrowing-date-label">Standard Duration</span>
-                        <span class="borrowing-date-val">14 Days (Fixed)</span>
+                        <span class="borrowing-date-label">Loan Duration</span>
+                        <span class="borrowing-date-val">${loanDays} Days ${isHighDemand ? '<span class="badge badge-high-demand" style="font-size: 0.72rem; padding: 2px 5px; margin-left: 4px;">High Demand</span>' : ''}</span>
                     </div>
                 </div>
 
@@ -216,7 +221,12 @@ async function handleRenewLoan(txId) {
                 loadStudentActiveBorrowings();
             }
         } else {
-            alert('Renewal failed: ' + (json.message || 'Ineligible for renewal.'));
+            const msg = json.message || 'Ineligible for renewal.';
+            if (msg.includes('HIGH_DEMAND_POLICY') || msg.toLowerCase().includes('high demand')) {
+                alert('Renewal refused: This book is currently in high demand with students waiting in queue.');
+            } else {
+                alert('Renewal failed: ' + msg);
+            }
         }
     } catch (e) {
         alert('Network error while processing renewal.');
@@ -668,6 +678,30 @@ function updateIssueDateDisplays() {
     if (dueDateEl) dueDateEl.textContent = fmt(dueDate);
 }
 
+function updateIssueDueDateForPolicy(policy) {
+    const today = new Date();
+    const isHighDemand = (policy && policy.isHighDemand);
+    const days = (policy && policy.loanDays) ? policy.loanDays : 14;
+
+    const dueDate = new Date();
+    dueDate.setDate(today.getDate() + days);
+
+    const fmt = d => d.toISOString().split('T')[0];
+    const dueDateEl = document.getElementById('dueDateDisplay');
+    const labelEl = document.getElementById('loanPolicyDurationLabel');
+
+    if (dueDateEl) {
+        dueDateEl.textContent = fmt(dueDate);
+    }
+    if (labelEl) {
+        if (isHighDemand) {
+            labelEl.innerHTML = `<span style="color: #b7791f; font-weight: bold;">Due Date: ${days} Days (🔥 High Demand)</span>`;
+        } else {
+            labelEl.textContent = `Calculated Due Date (${days} Days)`;
+        }
+    }
+}
+
 async function lookupStudentEligibility() {
     const regInput = document.getElementById('issueStudentRegNo');
     const panel = document.getElementById('studentInfoPanel');
@@ -801,6 +835,13 @@ async function selectBookForIssue(bookId) {
                 document.getElementById('selBookDept').textContent = b.department;
             }
 
+            if (json.loanPolicy) {
+                b.loanPolicy = json.loanPolicy;
+                updateIssueDueDateForPolicy(json.loanPolicy);
+            } else {
+                updateIssueDueDateForPolicy(null);
+            }
+
             // Populate available physical copies
             const copies = (b.inventory && b.inventory.copies) || [];
             const availableCopies = copies.filter(c => c.status === 'AVAILABLE');
@@ -891,6 +932,7 @@ async function handleConfirmIssue() {
             document.getElementById('studentLookupMsg').style.display = 'none';
             currentEligibleStudent = null;
             currentSelectedBook = null;
+            updateIssueDueDateForPolicy(null);
 
             // Reload active tables
             loadAllActiveBorrowings();

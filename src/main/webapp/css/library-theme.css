@@ -815,6 +815,19 @@ a:hover {
     border: 1px solid #D0DFEE;
 }
 
+.badge-high-demand {
+    background-color: #FFF3CD;
+    color: #856404 !important;
+    border: 1px solid #FFEEBA;
+    font-weight: 600;
+}
+
+.badge-standard-demand {
+    background-color: #E8F4FD;
+    color: #0C5460 !important;
+    border: 1px solid #BEE5EB;
+}
+
 /* ==========================================================================
    Student Activity (Compact Indicators)
    ========================================================================== */

@@ -55,6 +55,10 @@ public class BorrowTransaction {
     private int renewalCount = 0;
     private Timestamp lastRenewedAt;
 
+    // Feature 12: Dynamic Loan Policy
+    private String policyCode;
+    private Integer loanDays;
+
     public BorrowTransaction() {
         this.status = BorrowStatus.ACTIVE;
     }
@@ -374,6 +378,26 @@ public class BorrowTransaction {
 
     public void setLastRenewedAt(Timestamp lastRenewedAt) {
         this.lastRenewedAt = lastRenewedAt;
+    }
+
+    public String getPolicyCode() {
+        return policyCode != null ? policyCode : "STANDARD";
+    }
+
+    public void setPolicyCode(String policyCode) {
+        this.policyCode = policyCode;
+    }
+
+    public Integer getLoanDays() {
+        return loanDays != null ? loanDays : 14;
+    }
+
+    public void setLoanDays(Integer loanDays) {
+        this.loanDays = loanDays;
+    }
+
+    public boolean isHighDemand() {
+        return "HIGH_DEMAND".equalsIgnoreCase(this.policyCode);
     }
 
     @Override

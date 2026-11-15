@@ -688,14 +688,76 @@ The Feature 11 test suite validates all policy rules, transaction isolations, us
 
 ---
 
-## 13. Conclusion & Operational Sign-Off
+## 13. Feature 12: Exam-Season Dynamic Borrowing Policy
 
-The **PSG iTech Library Resource and Queue Management System** now encompasses Features 1 through 11, comprising:
-- **45 Production Servlets** handling 51 endpoints.
-- **16 Relational Database Tables** with 9 additive performance indexes.
-- **19 Responsive Web Portal Pages** adhering to institutional academic styling.
-- **35 JUnit Test Classes with 214 Passing Automated Tests** (0 failures, 0 errors, 0 skipped).
-- Complete backward compatibility with circulation desk operations, FIFO waitlists, hold shelves, fine UPI payments, fair concurrency admission control, peer book transfers, smart discovery, and the notification management center.
+### 13.1 Architectural Overview & Core Design Decisions
+
+Feature 12 introduces an automated, queue-demand-driven borrowing policy that throttles loan periods from the standard 14 days down to 5 days and bars renewals during periods of high circulation pressure. To prevent boundary oscillations ("flapping"), the subsystem is stabilized by a persistent hysteresis state machine.
+
+```
++-----------------------------------------------------------------------------------------+
+|                                HYSTERESIS STATE MACHINE                                  |
++-----------------------------------------------------------------------------------------+
+|                                                                                         |
+|      +-------------------+         Demand >= enter_threshold (>= 4)  +----------------+ |
+|      |                   | ----------------------------------------> |                | |
+|      |     STANDARD      |                                           |  HIGH_DEMAND   | |
+|      |  (14-day loan,    |                                           |  (5-day loan,  | |
+|      |   renewals OK)    | <---------------------------------------- |   no renewals) | |
+|      |                   |          Demand <= exit_threshold (<= 1)  |                | |
+|      +-------------------+                                           +----------------+ |
+|                ^                                                              ^         |
+|                |                                                              |         |
+|                +----------- Hysteresis Zone (Demand 2 or 3) ------------------+         |
+|                             (Preserves current state; prevents flapping)                |
++-----------------------------------------------------------------------------------------+
+```
+
+#### Key Architecture Decisions (D1 - D12):
+1. **D1: Demand Formula Under Row Lock**:
+   $$\text{Demand} = \sum [status \in ('\text{WAITING}', '\text{ALLOCATED}') \land student\_id \ne borrower\_id]$$
+   Evaluated under `SELECT ... FOR SHARE` lock after acquiring the book row's `SELECT ... FOR UPDATE` lock during issue checkout, completely avoiding phantom reads.
+2. **D2: Hysteresis Thresholds**: Default enter threshold $\ge 4$ reservations; exit threshold $\le 1$ reservation. Demand values in the intermediate gap ($[2, 3]$) preserve the incumbent state.
+3. **D3: Dynamic Loan Duration**: Default high-demand duration is 5 days; standard duration is 14 days (`BorrowingPolicy.DEFAULT_BORROWING_DAYS`).
+4. **D4: Renewal Lockdown**: Renewals for high-demand titles are strictly prohibited and immediately rejected with institutional reason code `HIGH_DEMAND_POLICY`.
+5. **D5: Lazy Evaluation**: Evaluated within existing circulation issue transactions. Catalog browse and search operations perform pure, non-mutating reads.
+6. **D6: Persistent Hysteresis State**: Recorded in `book_loan_policy_state` (`book_id`, `policy_code`, `entered_at`, `last_evaluated_at`, `last_demand`) with `ON DELETE CASCADE`.
+7. **D7: Optimistic Concurrency Control (OCC)**: Single configuration row (`id = 1`) in `loan_policy_settings` protected by monotonic integer `version`. Stale concurrent updates fail with `StaleVersionConflictException` (HTTP 409 Conflict). Modifications are logged in append-only table `loan_policy_changes`.
+8. **D8: Transaction Schema Snapshot**: Columns `policy_code VARCHAR(30) NULL` and `loan_days INT NULL` on `borrow_transactions` capture the exact policy under which each loan was issued. Existing loans are **never** retroactively modified.
+9. **D9: Strategy Pattern**: Core domain interfaces `LoanPolicy` (`getCode`, `getLabel`, `getLoanDays`, `canRenew`, `isHighDemand`), `StandardLoanPolicy`, `HighDemandLoanPolicy`, and singleton coordinator `LoanPolicyManager`.
+10. **D10: Cross-Feature Integrations**:
+    - **WaitEstimator (Feature 4)**: Calculates wait cycles dynamically using `LoanPolicyManager.effectiveLoanDays(bookId)` (5 days instead of 14 days for high-demand items).
+    - **Smart Discovery (Feature 10)**: Displays active policy badges ("🔥 High Demand (5 Days)") on search and details pages.
+    - **Notifications (Feature 11)**: `LOAN_ISSUED` notification text dynamically includes loan duration and high-demand notices.
+    - **Concurrency Monitor (Feature 7)**: Mapped to `ConcurrencyOperation.POLICY_ADMIN`.
+11. **D11: Administrative Portal & Navigation**: Dedicated `loan-policy.html` and `loan-policy.js` featuring real-time dry-run impact simulation, optimistic conflict detection, throttled book tables, and change audit history.
+12. **D12: Stretch Feature - Exam-Season Windows**: Table `loan_policy_windows` allows scheduling calendar intervals where lower enter thresholds (e.g. $\ge 2$) automatically apply.
+
+---
+
+### 13.2 Automated Test Suite Verification
+
+The Feature 12 test suite comprehensively validates all mathematical transition rules, MySQL transactional integrations, RBAC permissions, concurrency locks, and system invariants:
+
+| Test Class | Test Count | Focus Areas | Status |
+|---|:---:|---|:---:|
+| `LoanPolicyPureRuleTest` | 12 | Stateless hysteresis sequence ($0 \to 3 \to 4 \to 5 \to 3 \to 2 \to 1 \to 0$), boundary conditions, feature toggle off, settings validation, strategy characteristics | **PASS** |
+| `LoanPolicyIntegrationTest` | 6 | MySQL test schema assertions, 5-copy book with 4 waiting reservations, 5-day issue, renewal rejection (`HIGH_DEMAND_POLICY`), hysteresis retention on queue drop to 3, reversion to standard on queue drop to 1, own reservation exclusion, `WaitEstimator` integration | **PASS** |
+| `LoanPolicyAdminAndSecurityTest` | 8 | RBAC access control (Anonymous 401, Student 403, Librarian view-only 200, Admin update 200), OCC 409 version conflict verification, change audit history logging, `LoanPolicyUpdateServlet` execution, exam-season window CRUD | **PASS** |
+| `LoanPolicyConcurrencyTest` | 3 | 8-thread concurrent OCC settings updates (exactly 1 succeeds, 7 receive 409 conflict), 2-thread simultaneous checkouts under book row lock, multi-copy issue concurrency | **PASS** |
+| `LoanPolicyInvariantsTest` | 3 | Static source code scan prohibiting `UPDATE borrow_transactions SET due_date`, immunity of existing loans to policy transitions, 3-book borrow limit & Rs. 2.00/day fine invariants | **PASS** |
+
+---
+
+## 14. Conclusion & Operational Sign-Off
+
+The **PSG iTech Library Resource and Queue Management System** now encompasses Features 1 through 12, comprising:
+- **54 Production Servlets** handling 60 REST & web endpoints.
+- **20 Relational Database Tables** with 11 additive performance indexes.
+- **20 Responsive Web Portal Pages** adhering to institutional academic styling.
+- **40 JUnit Test Classes with 246 Passing Automated Tests** (0 failures, 0 errors, 0 skipped).
+- 100% backward compatibility with user registration, OTP credentials, Code 128 barcodes, circulation desk operations, FIFO waitlists, 24-hour hold shelves, fine UPI payments, fair concurrency admission control, peer book transfers, smart discovery autocomplete, transactional notifications, and exam-season dynamic borrowing policy management.
+
 
 
 

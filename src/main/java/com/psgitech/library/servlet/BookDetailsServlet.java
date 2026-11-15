@@ -89,6 +89,17 @@ public class BookDetailsServlet extends HttpServlet {
             result.put("book", book);
             result.put("isStaff", isStaffUser);
 
+            if (book != null) {
+                com.psgitech.library.policy.LoanPolicy policy = com.psgitech.library.policy.LoanPolicyManager.getInstance().effectivePolicy(book.getBookId());
+                Map<String, Object> policyMap = new HashMap<>();
+                policyMap.put("code", policy.getCode());
+                policyMap.put("label", policy.getLabel());
+                policyMap.put("loanDays", policy.getLoanDays());
+                policyMap.put("canRenew", policy.canRenew());
+                policyMap.put("isHighDemand", policy.isHighDemand());
+                result.put("loanPolicy", policyMap);
+            }
+
             // Feature 5 (Section 9.6): Add myReservation for student view
             if (currentUser != null && currentUser.getRole() == Role.STUDENT && book != null) {
                 ReservationService resService = new ReservationService();

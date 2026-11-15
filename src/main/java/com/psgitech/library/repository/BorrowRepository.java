@@ -183,17 +183,25 @@ public class BorrowRepository {
                     }
                 }
 
+                // Feature 12: Dynamic Loan Policy resolution inside transaction under books lock
+                com.psgitech.library.policy.LoanPolicy loanPolicy = com.psgitech.library.policy.LoanPolicyManager.getInstance().resolveForIssue(conn, bookId, studentId);
+                String policyCode = loanPolicy.getCode();
+                int loanDays = loanPolicy.getLoanDays();
+                LocalDate effectiveDueDate = (loanPolicy.isHighDemand() || dueDate == null) ? issueDate.plusDays(loanDays) : dueDate;
+
                 // 7. Insert the borrowing transaction
-                String insertSql = "INSERT INTO borrow_transactions (student_id, book_id, copy_id, issue_date, due_date, status, issued_by) " +
-                        "VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?)";
+                String insertSql = "INSERT INTO borrow_transactions (student_id, book_id, copy_id, issue_date, due_date, status, issued_by, policy_code, loan_days) " +
+                        "VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?)";
                 int generatedId;
                 try (PreparedStatement psInsert = conn.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
                     psInsert.setInt(1, studentId);
                     psInsert.setInt(2, bookId);
                     psInsert.setInt(3, copyId);
                     psInsert.setDate(4, Date.valueOf(issueDate));
-                    psInsert.setDate(5, Date.valueOf(dueDate));
+                    psInsert.setDate(5, Date.valueOf(effectiveDueDate));
                     psInsert.setInt(6, issuedBy);
+                    psInsert.setString(7, policyCode);
+                    psInsert.setInt(8, loanDays);
 
                     int rows = psInsert.executeUpdate();
                     if (rows == 0) {
@@ -240,7 +248,10 @@ public class BorrowRepository {
                             .builder(com.psgitech.library.enums.NotificationType.LOAN_ISSUED, studentId, "LOAN_ISSUED:" + generatedId)
                             .entity("BORROW_TRANSACTION", generatedId)
                             .param("bookTitle", bookTitle)
-                            .param("dueDate", dueDate != null ? dueDate.toString() : "")
+                            .param("dueDate", effectiveDueDate != null ? effectiveDueDate.toString() : "")
+                            .param("loanDays", String.valueOf(loanDays))
+                            .param("isHighDemand", String.valueOf(loanPolicy.isHighDemand()))
+                            .param("policyLabel", loanPolicy.getLabel())
                             .build();
                     new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
                 } catch (SQLException e) {
@@ -251,8 +262,10 @@ public class BorrowRepository {
                 // Commit the complete transaction
                 conn.commit();
 
-                BorrowTransaction tx = new BorrowTransaction(studentId, bookId, copyId, issueDate, dueDate, issuedBy);
+                BorrowTransaction tx = new BorrowTransaction(studentId, bookId, copyId, issueDate, effectiveDueDate, issuedBy);
                 tx.setTransactionId(generatedId);
+                tx.setPolicyCode(policyCode);
+                tx.setLoanDays(loanDays);
                 tx.setStatus(BorrowStatus.ACTIVE);
                 tx.setBookTitle(bookTitle);
                 tx.setCopyCode(copyCode);
@@ -747,6 +760,7 @@ public class BorrowRepository {
     private String getBaseJoinedSelect() {
         return "SELECT bt.transaction_id, bt.student_id, bt.book_id, bt.copy_id, " +
                 "bt.issue_date, bt.due_date, bt.return_date, bt.status, bt.issued_by, bt.returned_by, " +
+                "bt.policy_code, bt.loan_days, " +
                 "bt.renewal_count, bt.last_renewed_at, bt.created_at, bt.updated_at, " +
                 "u.name AS student_name, u.register_number, u.department AS student_department, u.`year` AS student_year, " +
                 "b.title AS book_title, b.author AS book_author, b.cover_image_url, " +
@@ -793,6 +807,20 @@ public class BorrowRepository {
             tx.setLastRenewedAt(rs.getTimestamp("last_renewed_at"));
         } catch (SQLException ignored) {
             tx.setRenewalCount(0);
+        }
+
+        try {
+            String pCode = rs.getString("policy_code");
+            tx.setPolicyCode(pCode != null ? pCode : "STANDARD");
+            int ld = rs.getInt("loan_days");
+            if (!rs.wasNull()) {
+                tx.setLoanDays(ld);
+            } else {
+                tx.setLoanDays(14);
+            }
+        } catch (SQLException ignored) {
+            tx.setPolicyCode("STANDARD");
+            tx.setLoanDays(14);
         }
 
         tx.setStudentName(rs.getString("student_name"));
@@ -943,7 +971,13 @@ public class BorrowRepository {
                     throw new InvalidBorrowingOperationException("Overdue loans cannot be renewed. Please return the book at the circulation desk.");
                 }
 
-                // 5. Validation: Cannot renew if students are waiting in the reservation queue
+                // 5a. Validation: Cannot renew if book is under high-demand policy (Decision D4)
+                com.psgitech.library.policy.LoanPolicy effectivePolicy = com.psgitech.library.policy.LoanPolicyManager.getInstance().effectivePolicy(conn, bookId);
+                if (effectivePolicy != null && !effectivePolicy.canRenew()) {
+                    throw new InvalidBorrowingOperationException("HIGH_DEMAND_POLICY: This book is in high demand, so renewals are not available.");
+                }
+
+                // 5b. Validation: Cannot renew if students are waiting in the reservation queue
                 String resSql = "SELECT COUNT(*) FROM reservations WHERE book_id = ? AND status = 'WAITING'";
                 try (PreparedStatement psRes = conn.prepareStatement(resSql)) {
                     psRes.setInt(1, bookId);

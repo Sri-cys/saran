@@ -343,6 +343,67 @@ CREATE TABLE IF NOT EXISTS notification_interests (
     KEY idx_interest_type_val (interest_type, value)
 );
 
+-- ==============================================================================
+-- Feature 12: Exam-Season Dynamic Borrowing Policy
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS loan_policy_settings (
+    id INT PRIMARY KEY,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    enter_threshold INT NOT NULL DEFAULT 4,
+    exit_threshold INT NOT NULL DEFAULT 1,
+    high_demand_days INT NOT NULL DEFAULT 5,
+    version INT NOT NULL DEFAULT 1,
+    updated_by INT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_enter_threshold CHECK (enter_threshold >= 2),
+    CONSTRAINT chk_exit_threshold CHECK (exit_threshold >= 0),
+    CONSTRAINT chk_hysteresis CHECK (exit_threshold < enter_threshold),
+    CONSTRAINT chk_high_demand_days CHECK (high_demand_days >= 2 AND high_demand_days < 14)
+);
+
+CREATE TABLE IF NOT EXISTS loan_policy_changes (
+    change_id INT AUTO_INCREMENT PRIMARY KEY,
+    changed_by INT NULL,
+    changed_by_name VARCHAR(100) NULL,
+    changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    old_enabled BOOLEAN NOT NULL,
+    new_enabled BOOLEAN NOT NULL,
+    old_enter_threshold INT NOT NULL,
+    new_enter_threshold INT NOT NULL,
+    old_exit_threshold INT NOT NULL,
+    new_exit_threshold INT NOT NULL,
+    old_high_demand_days INT NOT NULL,
+    new_high_demand_days INT NOT NULL,
+    version INT NOT NULL,
+    INDEX idx_policy_changes_time (changed_at DESC)
+);
+
+CREATE TABLE IF NOT EXISTS book_loan_policy_state (
+    book_id INT PRIMARY KEY,
+    policy_code VARCHAR(30) NOT NULL DEFAULT 'STANDARD',
+    entered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_evaluated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_demand INT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_policy_state_book FOREIGN KEY (book_id) 
+        REFERENCES books (book_id) ON DELETE CASCADE,
+    INDEX idx_policy_state_code (policy_code, last_evaluated_at)
+);
+
+CREATE TABLE IF NOT EXISTS loan_policy_windows (
+    window_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    enter_threshold_override INT NOT NULL DEFAULT 2,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by INT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_window_dates CHECK (start_date <= end_date),
+    CONSTRAINT chk_window_override CHECK (enter_threshold_override >= 2),
+    INDEX idx_policy_windows_dates (active, start_date, end_date)
+);
+
+
 
 
 

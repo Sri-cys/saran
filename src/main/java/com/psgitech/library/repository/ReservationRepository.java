@@ -393,6 +393,23 @@ public class ReservationRepository {
                     list.add(r);
                 }
             }
+
+            // Hydrate Feature 12 Dynamic Policy Previews in bulk (Decision D10)
+            if (!list.isEmpty()) {
+                List<Integer> bookIds = new ArrayList<>();
+                for (Reservation r : list) {
+                    bookIds.add(r.getBookId());
+                }
+                Map<Integer, com.psgitech.library.policy.LoanPolicy> policyMap = com.psgitech.library.policy.LoanPolicyManager.getInstance().effectivePolicies(bookIds);
+                for (Reservation r : list) {
+                    com.psgitech.library.policy.LoanPolicy p = policyMap.get(r.getBookId());
+                    if (p != null) {
+                        r.setPolicyCode(p.getCode());
+                        r.setPreviewLoanDays(p.getLoanDays());
+                        r.setPolicyLabel(p.getLabel());
+                    }
+                }
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Error retrieving active reservations for student " + studentId, e);
             throw new RuntimeException("Database error retrieving active reservations.", e);
@@ -502,6 +519,23 @@ public class ReservationRepository {
                     r.setQueuePosition(rs.getInt("queue_pos"));
                     r.setTotalWaitingInQueue(rs.getInt("total_waiting"));
                     list.add(r);
+                }
+            }
+
+            // Hydrate Feature 12 Dynamic Policy Previews in bulk (Decision D10)
+            if (!list.isEmpty()) {
+                List<Integer> bookIds = new ArrayList<>();
+                for (Reservation r : list) {
+                    bookIds.add(r.getBookId());
+                }
+                Map<Integer, com.psgitech.library.policy.LoanPolicy> policyMap = com.psgitech.library.policy.LoanPolicyManager.getInstance().effectivePolicies(bookIds);
+                for (Reservation r : list) {
+                    com.psgitech.library.policy.LoanPolicy p = policyMap.get(r.getBookId());
+                    if (p != null) {
+                        r.setPolicyCode(p.getCode());
+                        r.setPreviewLoanDays(p.getLoanDays());
+                        r.setPolicyLabel(p.getLabel());
+                    }
                 }
             }
         } catch (SQLException e) {

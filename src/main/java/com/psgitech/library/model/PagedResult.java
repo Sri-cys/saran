@@ -17,6 +17,10 @@ public class PagedResult<T> {
     private final String sort;
     private final boolean extraTermsIgnored;
 
+    public PagedResult(List<T> items, int page, int pageSize, int totalCount) {
+        this(items, page, pageSize, totalCount, Collections.emptyMap(), null, false);
+    }
+
     public PagedResult(List<T> items, int page, int pageSize, int totalCount,
                        Map<String, Object> appliedFilters, String sort, boolean extraTermsIgnored) {
         this.items = items != null ? Collections.unmodifiableList(items) : Collections.emptyList();

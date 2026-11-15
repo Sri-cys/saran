@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Loan Policy | Admin Portal | PSG iTech Library</title>
+    <link rel="stylesheet" href="css/library-theme.css">
+</head>
+<body>
+
+    <!-- Global Navigation -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="loan-policy.html" class="nav-left">
+                <img src="images/psgitech-logo.png" alt="PSG iTech Logo" class="logo-icon">
+                <span class="brand-text">PSG iTECH LIBRARY &bull; LOAN POLICY</span>
+            </a>
+
+            <div class="nav-middle">
+                <ul class="nav-menu">
+                    <li><a href="librarian-dashboard.html">Dashboard</a></li>
+                    <li><a href="manage-books.html">Manage Books</a></li>
+                    <li><a href="borrowing-management.html">Borrowing Management</a></li>
+                    <li><a href="admin-users.html">User Directory</a></li>
+                    <li><a href="loan-policy.html" class="active">Loan Policy</a></li>
+                    <li><a href="concurrency-monitor.html">Concurrency Monitor</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-right">
+                <span class="badge badge-role" id="userRoleBadge" style="font-weight: bold;">STAFF PORTAL</span>
+                <div class="profile-dropdown">
+                    <button class="profile-trigger" id="profileTrigger">
+                        <span class="avatar-icon" id="userAvatar">A</span>
+                        <span id="userName">Administrator</span>
+                    </button>
+                    <div class="dropdown-menu" id="profileDropdownMenu">
+                        <a href="profile.html" class="dropdown-item">My Profile</a>
+                        <a href="admin-users.html" class="dropdown-item">User Management</a>
+                        <a href="loan-policy.html" class="dropdown-item active">Loan Policy</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="logout" class="dropdown-item" data-action="logout" style="color: var(--danger);">Log Out</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container" style="margin-top: 32px; max-width: 1200px;">
+
+            <!-- Header Banner -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h1 style="margin-bottom: 4px;">Dynamic Borrowing Policy Management</h1>
+                    <p class="text-secondary">Automated demand-based loan duration throttling with hysteresis dampening (Feature 12)</p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span id="policyStatusBadge" class="badge badge-active" style="font-size: 0.95rem; padding: 6px 14px;">POLICY ACTIVE</span>
+                    <button class="btn btn-secondary btn-sm" id="btnRefreshPolicy" title="Refresh policy settings and high-demand books">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: text-bottom; margin-right: 4px;">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Notification Feedback Banner -->
+            <div id="feedbackBanner" class="alert" style="display: none; margin-bottom: 20px;"></div>
+
+            <!-- Version Conflict Banner (409) -->
+            <div id="conflictBanner" class="alert alert-danger" style="display: none; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>Stale Version Conflict!</strong> Another administrator updated settings while you were viewing this page.
+                    </div>
+                    <button class="btn btn-sm btn-danger" onclick="window.LoanPolicyApp.fetchSettings()">Reload Latest Settings</button>
+                </div>
+            </div>
+
+            <!-- Grid Layout: Settings + Exam Windows on Top, Books & History Below -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px;">
+
+                <!-- 1. Policy Settings Form -->
+                <div class="card" style="background: white; border: 1px solid var(--border); border-radius: 8px; padding: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h2 style="font-size: 1.25rem; margin: 0;">Policy Configuration</h2>
+                        <span id="versionIndicator" class="badge badge-role">Version: v1</span>
+                    </div>
+
+                    <form id="policyForm">
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label class="form-checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
+                                <input type="checkbox" id="policyEnabled" checked>
+                                <span>Enable Dynamic Loan Policy</span>
+                            </label>
+                            <small class="text-secondary" style="display: block; margin-top: 4px;">When disabled, all books follow standard 14-day loans regardless of queue demand.</small>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <div class="form-group">
+                                <label for="enterThreshold" class="form-label" style="font-weight: 600;">Enter Threshold (Demand &ge; N)</label>
+                                <input type="number" id="enterThreshold" class="form-control" min="2" max="20" value="4" required>
+                                <small class="text-secondary">Triggers High-Demand (Default: 4)</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="exitThreshold" class="form-label" style="font-weight: 600;">Exit Threshold (Demand &le; M)</label>
+                                <input type="number" id="exitThreshold" class="form-control" min="0" max="19" value="1" required>
+                                <small class="text-secondary">Reverts to Standard (Default: 1)</small>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                            <div class="form-group">
+                                <label for="highDemandDays" class="form-label" style="font-weight: 600;">High-Demand Loan Period</label>
+                                <input type="number" id="highDemandDays" class="form-control" min="1" max="14" value="5" required>
+                                <small class="text-secondary">Days per loan (Default: 5 days)</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" style="font-weight: 600;">Standard Period</label>
+                                <input type="text" class="form-control" value="14 days (Fixed)" disabled readonly>
+                                <small class="text-secondary">Default campus loan duration</small>
+                            </div>
+                        </div>
+
+                        <!-- Dry-run simulation preview box -->
+                        <div style="background-color: var(--background-warm); border: 1px solid var(--border); padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span style="font-weight: 600; font-size: 0.9rem;">Impact Simulation</span>
+                                    <p id="previewSummary" class="text-secondary" style="margin: 4px 0 0 0; font-size: 0.85rem;">Click 'Run Preview' to test threshold impact on active inventory.</p>
+                                </div>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btnRunPreview">Run Preview</button>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                            <button type="submit" class="btn btn-primary" id="btnSavePolicy">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 2. Exam-Season Windows Card (Stretch D12) -->
+                <div class="card" style="background: white; border: 1px solid var(--border); border-radius: 8px; padding: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h2 style="font-size: 1.25rem; margin: 0;">Exam-Season Windows</h2>
+                        <span class="badge badge-standard-demand">Stretch Feature</span>
+                    </div>
+
+                    <p class="text-secondary" style="font-size: 0.88rem; margin-top: 0; margin-bottom: 16px;">
+                        Configure calendar intervals during which an aggressive enter-threshold (e.g. 2 reservations) automatically takes effect for accelerated book rotation.
+                    </p>
+
+                    <!-- Windows List -->
+                    <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                            <thead style="background: #f8f9fa; border-bottom: 1px solid var(--border);">
+                                <tr>
+                                    <th style="padding: 8px 12px; text-align: left;">Name</th>
+                                    <th style="padding: 8px 12px; text-align: left;">Dates</th>
+                                    <th style="padding: 8px 12px; text-align: center;">Enter &ge;</th>
+                                    <th style="padding: 8px 12px; text-align: center;">Status</th>
+                                    <th style="padding: 8px 12px; text-align: center;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="windowsTableBody">
+                                <tr>
+                                    <td colspan="5" style="text-align: center; padding: 16px; color: var(--text-secondary);">Loading windows...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Add Window Form -->
+                    <form id="createWindowForm" style="border-top: 1px solid var(--border); padding-top: 16px;">
+                        <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 10px;">Schedule New Window</div>
+                        <div style="display: grid; grid-template-columns: 2fr 1.5fr 1.5fr 1fr auto; gap: 8px; align-items: end;">
+                            <div>
+                                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block;">Name</label>
+                                <input type="text" id="winName" class="form-control" placeholder="e.g. Mid-Sem Exams" required style="font-size: 0.85rem; padding: 6px 8px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block;">Start Date</label>
+                                <input type="date" id="winStartDate" class="form-control" required style="font-size: 0.85rem; padding: 6px 8px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block;">End Date</label>
+                                <input type="date" id="winEndDate" class="form-control" required style="font-size: 0.85rem; padding: 6px 8px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block;">Enter &ge;</label>
+                                <input type="number" id="winOverride" class="form-control" value="2" min="2" max="10" required style="font-size: 0.85rem; padding: 6px 8px;">
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-primary btn-sm" id="btnAddWindow" style="height: 33px;">Add</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 3. Current High-Demand Books Table -->
+            <div class="card" style="background: white; border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 32px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h2 style="font-size: 1.25rem; margin: 0 0 4px 0;">Currently Throttled Books (High Demand)</h2>
+                        <p class="text-secondary" style="margin: 0; font-size: 0.88rem;">Books currently placed in 5-day loan duration with renewal lockdown due to queue pressure.</p>
+                    </div>
+                    <span id="highDemandCountBadge" class="badge badge-high-demand">0 Books</span>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead style="background: #f8f9fa; border-bottom: 2px solid var(--border);">
+                            <tr>
+                                <th style="padding: 12px 14px; text-align: left;">Book ID</th>
+                                <th style="padding: 12px 14px; text-align: left;">Title</th>
+                                <th style="padding: 12px 14px; text-align: left;">Category / ISBN</th>
+                                <th style="padding: 12px 14px; text-align: center;">Queue Demand</th>
+                                <th style="padding: 12px 14px; text-align: center;">Available Copies</th>
+                                <th style="padding: 12px 14px; text-align: center;">Policy State</th>
+                                <th style="padding: 12px 14px; text-align: left;">Entered High Demand</th>
+                            </tr>
+                        </thead>
+                        <tbody id="highDemandTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 24px; color: var(--text-secondary);">Loading high-demand inventory...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; font-size: 0.85rem; color: var(--text-secondary);">
+                    <div id="highDemandPaginationSummary">Showing 0 of 0 items</div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary btn-sm" id="btnPrevHighDemand" disabled>Previous</button>
+                        <button class="btn btn-secondary btn-sm" id="btnNextHighDemand" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Settings Audit History -->
+            <div class="card" style="background: white; border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 40px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <div>
+                        <h2 style="font-size: 1.25rem; margin: 0 0 4px 0;">Policy Change History (Audit Log)</h2>
+                        <p class="text-secondary" style="margin: 0; font-size: 0.88rem;">Append-only record of all policy modifications and administrative overrides.</p>
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                        <thead style="background: #f8f9fa; border-bottom: 2px solid var(--border);">
+                            <tr>
+                                <th style="padding: 10px 12px; text-align: center;">Version</th>
+                                <th style="padding: 10px 12px; text-align: left;">Admin</th>
+                                <th style="padding: 10px 12px; text-align: center;">Status</th>
+                                <th style="padding: 10px 12px; text-align: center;">Enter Threshold</th>
+                                <th style="padding: 10px 12px; text-align: center;">Exit Threshold</th>
+                                <th style="padding: 10px 12px; text-align: center;">Loan Days</th>
+                                <th style="padding: 10px 12px; text-align: left;">Changed At</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 20px; color: var(--text-secondary);">Loading audit history...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; font-size: 0.85rem; color: var(--text-secondary);">
+                    <div id="historyPaginationSummary">Showing 0 of 0 records</div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary btn-sm" id="btnPrevHistory" disabled>Previous</button>
+                        <button class="btn btn-secondary btn-sm" id="btnNextHistory" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container text-secondary" style="text-align: center; font-size: 0.9rem;">
+            <p>&copy; 2026 PSG Institute of Technology and Applied Research &bull; Feature 12: Exam-Season Dynamic Borrowing Policy</p>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/notification-bell.js"></script>
+    <script src="js/loan-policy.js"></script>
+</body>
+</html>

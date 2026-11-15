@@ -66,6 +66,11 @@ public class RouteClassifier {
         routes.put("/notifications/read-all", ConcurrencyOperation.NOTIFICATION);
         routes.put("/notifications/preferences", ConcurrencyOperation.NOTIFICATION);
 
+        // Feature 12: Dynamic Loan Policy
+        routes.put("/admin/loan-policy/update", ConcurrencyOperation.POLICY_ADMIN);
+        routes.put("/admin/loan-policy/windows/create", ConcurrencyOperation.POLICY_ADMIN);
+        routes.put("/admin/loan-policy/windows/deactivate", ConcurrencyOperation.POLICY_ADMIN);
+
         POST_ROUTES = Collections.unmodifiableMap(routes);
     }
 

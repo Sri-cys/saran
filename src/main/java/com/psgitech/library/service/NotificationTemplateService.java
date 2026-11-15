@@ -162,7 +162,11 @@ public class NotificationTemplateService {
 
             case LOAN_ISSUED:
                 title = "Book Issued";
-                message = "Copy of '" + bookTitle + "' has been issued to you. Due date: " + dueDate + ".";
+                String loanDaysStr = params.get("loanDays");
+                String policyLabel = params.get("policyLabel");
+                boolean highDemand = "true".equalsIgnoreCase(params.get("isHighDemand")) || (policyLabel != null && policyLabel.contains("High Demand"));
+                String periodInfo = (loanDaysStr != null && !loanDaysStr.isEmpty()) ? " (" + loanDaysStr + "-day loan" + (highDemand ? ", high-demand book" : "") + ")" : "";
+                message = "Copy of '" + bookTitle + "' has been issued to you" + periodInfo + ". Due date: " + dueDate + ".";
                 emailSubject = "PSG iTech Library - Book Issued: " + bookTitle;
                 emailBody = buildEmailBody(title, message, actionUrl, "View Active Loans");
                 break;

@@ -424,7 +424,7 @@ Running com.psgitech.library.NotificationWorkerAndDeliveryTest       [ 4 tests -
 Running com.psgitech.library.NotificationSecurityAndConcurrencyTest  [ 5 tests - PASS]
 
 Results:
-Tests run: 214, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 246, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
 
@@ -478,7 +478,7 @@ Library-Management/
     │       ├── js/                          # Vanilla JS client logic (notification-bell.js, discovery.js, etc.)
     │       └── *.html                       # 19 responsive web portal pages (incl. notifications.html, smart-discovery.html)
     └── test/
-        ├── java/com/psgitech/library/       # 35 JUnit test classes (214 automated tests)
+        ├── java/com/psgitech/library/       # 40 JUnit test classes (246 automated tests)
         └── resources/db.properties          # Test database credentials
 ```
 
@@ -521,7 +521,7 @@ Run the full test suite and build the WAR package:
 ```bash
 mvn clean package
 ```
-*Verification: Confirms 214 tests pass and generates `target/psgitech-library.war`.*
+*Verification: Confirms 246 tests pass and generates `target/psgitech-library.war`.*
 
 ### Step 3: Deploy to Apache Tomcat 10.1
 Because Tomcat 10.1 uses Jakarta EE (`jakarta.servlet.*`), migrate and deploy the WAR using Tomcat's migration tool:
@@ -567,6 +567,7 @@ http://localhost:8081/psgitech-library/
 | **Feature 9: Reservation Expiry** | **Fully Implemented (+ Auto Release & Reallocation)** | `AllocationExpiryScheduler.java`, `AllocationService.java`, `FIFOAllocationStrategy.java`, `AllocationServlet.java`, `allocations` table |
 | **Feature 10: Smart Book Discovery** | **Fully Implemented (+ Autocomplete & Recommendations)** | `SmartDiscoveryService.java`, `BookRecommendationService.java`, `BookPopularityService.java`, `DiscoveryRepository.java`, `RecommendationRepository.java`, `RecommendationStrategy.java`, `PopularBookStrategy.java`, `SimilarBookStrategy.java`, `CategoryBasedStrategy.java`, `AutocompleteRateLimiter.java`, `SmartDiscoveryServlet.java`, `BookSuggestionServlet.java`, `PopularBooksServlet.java`, `PersonalizedRecommendationsServlet.java`, `SimilarBooksServlet.java`, `BookCategoriesServlet.java`, `smart-discovery.html`, `discovery.js` |
 | **Feature 11: Smart Notification & Alert System** | **Fully Implemented (+ Transactional Outbox)** | `NotificationService.java`, `NotificationRecorder.java`, `NotificationRepository.java`, `NotificationOutboxRepository.java`, `NotificationPreferenceRepository.java`, `NotificationDeliveryService.java`, `NotificationReminderService.java`, `NotificationTemplateService.java`, `NotificationWorker.java`, `NotificationsServlet.java`, `NotificationUnreadCountServlet.java`, `NotificationReadServlet.java`, `NotificationReadAllServlet.java`, `NotificationPreferencesServlet.java`, `AdminNotificationStatsServlet.java`, `notifications.html`, `notification-bell.js`, `notifications-page.js`, `notifications` & `notification_outbox` tables |
+| **Feature 12: Exam-Season Dynamic Borrowing Policy** | **Fully Implemented (+ Hysteresis Dampening & Exam Windows)** | `LoanPolicy.java`, `StandardLoanPolicy.java`, `HighDemandLoanPolicy.java`, `PolicyTransitionRule.java`, `LoanPolicyManager.java`, `LoanPolicyService.java`, `LoanPolicyRepository.java`, `LoanPolicySettings.java`, `BookPolicyState.java`, `LoanPolicyChangeRecord.java`, `LoanPolicyWindow.java`, `BookPolicyServlet.java`, `LoanPolicySettingsServlet.java`, `LoanPolicyUpdateServlet.java`, `LoanPolicyPreviewServlet.java`, `LoanPolicyHighDemandServlet.java`, `LoanPolicyHistoryServlet.java`, `LoanPolicyWindowsServlet.java`, `LoanPolicyWindowCreateServlet.java`, `LoanPolicyWindowDeactivateServlet.java`, `loan-policy.html`, `loan-policy.js`, `loan_policy_settings`, `book_loan_policy_state`, `loan_policy_changes` & `loan_policy_windows` tables |
 | **Node.js Server (`server.js`)** | **Mock / Dev Artifact** | `server.js` (Used strictly as a lightweight local mockup for early UI prototype review; independent of Java Tomcat backend) |
 
 ---
