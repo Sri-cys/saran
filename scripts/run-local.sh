@@ -162,6 +162,7 @@ if [[ "${SUCCESS}" == "true" ]]; then
     echo "=============================================================================="
     echo "Application Home URL:  http://localhost:8081/psgitech-library/"
     echo "Login Portal URL:      http://localhost:8081/psgitech-library/login.html"
+    echo "Dynamic Policy Admin:  http://localhost:8081/psgitech-library/loan-policy.html"
     echo "Notifications URL:     http://localhost:8081/psgitech-library/notifications.html"
     echo "Concurrency Monitor:   http://localhost:8081/psgitech-library/concurrency-monitor.html"
     echo "Tomcat Server Logs:    ${CATALINA_HOME}/logs/catalina.out"
@@ -173,6 +174,14 @@ if [[ "${SUCCESS}" == "true" ]]; then
         echo "  [Feature 11] Notification unread-count endpoint verified (401 Unauthorized for anonymous request)."
     else
         echo "  WARNING: Notification endpoint returned status: ${NOTIF_CODE} (expected 401)."
+    fi
+
+    # Feature 12: Verify loan policy endpoint returns 401 for anonymous access
+    POLICY_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081/psgitech-library/admin/loan-policy" || echo "000")
+    if [[ "${POLICY_CODE}" == "401" ]]; then
+        echo "  [Feature 12] Admin Loan Policy endpoint verified (401 Unauthorized for anonymous request)."
+    else
+        echo "  WARNING: Loan Policy endpoint returned status: ${POLICY_CODE} (expected 401)."
     fi
     
     if command -v open >/dev/null 2>&1; then
