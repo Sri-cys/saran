@@ -71,6 +71,17 @@ public class RouteClassifier {
         routes.put("/admin/loan-policy/windows/create", ConcurrencyOperation.POLICY_ADMIN);
         routes.put("/admin/loan-policy/windows/deactivate", ConcurrencyOperation.POLICY_ADMIN);
 
+        // Feature 14: Loss & Damage Cases
+        routes.put("/cases/report", ConcurrencyOperation.PENALTY_CASE);
+        routes.put("/cases/choose", ConcurrencyOperation.PENALTY_CASE);
+        routes.put("/cases/assess", ConcurrencyOperation.PENALTY_CASE);
+        routes.put("/cases/replacement/receive", ConcurrencyOperation.PENALTY_CASE);
+        routes.put("/cases/replacement/accept", ConcurrencyOperation.PENALTY_CASE);
+        routes.put("/cases/replacement/reject", ConcurrencyOperation.PENALTY_CASE);
+        routes.put("/cases/convert", ConcurrencyOperation.PENALTY_CASE);
+        routes.put("/cases/cancel", ConcurrencyOperation.PENALTY_CASE);
+        routes.put("/cases/override", ConcurrencyOperation.PENALTY_CASE);
+
         POST_ROUTES = Collections.unmodifiableMap(routes);
     }
 

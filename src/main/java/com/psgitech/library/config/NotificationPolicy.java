@@ -125,6 +125,20 @@ public final class NotificationPolicy {
         map.put(NotificationType.DISCOVERY_NEW_BOOK,
                 new PolicyRule(NotificationCategory.DISCOVERY, InAppPolicy.PREFERENCE, EmailPolicy.PREFERENCE, false, false, "smart-discovery.html"));
 
+        // Feature 14: Loss & Damage Cases
+        map.put(NotificationType.CASE_REPORTED,
+                new PolicyRule(NotificationCategory.BORROWING, InAppPolicy.MANDATORY, EmailPolicy.PREFERENCE, true, true, "my-cases.html"));
+        map.put(NotificationType.CASE_ASSESSED,
+                new PolicyRule(NotificationCategory.FINES_PAYMENTS, InAppPolicy.MANDATORY, EmailPolicy.MANDATORY, true, true, "my-cases.html"));
+        map.put(NotificationType.REPLACEMENT_ACCEPTED,
+                new PolicyRule(NotificationCategory.BORROWING, InAppPolicy.MANDATORY, EmailPolicy.MANDATORY, true, true, "my-cases.html"));
+        map.put(NotificationType.REPLACEMENT_REJECTED,
+                new PolicyRule(NotificationCategory.BORROWING, InAppPolicy.MANDATORY, EmailPolicy.MANDATORY, true, true, "my-cases.html"));
+        map.put(NotificationType.CASE_RESOLVED,
+                new PolicyRule(NotificationCategory.BORROWING, InAppPolicy.MANDATORY, EmailPolicy.MANDATORY, true, true, "my-cases.html"));
+        map.put(NotificationType.CASE_CANCELLED,
+                new PolicyRule(NotificationCategory.BORROWING, InAppPolicy.MANDATORY, EmailPolicy.PREFERENCE, true, false, "my-cases.html"));
+
         RULES = Collections.unmodifiableMap(map);
     }
 

@@ -60,6 +60,10 @@ public class LossDamageService {
     }
 
     public LossDamageCase reportLost(int transactionId, int studentId, String note) {
+        return reportLost(transactionId, studentId, note, studentId, "STUDENT");
+    }
+
+    public LossDamageCase reportLost(int transactionId, int studentId, String note, int actorId, String actorRole) {
         return TransactionRetryHelper.executeWithRetry(() -> {
             Connection conn = null;
             boolean originalAutoCommit = true;
@@ -129,7 +133,7 @@ public class LossDamageService {
                 }
 
                 // 6. Insert case in REPORTED status
-                LossDamageCase c = LossDamageCase.createReported(transactionId, studentId, bookId, copyId, studentId, note);
+                LossDamageCase c = LossDamageCase.createReported(transactionId, studentId, bookId, copyId, actorId, note);
                 LossDamageCase inserted = caseRepository.insertCase(conn, c);
 
                 // 7. Audit event
@@ -138,9 +142,9 @@ public class LossDamageService {
                         "CASE_REPORTED",
                         null,
                         CaseStatus.REPORTED.name(),
-                        studentId,
-                        "STUDENT",
-                        "Student reported book as lost. Note: " + (note != null ? note : "None")
+                        actorId,
+                        actorRole,
+                        (actorId == studentId ? "Student" : actorRole) + " reported book as lost. Note: " + (note != null ? note : "None")
                 );
                 caseRepository.recordEvent(conn, event);
 
@@ -171,6 +175,10 @@ public class LossDamageService {
                 }
             }
         }, "reportLost");
+    }
+
+    public LossDamageCase assessLost(int caseId, BigDecimal assessedValue, String note, int assessorId, String assessorRole) {
+        return assessLost(caseId, null, assessorId, assessorRole, assessedValue, note);
     }
 
     public LossDamageCase assessLost(Integer caseId, Integer transactionId, int assessorId, String assessorRole,
@@ -368,6 +376,10 @@ public class LossDamageService {
         }, "assessLost");
     }
 
+    public LossDamageCase choosePayment(int caseId, int studentId) {
+        return choosePayment(caseId, studentId, "STUDENT");
+    }
+
     public LossDamageCase choosePayment(int caseId, int studentId, String studentRole) {
         return TransactionRetryHelper.executeWithRetry(() -> {
             Connection conn = null;
@@ -412,6 +424,10 @@ public class LossDamageService {
                 }
             }
         }, "choosePayment");
+    }
+
+    public LossDamageCase chooseReplacement(int caseId, int studentId) {
+        return chooseReplacement(caseId, studentId, "STUDENT");
     }
 
     public LossDamageCase chooseReplacement(int caseId, int studentId, String studentRole) {
@@ -471,6 +487,10 @@ public class LossDamageService {
         }, "chooseReplacement");
     }
 
+    public LossDamageCase receiveReplacement(int caseId, String edition, String note, int staffId, String staffRole) {
+        return receiveReplacement(caseId, staffId, staffRole);
+    }
+
     public LossDamageCase receiveReplacement(int caseId, int staffId, String staffRole) {
         return TransactionRetryHelper.executeWithRetry(() -> {
             Connection conn = null;
@@ -512,6 +532,11 @@ public class LossDamageService {
                 }
             }
         }, "receiveReplacement");
+    }
+
+    public LossDamageCase acceptReplacement(int caseId, String scannedIsbn, String condition, String notes, int staffId, String staffRole) {
+        boolean conditionOk = ("NEW".equalsIgnoreCase(condition) || "LIKE_NEW".equalsIgnoreCase(condition));
+        return acceptReplacement(caseId, scannedIsbn, true, conditionOk, staffId, staffRole);
     }
 
     public LossDamageCase acceptReplacement(int caseId, String scannedIsbn, boolean titleConfirmed,
@@ -625,8 +650,16 @@ public class LossDamageService {
         }, "rejectReplacement");
     }
 
+    public LossDamageCase convertToPayment(int caseId, String reason, int staffId, String staffRole) {
+        return choosePayment(caseId, staffId, staffRole);
+    }
+
     public LossDamageCase convertToPayment(int caseId, int staffId, String staffRole) {
         return choosePayment(caseId, staffId, staffRole);
+    }
+
+    public LossDamageCase cancelReported(int caseId, String reason, int actorId, String actorRole) {
+        return cancelReported(caseId, actorId, actorRole, reason);
     }
 
     public LossDamageCase cancelReported(int caseId, int actorId, String actorRole, String reason) {

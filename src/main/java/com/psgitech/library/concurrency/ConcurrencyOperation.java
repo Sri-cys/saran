@@ -19,7 +19,8 @@ public enum ConcurrencyOperation {
     BOOK_RENEWAL("Renew active book loan"),
     BOOK_INTERCHANGE("Student-to-student book interchange request, acceptance, rejection, or cancellation"),
     NOTIFICATION("Read state update or notification preference change"),
-    POLICY_ADMIN("Loan policy settings update");
+    POLICY_ADMIN("Loan policy settings update"),
+    PENALTY_CASE("Penalty and Loss/Damage Case Operations");
 
     private final String description;
 

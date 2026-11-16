@@ -2,6 +2,8 @@ package com.psgitech.library.repository;
 
 import com.psgitech.library.config.BorrowingPolicy;
 import com.psgitech.library.enums.BorrowStatus;
+import com.psgitech.library.enums.CaseStatus;
+import com.psgitech.library.enums.CaseType;
 import com.psgitech.library.enums.CopyStatus;
 import com.psgitech.library.enums.Role;
 import com.psgitech.library.exception.*;
@@ -9,13 +11,18 @@ import com.psgitech.library.model.BorrowTransaction;
 import com.psgitech.library.model.BookInterchange;
 import com.psgitech.library.model.AllocationRecord;
 import com.psgitech.library.model.AllocationResult;
+import com.psgitech.library.model.CaseEvent;
+import com.psgitech.library.model.CompensationBreakdown;
 import com.psgitech.library.model.FineRecord;
 import com.psgitech.library.model.LoanRenewalRecord;
+import com.psgitech.library.model.LossDamageCase;
 import com.psgitech.library.service.AllocationService;
+import com.psgitech.library.service.CompensationCalculator;
 import com.psgitech.library.service.FineService;
 import com.psgitech.library.util.DBConnection;
 import com.psgitech.library.util.TransactionRetryHelper;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;

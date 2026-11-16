@@ -33,7 +33,8 @@ public class NotificationTemplateService {
             "profile.html",
             "login.html",
             "admin-dashboard.html",
-            "smart-discovery.html"
+            "smart-discovery.html",
+            "my-cases.html"
     )));
 
     private final String baseUrl;
@@ -302,6 +303,48 @@ public class NotificationTemplateService {
                 message = "A new book matching your reading interests was added: '" + bookTitle + "'.";
                 emailSubject = "PSG iTech Library - New Arrival: " + bookTitle;
                 emailBody = buildEmailBody(title, message, actionUrl, "Explore Catalog");
+                break;
+
+            case CASE_REPORTED:
+                title = "Book Reported Lost/Damaged";
+                message = "Your report for '" + bookTitle + "' has been logged. Library staff will assess the case shortly.";
+                emailSubject = "PSG iTech Library - Loss/Damage Report Received: " + bookTitle;
+                emailBody = buildEmailBody(title, message, actionUrl, "View Case Status");
+                break;
+
+            case CASE_ASSESSED:
+                title = "Loss/Damage Case Assessed";
+                message = "The case for '" + bookTitle + "' has been assessed. Amount due: Rs. " + amount + ". Please select compensation payment or physical replacement.";
+                emailSubject = "PSG iTech Library - Case Assessment: " + bookTitle;
+                emailBody = buildEmailBody(title, message, actionUrl, "Resolve Case");
+                break;
+
+            case REPLACEMENT_ACCEPTED:
+                title = "Replacement Copy Accepted";
+                message = "Your replacement copy for '" + bookTitle + "' has been accepted by library staff. Your case is resolved.";
+                emailSubject = "PSG iTech Library - Replacement Accepted: " + bookTitle;
+                emailBody = buildEmailBody(title, message, actionUrl, "View Cases");
+                break;
+
+            case REPLACEMENT_REJECTED:
+                title = "Replacement Copy Rejected";
+                message = "Your replacement copy for '" + bookTitle + "' was not accepted: " + reason + ". Please offer another copy or pay compensation.";
+                emailSubject = "PSG iTech Library - Replacement Copy Notice: " + bookTitle;
+                emailBody = buildEmailBody(title, message, actionUrl, "Review Case");
+                break;
+
+            case CASE_RESOLVED:
+                title = "Loss/Damage Case Resolved";
+                message = "Your lost/damaged book case for '" + bookTitle + "' has been marked resolved. Thank you for clearing your obligation.";
+                emailSubject = "PSG iTech Library - Case Resolved: " + bookTitle;
+                emailBody = buildEmailBody(title, message, actionUrl, "View Case Details");
+                break;
+
+            case CASE_CANCELLED:
+                title = "Loss/Damage Case Cancelled";
+                message = "The lost/damaged book case for '" + bookTitle + "' has been cancelled" + (reason.isEmpty() ? "." : ": " + reason + ".");
+                emailSubject = "PSG iTech Library - Case Cancelled: " + bookTitle;
+                emailBody = buildEmailBody(title, message, actionUrl, "View Cases");
                 break;
 
             default:

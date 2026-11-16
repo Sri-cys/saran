@@ -151,13 +151,48 @@ public class AuthorizationFilter implements Filter {
 
         // Student-only protection (Student Portal, My Borrowings, My Reservations & My Fines)
         if (path.startsWith("/student/") || path.contains("student-home") || path.contains("my-borrowings") 
-                || path.contains("my-reservations") || path.contains("my-books") || path.contains("my-fines")) {
+                || path.contains("my-reservations") || path.contains("my-books") || path.contains("my-fines")
+                || path.contains("my-cases")) {
             if (user == null) {
                 res.sendRedirect(contextPath + "/login.html?redirect=" + path);
                 return;
             }
             if (user.getRole() != Role.STUDENT && user.getRole() != Role.ADMIN) {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Student role required.");
+                return;
+            }
+        }
+
+        // Feature 14: Loss & Damage Amount Override (Admin only)
+        if (path.startsWith("/cases/override")) {
+            if (user == null) {
+                res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
+                return;
+            }
+            if (user.getRole() != Role.ADMIN) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Administrator role required to override compensation amounts.");
+                return;
+            }
+        }
+
+        // Feature 14: Staff Case Operations & Staff Case Listing (Librarian & Admin)
+        if (path.startsWith("/cases/assess") || path.startsWith("/cases/replacement")
+                || path.startsWith("/cases/convert") || path.startsWith("/cases/cancel")
+                || (path.equals("/cases") && "GET".equalsIgnoreCase(req.getMethod()))) {
+            if (user == null) {
+                res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
+                return;
+            }
+            if (user.getRole() != Role.LIBRARIAN && user.getRole() != Role.ADMIN) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Librarian or Administrator role required.");
+                return;
+            }
+        }
+
+        // General /cases API endpoints authentication requirement
+        if (path.startsWith("/cases")) {
+            if (user == null) {
+                res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
                 return;
             }
         }
