@@ -19,13 +19,23 @@ import java.time.temporal.ChronoUnit;
  */
 public class CompensationCalculator {
     private final Clock clock;
+    private final BigDecimal customProcessingFee;
+    private final BigDecimal customDepreciationRatePerYear;
+    private final BigDecimal customMaxDepreciation;
 
     public CompensationCalculator() {
         this(Clock.systemDefaultZone());
     }
 
     public CompensationCalculator(Clock clock) {
+        this(null, null, null, clock);
+    }
+
+    public CompensationCalculator(BigDecimal processingFee, BigDecimal depreciationRatePerYear, BigDecimal maxDepreciation, Clock clock) {
         this.clock = clock != null ? clock : Clock.systemDefaultZone();
+        this.customProcessingFee = processingFee;
+        this.customDepreciationRatePerYear = depreciationRatePerYear;
+        this.customMaxDepreciation = maxDepreciation;
     }
 
     public CompensationBreakdown calculate(CaseType type, DamageSeverity severity,
@@ -66,8 +76,8 @@ public class CompensationCalculator {
         }
 
         // 2. Depreciation with maximum cap
-        BigDecimal rate = LossDamageConfig.getDepreciationRatePerYear();
-        BigDecimal maxDepr = LossDamageConfig.getMaxDepreciation();
+        BigDecimal rate = customDepreciationRatePerYear != null ? customDepreciationRatePerYear : LossDamageConfig.getDepreciationRatePerYear();
+        BigDecimal maxDepr = customMaxDepreciation != null ? customMaxDepreciation : LossDamageConfig.getMaxDepreciation();
         BigDecimal depreciation = rate.multiply(ageYears).setScale(4, RoundingMode.HALF_UP);
         if (depreciation.compareTo(maxDepr) > 0) {
             depreciation = maxDepr;
@@ -79,7 +89,7 @@ public class CompensationCalculator {
         BigDecimal depreciatedValue = price.multiply(factor).setScale(2, RoundingMode.HALF_UP);
 
         // 4. Processing Fee
-        BigDecimal fee = LossDamageConfig.getProcessingFee();
+        BigDecimal fee = customProcessingFee != null ? customProcessingFee : LossDamageConfig.getProcessingFee();
 
         // 5. Final charge based on type and severity fraction
         BigDecimal severityFraction;

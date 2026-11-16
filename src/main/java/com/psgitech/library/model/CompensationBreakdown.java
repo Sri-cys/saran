@@ -45,6 +45,7 @@ public final class CompensationBreakdown {
     public DamageSeverity getSeverity() { return severity; }
     public BigDecimal getSeverityFraction() { return severityFraction; }
     public BigDecimal getComputedAmount() { return computedAmount; }
+    public BigDecimal getFinalAmount() { return computedAmount; }
 
     @Override
     public String toString() {
