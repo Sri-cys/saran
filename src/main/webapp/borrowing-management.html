@@ -91,6 +91,9 @@
                 <button class="tab-btn" id="tabVerifBtn" onclick="switchDeskTab('tabVerif')">
                     9. Pending UPI Verifications (<span id="pendingVerifTabCountBadge">0</span>)
                 </button>
+                <button class="tab-btn" id="tabCasesBtn" onclick="switchDeskTab('tabCases')">
+                    10. Lost &amp; Damaged (<span id="casesTabCountBadge">0</span>)
+                </button>
             </div>
 
             <!-- TAB 1: ISSUE BOOK -->
@@ -297,6 +300,51 @@
                                 <td id="retCandidateDates">--</td>
                             </tr>
                         </table>
+
+                        <div style="background: var(--background-warm); padding: 14px; border-radius: 4px; margin-bottom: 16px; border: 1px solid var(--border);">
+                            <label style="font-weight: bold; margin-bottom: 6px; display: block;">Returned Book Condition:</label>
+                            <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 10px;">
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="radio" name="returnCondition" value="GOOD" checked onchange="toggleDamageFields(false)">
+                                    <span>Good Condition</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--danger); font-weight: 500;">
+                                    <input type="radio" name="returnCondition" value="DAMAGED" onchange="toggleDamageFields(true)">
+                                    <span>Damaged Copy (Create Penalty Case)</span>
+                                </label>
+                            </div>
+
+                            <div id="damageDetailsFields" style="display: none; padding-top: 10px; border-top: 1px dashed var(--border);">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                                    <div>
+                                        <label style="font-size: 0.85rem; font-weight: 500; display: block; margin-bottom: 4px;">Severity:</label>
+                                        <select id="retDamageSeverity" class="form-control">
+                                            <option value="MINOR">MINOR (25% compensation - repairable)</option>
+                                            <option value="MODERATE">MODERATE (50% compensation)</option>
+                                            <option value="SEVERE">SEVERE (75% compensation)</option>
+                                            <option value="TOTAL_LOSS" selected>TOTAL_LOSS (100% full replacement)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 0.85rem; font-weight: 500; display: block; margin-bottom: 4px;">Copy Disposition:</label>
+                                        <select id="retCopyDisposition" class="form-control">
+                                            <option value="WITHDRAWN" selected>WITHDRAWN (Retire to ARCHIVED)</option>
+                                            <option value="RETURNED_TO_CIRCULATION">RETURNED_TO_CIRCULATION (Keep shelf copy)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 6px;">
+                                    <div>
+                                        <label style="font-size: 0.85rem; font-weight: 500; display: block; margin-bottom: 4px;">Assessed Value (&inr; optional):</label>
+                                        <input type="number" id="retAssessedValue" class="form-control" placeholder="Override catalog price" step="0.01">
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 0.85rem; font-weight: 500; display: block; margin-bottom: 4px;">Damage Description Note:</label>
+                                        <input type="text" id="retDamageNote" class="form-control" placeholder="e.g. Torn cover, missing pages 40-70">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         <button id="btnConfirmReturn" class="btn btn-primary btn-block">
                             Confirm Book Return &amp; Restore Shelf Availability
@@ -529,6 +577,62 @@
                 </div>
             </div>
 
+            <!-- TAB 10: LOST & DAMAGED CASES (Feature 14) -->
+            <div id="tabCases" class="desk-tab-content">
+                <div class="info-card" style="margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                        <div>
+                            <h3 style="margin-bottom: 4px; color: var(--primary);">Lost &amp; Damaged Book Case Management</h3>
+                            <p class="text-secondary" style="margin: 0;">Feature 14 &bull; Compensation assessment, replacement copy intake, ISBN verification, and queue allocation</p>
+                        </div>
+                        <div>
+                            <button class="btn btn-secondary btn-sm" onclick="loadStaffCases()">Refresh Cases</button>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap;">
+                        <select id="caseFilterStatus" class="form-control" style="max-width: 200px;" onchange="loadStaffCases()">
+                            <option value="ALL">All Statuses</option>
+                            <option value="REPORTED" selected>REPORTED (Needs Assessment)</option>
+                            <option value="ASSESSED">ASSESSED (Awaiting Choice)</option>
+                            <option value="PAYMENT_PENDING">PAYMENT_PENDING</option>
+                            <option value="REPLACEMENT_PENDING">REPLACEMENT_PENDING</option>
+                            <option value="REPLACEMENT_SUBMITTED">REPLACEMENT_SUBMITTED (Needs Verify)</option>
+                            <option value="RESOLVED_PAID">RESOLVED_PAID</option>
+                            <option value="RESOLVED_REPLACED">RESOLVED_REPLACED</option>
+                            <option value="WAIVED">WAIVED</option>
+                            <option value="CANCELLED">CANCELLED</option>
+                        </select>
+                        <select id="caseFilterType" class="form-control" style="max-width: 150px;" onchange="loadStaffCases()">
+                            <option value="ALL">All Types</option>
+                            <option value="LOST">LOST</option>
+                            <option value="DAMAGED">DAMAGED</option>
+                        </select>
+                        <input type="text" id="caseFilterRegNo" class="form-control" style="max-width: 240px;" placeholder="Filter by Student Register No..." onkeyup="debounce(loadStaffCases, 300)()">
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="library-table">
+                        <thead>
+                            <tr>
+                                <th>Case #</th>
+                                <th>Type</th>
+                                <th>Student</th>
+                                <th>Book Title</th>
+                                <th>Copy Code</th>
+                                <th>Reported At</th>
+                                <th>Status</th>
+                                <th>Assessed Due</th>
+                                <th style="text-align: right;">Staff Desk Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="casesTableBody">
+                            <tr><td colspan="9" style="text-align: center; padding: 24px;" class="text-secondary">Loading cases...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -585,6 +689,154 @@
             <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
                 <button type="button" class="btn btn-secondary" onclick="closeDeskModal('rejectPaymentModal')">Cancel</button>
                 <button type="button" class="btn btn-danger" onclick="submitPaymentRejection()">Reject Payment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Assess Loss/Damage Case -->
+    <div class="modal-overlay" id="assessCaseModal">
+        <div class="modal-container" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Assess Lost Book Case</h3>
+                <button type="button" class="modal-close" onclick="closeDeskModal('assessCaseModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 12px;">
+                    Assessing freezes the loan as LOST, archives the copy, and applies institutional depreciation (10%/yr up to 50%) plus &inr;50 processing fee.
+                </p>
+                <input type="hidden" id="assessCaseId">
+                <div style="background: var(--background-warm); padding: 10px 14px; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 14px;">
+                    <div><strong>Case ID:</strong> <span id="assessCaseRef">#--</span></div>
+                    <div><strong>Book:</strong> <span id="assessBookTitle">--</span></div>
+                    <div><strong>Student:</strong> <span id="assessStudentName">--</span></div>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="assessValueInput" class="form-label" style="font-weight: bold;">Replacement Value (&inr; optional if catalog price set):</label>
+                    <input type="number" id="assessValueInput" class="form-control" step="0.01" placeholder="Leave blank to use catalog replacement price">
+                </div>
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label for="assessNoteInput" class="form-label" style="font-weight: bold;">Assessor Notes (Optional):</label>
+                    <textarea id="assessNoteInput" class="form-control" rows="2" placeholder="e.g. Standard lost loan assessment confirmed"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn btn-secondary" onclick="closeDeskModal('assessCaseModal')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitCaseAssessment()">Confirm Assessment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Cancel Reported Case -->
+    <div class="modal-overlay" id="cancelCaseModal">
+        <div class="modal-container" style="max-width: 460px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Cancel Reported Case</h3>
+                <button type="button" class="modal-close" onclick="closeDeskModal('cancelCaseModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 12px;">
+                    Cancel a reported loss case (e.g. if the book was found by the student prior to assessment).
+                </p>
+                <input type="hidden" id="cancelCaseId">
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label for="cancelReasonInput" class="form-label" style="font-weight: bold;">Cancellation Reason:</label>
+                    <textarea id="cancelReasonInput" class="form-control" rows="2" placeholder="e.g. Found in hostel / reported by mistake"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn btn-secondary" onclick="closeDeskModal('cancelCaseModal')">Back</button>
+                <button type="button" class="btn btn-danger" onclick="submitCaseCancellation()">Cancel Case</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Accept Replacement Copy -->
+    <div class="modal-overlay" id="acceptReplacementModal">
+        <div class="modal-container" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Verify &amp; Accept Replacement Copy</h3>
+                <button type="button" class="modal-close" onclick="closeDeskModal('acceptReplacementModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 12px;">
+                    Scan the replacement book barcode or type the ISBN. A new accession number will be generated and offered to waiting queue or returned to shelf.
+                </p>
+                <input type="hidden" id="acceptCaseId">
+                <div style="background: var(--background-warm); padding: 10px 14px; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 14px;">
+                    <div><strong>Catalog ISBN:</strong> <code id="acceptExpectedIsbn">--</code></div>
+                    <div><strong>Book Title:</strong> <span id="acceptBookTitle">--</span></div>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="acceptScannedIsbn" class="form-label" style="font-weight: bold;">Scanned ISBN on Replacement Copy:</label>
+                    <input type="text" id="acceptScannedIsbn" class="form-control" placeholder="Scan or type 10 or 13-digit ISBN..." required>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="acceptCondition" class="form-label" style="font-weight: bold;">Verified Physical Condition:</label>
+                    <select id="acceptCondition" class="form-control">
+                        <option value="NEW" selected>NEW (Brand new unread copy)</option>
+                        <option value="LIKE_NEW">LIKE_NEW (Clean, no marks, intact spine)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label for="acceptNotes" class="form-label" style="font-weight: bold;">Verification Notes (Optional):</label>
+                    <input type="text" id="acceptNotes" class="form-control" placeholder="e.g. Publisher edition verified">
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn btn-secondary" onclick="closeDeskModal('acceptReplacementModal')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitReplacementAcceptance()">Accept &amp; Accession Copy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Reject Replacement Copy -->
+    <div class="modal-overlay" id="rejectReplacementModal">
+        <div class="modal-container" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Reject Replacement Copy</h3>
+                <button type="button" class="modal-close" onclick="closeDeskModal('rejectReplacementModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 12px;">
+                    Reject non-compliant copy (e.g. wrong edition, damaged condition, ISBN mismatch).
+                </p>
+                <input type="hidden" id="rejectCaseId">
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label for="rejectReasonText" class="form-label" style="font-weight: bold;">Mandatory Rejection Reason:</label>
+                    <textarea id="rejectReasonText" class="form-control" rows="3" placeholder="e.g. Book is heavily annotated and spine damaged; must be New or Like-New."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn btn-secondary" onclick="closeDeskModal('rejectReplacementModal')">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="submitReplacementRejection()">Reject Copy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Admin Override Compensation Amount -->
+    <div class="modal-overlay" id="overrideCaseModal">
+        <div class="modal-container" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Admin Override Compensation</h3>
+                <button type="button" class="modal-close" onclick="closeDeskModal('overrideCaseModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 12px;">
+                    Administrator authority to adjust final compensation amount. Recorded in audit events.
+                </p>
+                <input type="hidden" id="overrideCaseId">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="overrideAmountInput" class="form-label" style="font-weight: bold;">New Compensation Amount (&inr;):</label>
+                    <input type="number" id="overrideAmountInput" class="form-control" step="0.50" min="0" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label for="overrideReasonInput" class="form-label" style="font-weight: bold;">Justification Reason:</label>
+                    <textarea id="overrideReasonInput" class="form-control" rows="2" placeholder="e.g. Partial institutional concession approved by HOD..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn btn-secondary" onclick="closeDeskModal('overrideCaseModal')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitCaseOverride()">Save Override</button>
             </div>
         </div>
     </div>

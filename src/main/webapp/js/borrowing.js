@@ -130,10 +130,15 @@ function renderStudentBorrowingCard(tx) {
     const isHighDemand = (tx.policyCode === 'HIGH_DEMAND' || tx.policy_code === 'HIGH_DEMAND');
     const loanDays = tx.loanDays || tx.loan_days || (isHighDemand ? 5 : 14);
 
+    const hasOpenCase = (tx.status === 'LOST' || (tx.lossDamageCase && !['RESOLVED_PAID', 'RESOLVED_REPLACED', 'CANCELLED', 'WAIVED'].includes(tx.lossDamageCase.status)));
+
     const renewalCount = tx.renewalCount || 0;
-    const canRenew = (!tx.overdue && tx.status === 'ACTIVE' && renewalCount < 1 && !isHighDemand);
+    const canRenew = (!tx.overdue && tx.status === 'ACTIVE' && renewalCount < 1 && !isHighDemand && !hasOpenCase);
     let renewBtnHtml = '';
-    if (isHighDemand) {
+    if (hasOpenCase) {
+        dueStatusHtml = `<span class="badge" style="background:#FDEDEC; color:#C0392B; border:1px solid #E6B0AA;">Reported Lost &bull; Case Active</span>`;
+        renewBtnHtml = `<span class="badge" style="background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1;" title="Renewal barred: Open loss/damage case">Loss Case Open</span>`;
+    } else if (isHighDemand) {
         renewBtnHtml = `<span class="badge badge-high-demand" title="Renewals barred due to high queue demand">High Demand &bull; No Renewal</span>`;
     } else if (canRenew) {
         renewBtnHtml = `
@@ -147,9 +152,15 @@ function renderStudentBorrowingCard(tx) {
         renewBtnHtml = `<span class="badge" style="background: #FEE2E2; color: #B91C1C; border: 1px solid #FECACA;">Overdue &bull; Cannot Renew</span>`;
     }
 
-    const transferBtnHtml = (!tx.overdue && tx.status === 'ACTIVE') ? `
+    const transferBtnHtml = (!tx.overdue && tx.status === 'ACTIVE' && !hasOpenCase) ? `
         <button class="btn btn-secondary btn-sm" onclick="openTransferModal(${tx.transactionId}, '${escapeHtml(tx.bookTitle || '').replace(/'/g, "\\'")}', '${escapeHtml(tx.copyCode || '')}', '${escapeHtml(tx.issueDate || '')}', '${escapeHtml(tx.dueDate || '')}')">
             &rarr; Transfer Book to Peer
+        </button>
+    ` : '';
+
+    const reportLostBtnHtml = (tx.status === 'ACTIVE' && !hasOpenCase) ? `
+        <button class="btn btn-outline btn-sm" style="color: var(--danger); border-color: #E6B0AA;" onclick="openReportLostModal(${tx.transactionId}, '${escapeHtml(tx.bookTitle || '').replace(/'/g, "\\'")}', '${escapeHtml(tx.copyCode || '')}')">
+            Report Lost
         </button>
     ` : '';
 
@@ -194,6 +205,7 @@ function renderStudentBorrowingCard(tx) {
                     <div style="display: flex; gap: 8px; align-items: center;">
                         ${renewBtnHtml}
                         ${transferBtnHtml}
+                        ${reportLostBtnHtml}
                     </div>
                 </div>
             </div>
@@ -617,6 +629,12 @@ function initStaffBorrowingDesk() {
     loadAllQueueReservations();
     loadHoldShelfAllocations();
     loadPendingVerifications();
+
+    const initialTab = sessionStorage.getItem('openDeskTab');
+    if (initialTab) {
+        sessionStorage.removeItem('openDeskTab');
+        window.switchDeskTab(initialTab);
+    }
 }
 
 function initTabs() {
@@ -636,6 +654,7 @@ function initTabs() {
         if (tabId === 'tabHoldShelf') loadHoldShelfAllocations();
         if (tabId === 'tabFines') loadStaffFines();
         if (tabId === 'tabVerif') loadPendingVerifications();
+        if (tabId === 'tabCases') loadStaffCases();
     };
 }
 
@@ -1100,11 +1119,26 @@ async function handleConfirmReturn() {
     btn.disabled = true;
     btn.textContent = 'Recording Return...';
 
+    const isDamaged = document.querySelector('input[name="returnCondition"]:checked')?.value === 'DAMAGED';
+    const returnPayload = {
+        transactionId: activeReturnCandidate.transactionId
+    };
+    if (isDamaged) {
+        returnPayload.condition = 'DAMAGED';
+        returnPayload.severity = document.getElementById('retDamageSeverity').value;
+        returnPayload.disposition = document.getElementById('retCopyDisposition').value;
+        const assessedVal = document.getElementById('retAssessedValue').value;
+        if (assessedVal && !isNaN(parseFloat(assessedVal))) {
+            returnPayload.assessedValue = parseFloat(assessedVal);
+        }
+        returnPayload.note = document.getElementById('retDamageNote').value;
+    }
+
     try {
         const resp = await fetch('borrow/return', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ transactionId: activeReturnCandidate.transactionId })
+            body: JSON.stringify(returnPayload)
         });
 
         const json = await resp.json();
@@ -1149,6 +1183,18 @@ async function handleConfirmReturn() {
                             Atomic fine created: <strong>&inr; ${parseFloat(fine.amount || fine.outstanding).toFixed(2)}</strong> (Fine Record #${fine.fineId}).
                             <br>
                             <span style="font-size: 0.88rem;">Student's borrowing quota and reservation collections are temporarily paused until cleared via UPI or Admin waiver.</span>
+                        </div>
+                    `;
+                }
+
+                const caseData = json.data ? (json.data.case || json.data.lossDamageCase) : null;
+                if (caseData) {
+                    msg.innerHTML += `
+                        <div style="margin-top: 12px; padding: 12px 16px; background: #FEF9E7; border: 1px solid #F9E79F; border-radius: 4px; color: #7D6608;">
+                            <strong style="color: #B7950B;">Damaged Copy Processed &bull; Penalty Case #${caseData.caseId} Created!</strong><br>
+                            Severity: <strong>${caseData.severity}</strong> &bull; Disposition: <strong>${caseData.copyDisposition}</strong><br>
+                            Assessed Compensation: <strong>&inr; ${parseFloat(caseData.finalAmount || 0).toFixed(2)}</strong>.
+                            Student notified to select compensation payment or physical replacement.
                         </div>
                     `;
                 }
@@ -1739,5 +1785,396 @@ function closeDeskModal(modalId) {
     const el = document.getElementById(modalId);
     if (el) el.classList.remove('show');
 }
+
+window.openReportLostModal = function(txId, title, copyCode) {
+    const modal = document.getElementById('reportLostModal');
+    if (!modal) return;
+    document.getElementById('modalReportTxId').value = txId;
+    document.getElementById('modalReportBookTitle').textContent = title;
+    document.getElementById('modalReportCopyCode').textContent = copyCode;
+    document.getElementById('modalReportNote').value = '';
+    modal.classList.add('active');
+};
+
+window.closeReportLostModal = function() {
+    const modal = document.getElementById('reportLostModal');
+    if (modal) modal.classList.remove('active');
+};
+
+window.submitReportLost = async function() {
+    const txId = parseInt(document.getElementById('modalReportTxId').value);
+    const note = document.getElementById('modalReportNote').value;
+    const btn = document.getElementById('btnConfirmReportLost');
+
+    if (!confirm('Are you certain you want to report this textbook as lost? This freezes the loan and begins staff assessment.')) {
+        return;
+    }
+
+    try {
+        btn.disabled = true;
+        btn.textContent = 'Submitting...';
+
+        const resp = await fetch('cases/report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ transactionId: txId, note })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Loss report submitted successfully! Redirecting to case tracking...');
+            closeReportLostModal();
+            window.location.href = 'my-cases.html';
+        } else {
+            alert('Failed to report loss: ' + (data.message || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Submit Loss Report';
+    }
+};
+
+window.toggleDamageFields = function(show) {
+    const el = document.getElementById('damageDetailsFields');
+    if (el) el.style.display = show ? 'block' : 'none';
+};
+
+// -----------------------------------------------------------------------------
+// Staff Desk: Feature 14 Lost & Damaged Cases Management
+// -----------------------------------------------------------------------------
+window.loadStaffCases = async function() {
+    const tbody = document.getElementById('casesTableBody');
+    const badge = document.getElementById('casesTabCountBadge');
+    if (!tbody) return;
+
+    const status = document.getElementById('caseFilterStatus')?.value || 'ALL';
+    const type = document.getElementById('caseFilterType')?.value || 'ALL';
+    const regNo = document.getElementById('caseFilterRegNo')?.value?.trim() || '';
+
+    let url = `cases?status=${encodeURIComponent(status)}&type=${encodeURIComponent(type)}`;
+    if (regNo) url += `&registerNumber=${encodeURIComponent(regNo)}`;
+
+    try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (!data.success) {
+            tbody.innerHTML = `<tr><td colspan="9" style="color:var(--danger); text-align:center; padding:20px;">Failed to load cases: ${escapeHtml(data.message || '')}</td></tr>`;
+            return;
+        }
+
+        const cases = data.cases || [];
+        if (badge) badge.textContent = data.total != null ? data.total : cases.length;
+
+        if (cases.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:24px;" class="text-secondary">No loss/damage cases match the current filter.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = cases.map(c => renderStaffCaseRow(c)).join('');
+
+    } catch (e) {
+        console.error('Error loading staff cases', e);
+        tbody.innerHTML = `<tr><td colspan="9" style="color:var(--danger); text-align:center; padding:20px;">Network error loading cases: ${escapeHtml(e.message)}</td></tr>`;
+    }
+};
+
+function renderStaffCaseRow(c) {
+    const statusClass = 'badge-' + (c.status || '').toLowerCase();
+    const isReported = c.status === 'REPORTED';
+    const isAssessed = c.status === 'ASSESSED';
+    const isPaymentPending = c.status === 'PAYMENT_PENDING';
+    const isRepPending = c.status === 'REPLACEMENT_PENDING';
+    const isRepSubmitted = c.status === 'REPLACEMENT_SUBMITTED';
+
+    let actions = [];
+
+    if (isReported) {
+        actions.push(`<button class="btn btn-primary btn-sm" onclick="openAssessModal(${c.caseId}, '${escapeHtml(c.bookTitle || '').replace(/'/g, "\\'")}', '${escapeHtml(c.studentName || '').replace(/'/g, "\\'")}', ${c.priceUsed || 0})">Assess</button>`);
+        actions.push(`<button class="btn btn-outline btn-sm" style="color:var(--danger);" onclick="openCancelCaseModal(${c.caseId})">Cancel</button>`);
+    }
+
+    if (isRepPending) {
+        actions.push(`<button class="btn btn-secondary btn-sm" onclick="receiveCaseReplacement(${c.caseId})">Receive Copy</button>`);
+        actions.push(`<button class="btn btn-outline btn-sm" onclick="convertCaseToPayment(${c.caseId})">Convert to Fine</button>`);
+    }
+
+    if (isRepSubmitted) {
+        actions.push(`<button class="btn btn-primary btn-sm" onclick="openAcceptReplacementModal(${c.caseId}, '${escapeHtml(c.bookTitle || '').replace(/'/g, "\\'")}', '${escapeHtml(c.bookIsbn || '')}')">Verify &amp; Accept</button>`);
+        actions.push(`<button class="btn btn-danger btn-sm" onclick="openRejectReplacementModal(${c.caseId})">Reject</button>`);
+    }
+
+    if (['ASSESSED', 'PAYMENT_PENDING', 'REPLACEMENT_PENDING'].includes(c.status)) {
+        actions.push(`<button class="btn btn-outline btn-sm" style="font-size:0.75rem;" onclick="openOverrideModal(${c.caseId}, ${c.finalAmount || 0})">Override &inr;</button>`);
+    }
+
+    return `
+        <tr>
+            <td><strong>#${c.caseId}</strong></td>
+            <td><span class="badge" style="background:#F1F5F9; color:#475569;">${c.caseType || '-'}</span></td>
+            <td><strong>${escapeHtml(c.studentName || 'Student')}</strong><br><span style="font-size:0.8rem; color:#666;">${escapeHtml(c.registerNumber || '-')}</span></td>
+            <td>${escapeHtml(c.bookTitle || 'Book Title')}</td>
+            <td><code>${escapeHtml(c.copyCode || '-')}</code></td>
+            <td style="font-size:0.85rem;">${formatDateOnly(c.reportedAt)}</td>
+            <td><span class="badge ${statusClass}">${(c.status || '').replace('_', ' ')}</span></td>
+            <td><strong>&inr; ${c.finalAmount != null ? Number(c.finalAmount).toFixed(2) : '--'}</strong></td>
+            <td style="text-align: right; white-space: nowrap;">
+                <div style="display:inline-flex; gap:6px; justify-content:flex-end;">
+                    ${actions.join('')}
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
+function formatDateOnly(ts) {
+    if (!ts) return '-';
+    try {
+        const d = new Date(ts);
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch (e) {
+        return ts;
+    }
+}
+
+// Assess Modal handlers
+window.openAssessModal = function(caseId, bookTitle, studentName, defaultPrice) {
+    document.getElementById('assessCaseId').value = caseId;
+    document.getElementById('assessCaseRef').textContent = '#' + caseId;
+    document.getElementById('assessBookTitle').textContent = bookTitle;
+    document.getElementById('assessStudentName').textContent = studentName;
+    document.getElementById('assessValueInput').value = defaultPrice > 0 ? defaultPrice : '';
+    document.getElementById('assessNoteInput').value = '';
+    openDeskModal('assessCaseModal');
+};
+
+window.submitCaseAssessment = async function() {
+    const caseId = parseInt(document.getElementById('assessCaseId').value);
+    const assessedVal = document.getElementById('assessValueInput').value;
+    const note = document.getElementById('assessNoteInput').value;
+
+    const payload = { caseId };
+    if (assessedVal && !isNaN(parseFloat(assessedVal))) {
+        payload.assessedValue = parseFloat(assessedVal);
+    }
+    if (note) payload.note = note;
+
+    try {
+        const resp = await fetch('cases/assess', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Case assessed successfully! Final amount due: INR ' + (data.case?.finalAmount || '0.00'));
+            closeDeskModal('assessCaseModal');
+            loadStaffCases();
+        } else {
+            alert('Assessment failed: ' + (data.message || 'Error'));
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+};
+
+// Cancel Modal handlers
+window.openCancelCaseModal = function(caseId) {
+    document.getElementById('cancelCaseId').value = caseId;
+    document.getElementById('cancelReasonInput').value = '';
+    openDeskModal('cancelCaseModal');
+};
+
+window.submitCaseCancellation = async function() {
+    const caseId = parseInt(document.getElementById('cancelCaseId').value);
+    const reason = document.getElementById('cancelReasonInput').value;
+    if (!reason || !reason.trim()) {
+        alert('Please specify a cancellation reason.');
+        return;
+    }
+
+    try {
+        const resp = await fetch('cases/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ caseId, reason })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Reported case cancelled.');
+            closeDeskModal('cancelCaseModal');
+            loadStaffCases();
+        } else {
+            alert('Cancellation failed: ' + (data.message || 'Error'));
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+};
+
+// Receive Replacement
+window.receiveCaseReplacement = async function(caseId) {
+    if (!confirm('Confirm intake of replacement physical copy from student at the circulation counter?')) return;
+
+    try {
+        const resp = await fetch('cases/replacement/receive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ caseId })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Copy logged as received. Next step: scan ISBN to verify and accession copy.');
+            loadStaffCases();
+        } else {
+            alert('Intake failed: ' + (data.message || 'Error'));
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+};
+
+// Accept Replacement Modal
+window.openAcceptReplacementModal = function(caseId, bookTitle, expectedIsbn) {
+    document.getElementById('acceptCaseId').value = caseId;
+    document.getElementById('acceptExpectedIsbn').textContent = expectedIsbn || '-';
+    document.getElementById('acceptBookTitle').textContent = bookTitle;
+    document.getElementById('acceptScannedIsbn').value = expectedIsbn || '';
+    document.getElementById('acceptCondition').value = 'NEW';
+    document.getElementById('acceptNotes').value = '';
+    openDeskModal('acceptReplacementModal');
+};
+
+window.submitReplacementAcceptance = async function() {
+    const caseId = parseInt(document.getElementById('acceptCaseId').value);
+    const scannedIsbn = document.getElementById('acceptScannedIsbn').value;
+    const condition = document.getElementById('acceptCondition').value;
+    const notes = document.getElementById('acceptNotes').value;
+
+    if (!scannedIsbn || !scannedIsbn.trim()) {
+        alert('Scanned ISBN is required.');
+        return;
+    }
+
+    try {
+        const resp = await fetch('cases/replacement/accept', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ caseId, scannedIsbn, condition, notes })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Replacement copy accepted! New copy accessioned into catalog. Case resolved.');
+            closeDeskModal('acceptReplacementModal');
+            loadStaffCases();
+        } else {
+            alert('Acceptance rejected: ' + (data.message || 'Error'));
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+};
+
+// Reject Replacement Modal
+window.openRejectReplacementModal = function(caseId) {
+    document.getElementById('rejectCaseId').value = caseId;
+    document.getElementById('rejectReasonText').value = '';
+    openDeskModal('rejectReplacementModal');
+};
+
+window.submitReplacementRejection = async function() {
+    const caseId = parseInt(document.getElementById('rejectCaseId').value);
+    const reason = document.getElementById('rejectReasonText').value;
+
+    if (!reason || !reason.trim()) {
+        alert('Rejection justification reason is mandatory.');
+        return;
+    }
+
+    try {
+        const resp = await fetch('cases/replacement/reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ caseId, reason })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Replacement copy rejected. Student notified.');
+            closeDeskModal('rejectReplacementModal');
+            loadStaffCases();
+        } else {
+            alert('Rejection failed: ' + (data.message || 'Error'));
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+};
+
+// Convert to Payment
+window.convertCaseToPayment = async function(caseId) {
+    const reason = prompt('Specify reason for converting case to monetary compensation payment:', 'Missed replacement deadline / student request');
+    if (!reason) return;
+
+    try {
+        const resp = await fetch('cases/convert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ caseId, reason })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Case converted to monetary payment. Fine record #' + (data.fineId || '') + ' created.');
+            loadStaffCases();
+        } else {
+            alert('Conversion failed: ' + (data.message || 'Error'));
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+};
+
+// Admin Override Modal
+window.openOverrideModal = function(caseId, currentAmount) {
+    document.getElementById('overrideCaseId').value = caseId;
+    document.getElementById('overrideAmountInput').value = currentAmount != null ? currentAmount : '';
+    document.getElementById('overrideReasonInput').value = '';
+    openDeskModal('overrideCaseModal');
+};
+
+window.submitCaseOverride = async function() {
+    const caseId = parseInt(document.getElementById('overrideCaseId').value);
+    const newAmount = parseFloat(document.getElementById('overrideAmountInput').value);
+    const reason = document.getElementById('overrideReasonInput').value;
+
+    if (isNaN(newAmount) || newAmount < 0) {
+        alert('Please enter a valid non-negative compensation amount.');
+        return;
+    }
+    if (!reason || !reason.trim()) {
+        alert('Admin override reason is mandatory.');
+        return;
+    }
+
+    try {
+        const resp = await fetch('cases/override', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ caseId, newAmount, reason })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Amount successfully overridden to INR ' + (data.case?.finalAmount || newAmount));
+            closeDeskModal('overrideCaseModal');
+            loadStaffCases();
+        } else {
+            alert('Override failed: ' + (data.message || 'Error'));
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+};
 
 

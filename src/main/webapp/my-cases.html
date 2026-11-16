@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Lost &amp; Damaged Book Cases | PSG iTech Library</title>
+    <link rel="stylesheet" href="css/library-theme.css">
+    <style>
+        .case-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .summary-card {
+            background-color: var(--background-warm);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 16px 20px;
+        }
+        .summary-card.alert {
+            background-color: #FDEDEC;
+            border-color: #E6B0AA;
+        }
+        .summary-card.clean {
+            background-color: #EAFAF1;
+            border-color: #A9DFBF;
+        }
+        .summary-label {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .summary-val {
+            font-size: 1.85rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        .summary-sub {
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+        .case-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .case-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+        }
+        .breakdown-table {
+            width: 100%;
+            margin: 12px 0;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .breakdown-table th, .breakdown-table td {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+        }
+        .breakdown-table th {
+            background: var(--background-warm);
+            text-align: left;
+            color: var(--primary);
+        }
+        .timeline {
+            margin-top: 14px;
+            padding-left: 18px;
+            border-left: 2px solid var(--border);
+        }
+        .timeline-item {
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 4px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+        .timeline-time {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .badge-reported { background-color: #EBF5FB; color: #2874A6; border: 1px solid #AED6F1; }
+        .badge-assessed { background-color: #FEF9E7; color: #B7950B; border: 1px solid #F9E79F; }
+        .badge-payment_pending { background-color: #FDEDEC; color: #C0392B; border: 1px solid #E6B0AA; }
+        .badge-replacement_pending { background-color: #FEF9E7; color: #D35400; border: 1px solid #F5CBA7; }
+        .badge-replacement_submitted { background-color: #E8F8F5; color: #117864; border: 1px solid #A3E4D7; }
+        .badge-resolved_paid { background-color: #EAFAF1; color: #1E8449; border: 1px solid #A9DFBF; }
+        .badge-resolved_replaced { background-color: #EAFAF1; color: #1E8449; border: 1px solid #A9DFBF; }
+        .badge-waived { background-color: #EAECEE; color: #5D6D7E; border: 1px solid #D5D8DC; }
+        .badge-cancelled { background-color: #F2F3F4; color: #7F8C8D; border: 1px solid #BDC3C7; text-decoration: line-through; }
+    </style>
+</head>
+<body>
+
+    <!-- Global Navigation -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="student-home.html" class="nav-left">
+                <img src="images/psgitech-logo.png" alt="PSG iTech Logo" class="logo-icon">
+                <span class="brand-text">PSG iTECH LIBRARY</span>
+            </a>
+
+            <div class="nav-middle">
+                <ul class="nav-menu">
+                    <li><a href="student-home.html">Dashboard</a></li>
+                    <li><a href="my-borrowings.html">My Borrowings</a></li>
+                    <li><a href="my-reservations.html">My Reservations</a></li>
+                    <li><a href="my-fines.html">My Fines &amp; Dues</a></li>
+                    <li><a href="my-cases.html" class="active">Lost &amp; Damaged</a></li>
+                    <li><a href="browse.html">Browse Catalog</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-right">
+                <div class="profile-dropdown">
+                    <button class="profile-trigger" id="profileTrigger">
+                        <span class="avatar-icon" id="studentAvatar">S</span>
+                        <span id="navUsername" style="font-weight: bold;">Student Portal</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                    <div class="dropdown-menu" id="profileDropdownMenu">
+                        <div class="dropdown-header">Student Account</div>
+                        <a href="student-home.html" class="dropdown-item">My Dashboard</a>
+                        <a href="my-borrowings.html" class="dropdown-item">My Borrowings</a>
+                        <a href="my-reservations.html" class="dropdown-item">My Reservations</a>
+                        <a href="my-fines.html" class="dropdown-item">My Fines &amp; Dues</a>
+                        <a href="my-cases.html" class="dropdown-item active">Lost &amp; Damaged</a>
+                        <a href="profile.html" class="dropdown-item">My Profile</a>
+                        <a href="profile.html#change-password" class="dropdown-item">Change Password</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="logout" class="dropdown-item" data-action="logout" style="color: var(--danger);">Log Out</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container" style="margin-top: 32px;">
+
+            <!-- Header Section -->
+            <div style="border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h1 style="font-size: 1.8rem; color: var(--primary); margin: 0 0 6px 0;">Lost &amp; Damaged Book Cases</h1>
+                    <p style="color: var(--text-secondary); margin: 0; font-size: 0.95rem;">
+                        Track reported loss and returned damaged book assessments, choose monetary compensation or replacement copy.
+                    </p>
+                </div>
+                <div>
+                    <a href="my-borrowings.html" class="btn btn-secondary">Report Lost Book</a>
+                </div>
+            </div>
+
+            <!-- Summary KPI Grid -->
+            <div class="case-summary-grid">
+                <div class="summary-card" id="cardTotalCases">
+                    <div class="summary-label">Total Cases</div>
+                    <div class="summary-val" id="valTotalCases">0</div>
+                    <div class="summary-sub" style="color: var(--text-secondary);">Lifetime logged cases</div>
+                </div>
+                <div class="summary-card alert" id="cardBlockingDues">
+                    <div class="summary-label">Unresolved Obligations</div>
+                    <div class="summary-val" id="valUnresolved">0</div>
+                    <div class="summary-sub" style="color: var(--danger);">Blocking new borrowings</div>
+                </div>
+                <div class="summary-card" id="cardPendingReplacements">
+                    <div class="summary-label">Awaiting Replacement</div>
+                    <div class="summary-val" id="valReplacements">0</div>
+                    <div class="summary-sub" style="color: #D35400;">30-day submission window</div>
+                </div>
+                <div class="summary-card clean" id="cardResolvedCases">
+                    <div class="summary-label">Resolved Cases</div>
+                    <div class="summary-val" id="valResolved">0</div>
+                    <div class="summary-sub" style="color: var(--success);">Cleared &amp; catalog updated</div>
+                </div>
+            </div>
+
+            <!-- Case List Container -->
+            <div id="casesList">
+                <div style="text-align: center; padding: 40px; color: var(--text-secondary);">Loading case records...</div>
+            </div>
+
+        </div>
+    </main>
+
+    <script src="js/cases.js"></script>
+</body>
+</html>

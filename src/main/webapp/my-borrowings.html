@@ -22,6 +22,7 @@
                     <li><a href="my-borrowings.html" class="active">My Borrowings</a></li>
                     <li><a href="my-reservations.html">My Reservations</a></li>
                     <li><a href="my-fines.html">My Fines</a></li>
+                    <li><a href="my-cases.html">Lost &amp; Damaged</a></li>
                     <li><a href="browse.html">Browse Catalog</a></li>
                 </ul>
             </div>
@@ -41,6 +42,7 @@
                         <a href="my-borrowings.html" class="dropdown-item active">My Borrowings</a>
                         <a href="my-reservations.html" class="dropdown-item">My Reservations</a>
                         <a href="my-fines.html" class="dropdown-item">My Fines &amp; Dues</a>
+                        <a href="my-cases.html" class="dropdown-item">Lost &amp; Damaged</a>
                         <a href="profile.html" class="dropdown-item">My Profile</a>
                         <a href="profile.html#change-password" class="dropdown-item">Change Password</a>
                         <div class="dropdown-divider"></div>
@@ -213,6 +215,36 @@
             <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
                 <button type="button" class="btn btn-outline" onclick="closeRejectModal()">Keep Request</button>
                 <button type="button" class="btn btn-danger" id="btnConfirmRejectTransfer" onclick="submitRejectInterchange()">Decline Transfer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Report Lost Book -->
+    <div class="modal-overlay" id="reportLostModal">
+        <div class="modal-container" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title" style="color: var(--danger);">Report Book as Lost</h3>
+                <button type="button" class="modal-close" onclick="closeReportLostModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.9rem; margin-bottom: 12px; color: #444;">
+                    Reporting a book as lost freezes the loan and halts overdue fine accumulation. Library staff will assess the case under PSG iTech policy (depreciation + processing fee, or option to replace).
+                </p>
+                <input type="hidden" id="modalReportTxId" value="">
+                <div style="background: var(--background-warm); padding: 10px 14px; border-radius: 4px; margin-bottom: 14px; border: 1px solid var(--border);">
+                    <div style="font-weight: bold; color: var(--primary);" id="modalReportBookTitle">Book Title</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);" id="modalReportCopyCode">Copy Code</div>
+                </div>
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label for="modalReportNote" style="font-weight: 500; font-size: 0.9rem; display: block; margin-bottom: 4px;">
+                        Circumstances / Note (Optional)
+                    </label>
+                    <textarea id="modalReportNote" class="form-control" rows="3" placeholder="Explain where or when the book went missing..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn btn-outline" onclick="closeReportLostModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmReportLost" onclick="submitReportLost()">Submit Loss Report</button>
             </div>
         </div>
     </div>

@@ -107,6 +107,7 @@ function renderFinesTable(fines) {
         const paid = parseFloat(f.paidAmount) || 0;
         const waived = parseFloat(f.waivedAmount) || 0;
         const statusLower = (f.status || 'UNPAID').toLowerCase();
+        const isComp = (f.fineType === 'COMPENSATION');
 
         let actionHtml = '';
         if (outstanding > 0 && f.status !== 'PAID' && f.status !== 'WAIVED') {
@@ -118,10 +119,13 @@ function renderFinesTable(fines) {
         return `
             <tr>
                 <td><strong>#${f.fineId}</strong></td>
-                <td style="font-weight: 500;">${escapeHtml(f.bookTitle || 'Resource')}</td>
+                <td style="font-weight: 500;">
+                    ${isComp ? '<span class="badge" style="background:#FDEDEC; color:#C0392B; border:1px solid #E6B0AA; font-size:0.75rem; margin-right:4px;">COMPENSATION</span>' : ''}
+                    ${escapeHtml(f.bookTitle || 'Resource')}
+                </td>
                 <td><code>${escapeHtml(f.copyCode || '-')}</code></td>
                 <td>${escapeHtml(f.returnDate ? f.returnDate.toString() : '-')}</td>
-                <td>${f.overdueDays} days</td>
+                <td>${isComp ? '<span class="text-secondary">Assessed Case</span>' : (f.overdueDays + ' days')}</td>
                 <td>&inr; ${original.toFixed(2)}</td>
                 <td style="color: var(--success);">&inr; ${paid.toFixed(2)}</td>
                 <td style="color: var(--text-secondary);">&inr; ${waived.toFixed(2)}</td>

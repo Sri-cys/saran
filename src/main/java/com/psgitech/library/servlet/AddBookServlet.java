@@ -9,6 +9,7 @@ import com.psgitech.library.model.Book;
 import com.psgitech.library.model.User;
 import com.psgitech.library.service.BookService;
 
+import java.math.BigDecimal;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -80,6 +81,7 @@ public class AddBookServlet extends HttpServlet {
         String department = null;
         String description = null;
         String coverImageUrl = null;
+        BigDecimal replacementPrice = null;
         int initialCopies = 1;
 
         String contentType = req.getContentType();
@@ -103,6 +105,9 @@ public class AddBookServlet extends HttpServlet {
                 if (json.has("department")) department = json.get("department").getAsString();
                 if (json.has("description")) description = json.get("description").getAsString();
                 if (json.has("coverImageUrl")) coverImageUrl = json.get("coverImageUrl").getAsString();
+                if (json.has("replacementPrice") && !json.get("replacementPrice").isJsonNull()) {
+                    replacementPrice = json.get("replacementPrice").getAsBigDecimal();
+                }
                 if (json.has("initialCopies")) initialCopies = json.get("initialCopies").getAsInt();
             } catch (Exception e) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -128,6 +133,12 @@ public class AddBookServlet extends HttpServlet {
             department = req.getParameter("department");
             description = req.getParameter("description");
             coverImageUrl = req.getParameter("coverImageUrl");
+            String priceStr = req.getParameter("replacementPrice");
+            if (priceStr != null && !priceStr.trim().isEmpty()) {
+                try {
+                    replacementPrice = new BigDecimal(priceStr.trim());
+                } catch (Exception ignored) {}
+            }
             String copiesStr = req.getParameter("initialCopies");
             if (copiesStr != null && !copiesStr.trim().isEmpty()) {
                 try {
@@ -147,6 +158,7 @@ public class AddBookServlet extends HttpServlet {
         book.setDepartment(department);
         book.setDescription(description);
         book.setCoverImageUrl(coverImageUrl);
+        book.setReplacementPrice(replacementPrice);
 
         Map<String, Object> result = new HashMap<>();
         try {

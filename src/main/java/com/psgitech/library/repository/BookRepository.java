@@ -77,8 +77,8 @@ public class BookRepository {
         }
 
         String insertBookSql = "INSERT INTO books (isbn, title, author, publisher, edition, publication_year, " +
-                "category, department, description, cover_image_url, is_archived) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)";
+                "category, department, description, cover_image_url, is_archived, replacement_price) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, ?)";
 
         String insertCopySql = "INSERT INTO book_copies (copy_code, book_id, status) VALUES (?, ?, 'AVAILABLE')";
 
@@ -99,6 +99,7 @@ public class BookRepository {
                 psBook.setString(8, book.getDepartment().trim());
                 psBook.setString(9, book.getDescription() != null ? book.getDescription().trim() : null);
                 psBook.setString(10, book.getCoverImageUrl() != null ? book.getCoverImageUrl().trim() : null);
+                psBook.setBigDecimal(11, book.getReplacementPrice());
 
                 int rows = psBook.executeUpdate();
                 if (rows == 0) {
@@ -300,7 +301,7 @@ public class BookRepository {
     public boolean updateBook(Book book) {
         String sql = "UPDATE books SET title = ?, author = ?, publisher = ?, edition = ?, " +
                 "publication_year = ?, category = ?, department = ?, description = ?, " +
-                "cover_image_url = ? WHERE book_id = ?";
+                "cover_image_url = ?, replacement_price = ? WHERE book_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -314,7 +315,8 @@ public class BookRepository {
             ps.setString(7, book.getDepartment().trim());
             ps.setString(8, book.getDescription() != null ? book.getDescription().trim() : null);
             ps.setString(9, book.getCoverImageUrl() != null ? book.getCoverImageUrl().trim() : null);
-            ps.setInt(10, book.getBookId());
+            ps.setBigDecimal(10, book.getReplacementPrice());
+            ps.setInt(11, book.getBookId());
 
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -687,6 +689,7 @@ public class BookRepository {
         book.setDepartment(rs.getString("department"));
         book.setDescription(rs.getString("description"));
         book.setCoverImageUrl(rs.getString("cover_image_url"));
+        book.setReplacementPrice(rs.getBigDecimal("replacement_price"));
         book.setArchived(rs.getBoolean("is_archived"));
         book.setCreatedAt(rs.getTimestamp("created_at"));
         book.setUpdatedAt(rs.getTimestamp("updated_at"));

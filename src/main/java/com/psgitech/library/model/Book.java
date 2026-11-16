@@ -1,5 +1,6 @@
 package com.psgitech.library.model;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 
 /**
@@ -18,6 +19,7 @@ public class Book {
     private String department;
     private String description;
     private String coverImageUrl;
+    private BigDecimal replacementPrice;
     private boolean archived;
     private Timestamp createdAt;
     private Timestamp updatedAt;
@@ -127,6 +129,14 @@ public class Book {
 
     public void setCoverImageUrl(String coverImageUrl) {
         this.coverImageUrl = coverImageUrl;
+    }
+
+    public BigDecimal getReplacementPrice() {
+        return replacementPrice;
+    }
+
+    public void setReplacementPrice(BigDecimal replacementPrice) {
+        this.replacementPrice = replacementPrice;
     }
 
     public boolean isArchived() {

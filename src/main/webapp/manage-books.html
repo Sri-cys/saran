@@ -169,11 +169,16 @@
                         </div>
                     </div>
 
-                    <div class="form-group row-2">
+                    <div class="form-group row-3">
                         <div>
                             <label for="newInitialCopies" class="form-label">Initial Physical Copies *</label>
                             <input type="number" id="newInitialCopies" name="initialCopies" class="form-control" min="1" max="50" value="2" required>
                             <small class="helper-text">Generated transactionally as AVAILABLE copies.</small>
+                        </div>
+                        <div>
+                            <label for="newReplacementPrice" class="form-label">Replacement Price (&inr;) *</label>
+                            <input type="number" id="newReplacementPrice" name="replacementPrice" class="form-control" step="0.01" min="0" placeholder="e.g. 750.00">
+                            <small class="helper-text">Base for loss/damage assessment.</small>
                         </div>
                         <div>
                             <label for="newCoverUrl" class="form-label">Cover Image URL (Optional)</label>

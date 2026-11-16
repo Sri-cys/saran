@@ -10,6 +10,7 @@ import com.psgitech.library.model.Book;
 import com.psgitech.library.model.User;
 import com.psgitech.library.service.BookService;
 
+import java.math.BigDecimal;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -81,6 +82,7 @@ public class UpdateBookServlet extends HttpServlet {
         String department = null;
         String description = null;
         String coverImageUrl = null;
+        BigDecimal replacementPrice = null;
 
         String contentType = req.getContentType();
         if (contentType != null && contentType.contains("application/json")) {
@@ -103,6 +105,9 @@ public class UpdateBookServlet extends HttpServlet {
                 if (json.has("department")) department = json.get("department").getAsString();
                 if (json.has("description")) description = json.get("description").getAsString();
                 if (json.has("coverImageUrl")) coverImageUrl = json.get("coverImageUrl").getAsString();
+                if (json.has("replacementPrice") && !json.get("replacementPrice").isJsonNull()) {
+                    replacementPrice = json.get("replacementPrice").getAsBigDecimal();
+                }
             } catch (Exception e) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 Map<String, Object> err = new HashMap<>();
@@ -133,6 +138,12 @@ public class UpdateBookServlet extends HttpServlet {
             department = req.getParameter("department");
             description = req.getParameter("description");
             coverImageUrl = req.getParameter("coverImageUrl");
+            String priceStr = req.getParameter("replacementPrice");
+            if (priceStr != null && !priceStr.trim().isEmpty()) {
+                try {
+                    replacementPrice = new BigDecimal(priceStr.trim());
+                } catch (Exception ignored) {}
+            }
         }
 
         if (bookId == null) {
@@ -155,6 +166,7 @@ public class UpdateBookServlet extends HttpServlet {
         book.setDepartment(department);
         book.setDescription(description);
         book.setCoverImageUrl(coverImageUrl);
+        book.setReplacementPrice(replacementPrice);
 
         Map<String, Object> result = new HashMap<>();
         try {

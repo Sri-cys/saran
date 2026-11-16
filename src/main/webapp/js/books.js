@@ -905,6 +905,7 @@ function initManageBooksWorkspace() {
             const department = document.getElementById('newDepartment').value;
             const description = document.getElementById('newDescription').value.trim();
             const coverImageUrl = document.getElementById('newCoverUrl').value.trim();
+            const replacementPrice = document.getElementById('newReplacementPrice')?.value?.trim();
             const initialCopies = document.getElementById('newInitialCopies').value.trim();
 
             if (!title || !author || !isbn || !publisher || !publicationYear || !category || !department) {
@@ -923,6 +924,7 @@ function initManageBooksWorkspace() {
             formData.append('department', department);
             formData.append('description', description);
             formData.append('coverImageUrl', coverImageUrl);
+            if (replacementPrice) formData.append('replacementPrice', replacementPrice);
             formData.append('initialCopies', initialCopies || '1');
 
             const submitBtn = addForm.querySelector('button[type="submit"]');
