@@ -251,6 +251,49 @@ public class BookRepository {
     }
 
     /**
+     * Adds a single replacement copy inside an active transaction connection.
+     * Guarantees canonical format PSG-BK{bookId}-C{copyNumber}.
+     */
+    public BookCopy addSingleCopy(Connection conn, int bookId) throws SQLException {
+        String countSql = "SELECT copy_code FROM book_copies WHERE book_id = ? FOR UPDATE";
+        String insertCopySql = "INSERT INTO book_copies (copy_code, book_id, status) VALUES (?, ?, 'AVAILABLE')";
+
+        int maxCopyNumber = 0;
+        try (PreparedStatement psCount = conn.prepareStatement(countSql)) {
+            psCount.setInt(1, bookId);
+            try (ResultSet rs = psCount.executeQuery()) {
+                while (rs.next()) {
+                    String code = rs.getString("copy_code");
+                    Matcher matcher = COPY_CODE_PATTERN.matcher(code);
+                    if (matcher.matches()) {
+                        try {
+                            int num = Integer.parseInt(matcher.group(2));
+                            if (num > maxCopyNumber) {
+                                maxCopyNumber = num;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        }
+
+        int nextNum = maxCopyNumber + 1;
+        String code = formatCopyCode(bookId, nextNum);
+        int copyId = 0;
+        try (PreparedStatement psInsert = conn.prepareStatement(insertCopySql, Statement.RETURN_GENERATED_KEYS)) {
+            psInsert.setString(1, code);
+            psInsert.setInt(2, bookId);
+            psInsert.executeUpdate();
+            try (ResultSet gk = psInsert.getGeneratedKeys()) {
+                if (gk.next()) {
+                    copyId = gk.getInt(1);
+                }
+            }
+        }
+        return new BookCopy(copyId, code, bookId, CopyStatus.AVAILABLE);
+    }
+
+    /**
      * Updates editable bibliographic metadata of an existing book.
      * ISBN is preserved and immutable.
      */

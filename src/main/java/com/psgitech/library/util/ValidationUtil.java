@@ -100,4 +100,12 @@ public class ValidationUtil {
 
         return hasUpper && hasLower && hasDigit && hasSpecial;
     }
+
+    /**
+     * Normalizes an ISBN string by stripping hyphens, spaces, and punctuation and converting to uppercase.
+     */
+    public static String normalizeIsbn(String raw) {
+        if (raw == null) return "";
+        return raw.replaceAll("[^0-9Xx]", "").toUpperCase();
+    }
 }

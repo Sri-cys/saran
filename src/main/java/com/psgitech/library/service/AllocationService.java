@@ -151,6 +151,86 @@ public class AllocationService {
     }
 
     /**
+     * Offers a newly introduced copy (in status AVAILABLE) to the next eligible WAITING reservation.
+     * If an eligible reservation exists, marks reservation ALLOCATED, copy ALLOCATED, and records ALLOCATION_READY.
+     * If no candidate is eligible or queue is empty, the copy remains AVAILABLE.
+     */
+    public AllocationResult offerNewCopy(Connection conn, int copyId, int bookId) throws SQLException {
+        String copyCode = "";
+        String copyQuery = "SELECT copy_code FROM book_copies WHERE copy_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(copyQuery)) {
+            ps.setInt(1, copyId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    copyCode = rs.getString("copy_code");
+                }
+            }
+        }
+
+        List<Reservation> waitingList = reservationRepository.lockWaitingByBookFifo(conn, bookId);
+        ReservationQueue queue = new ReservationQueue(bookId, waitingList);
+        DefaultEligibilityChecker checker = new DefaultEligibilityChecker(bookId);
+        Optional<Reservation> selectedOpt = allocationStrategy.selectNext(queue, checker, conn);
+
+        if (selectedOpt.isPresent()) {
+            Reservation selected = selectedOpt.get();
+            int reservationId = selected.getReservationId();
+            int studentId = selected.getStudentId();
+
+            LOGGER.info("Allocating new replacement copy " + copyCode + " (ID: " + copyId + ") to student ID " + studentId +
+                    " (Reservation #" + reservationId + ")");
+
+            reservationRepository.markAllocated(conn, reservationId);
+
+            String updateCopySql = "UPDATE book_copies SET status = 'ALLOCATED', updated_at = CURRENT_TIMESTAMP " +
+                    "WHERE copy_id = ? AND status = 'AVAILABLE'";
+            try (PreparedStatement psCopy = conn.prepareStatement(updateCopySql)) {
+                psCopy.setInt(1, copyId);
+                int affected = psCopy.executeUpdate();
+                if (affected == 0) {
+                    throw new AllocationFailedException("Physical copy #" + copyId + " could not be marked ALLOCATED from AVAILABLE.");
+                }
+            }
+
+            int collectionHours = BorrowingPolicy.getAllocationCollectionHours();
+            Timestamp now = new Timestamp(System.currentTimeMillis());
+            Timestamp expiresAt = Timestamp.from(Instant.now().plus(collectionHours, ChronoUnit.HOURS));
+
+            AllocationRecord record = new AllocationRecord(reservationId, studentId, bookId, copyId, null, expiresAt);
+            record.setAllocatedAt(now);
+            record.setCopyCode(copyCode);
+            record.setBookTitle(selected.getBookTitle());
+            record.setBookIsbn(selected.getBookIsbn());
+            record.setStudentName(selected.getStudentName());
+            record.setRegisterNumber(selected.getRegisterNumber());
+
+            AllocationRecord inserted = allocationRepository.insert(conn, record);
+
+            // Record Feature 11: ALLOCATION_READY
+            if (inserted != null) {
+                try {
+                    com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                            .builder(com.psgitech.library.enums.NotificationType.ALLOCATION_READY, studentId, "ALLOC_READY:" + inserted.getAllocationId())
+                            .entity("ALLOCATION", inserted.getAllocationId())
+                            .param("bookTitle", selected.getBookTitle())
+                            .param("pickupDeadline", expiresAt.toString())
+                            .build();
+                    new NotificationRecorder().record(conn, notifDraft);
+                } catch (SQLException e) {
+                    if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                    LOGGER.log(Level.WARNING, "Failed to record allocation ready notification", e);
+                }
+            }
+
+            return AllocationResult.allocated(copyId, copyCode, inserted);
+        } else {
+            LOGGER.info("No eligible waiting reservations for book ID " + bookId +
+                    ". Replacement copy " + copyCode + " (ID: " + copyId + ") remains AVAILABLE.");
+            return AllocationResult.madeAvailable(copyId, copyCode);
+        }
+    }
+
+    /**
      * Validates that an ALLOCATED physical copy can be collected by the given student.
      * Verifies that the copy is held for this student and re-verifies student eligibility.
      * Follows canonical lock sequence: locks reservation row FOR UPDATE, then allocation row FOR UPDATE.

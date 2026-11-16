@@ -39,8 +39,8 @@ public class FineRepository {
     public FineRecord createFine(Connection conn, FineRecord record) throws SQLException {
         String sql = "INSERT INTO fines (borrow_transaction_id, student_id, book_id, copy_id, " +
                 "overdue_days, chargeable_days, fine_per_day, grace_period_days, max_fine_applied, " +
-                "original_amount, paid_amount, waived_amount, outstanding_amount, status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "original_amount, paid_amount, waived_amount, outstanding_amount, status, fine_type) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, record.getBorrowTransactionId());
@@ -61,6 +61,7 @@ public class FineRepository {
             ps.setBigDecimal(12, record.getWaivedAmount());
             ps.setBigDecimal(13, record.getOutstandingAmount());
             ps.setString(14, record.getStatus().name());
+            ps.setString(15, record.getFineType());
 
             int affected = ps.executeUpdate();
             if (affected == 0) {
@@ -285,6 +286,12 @@ public class FineRepository {
         f.setWaivedAmount(rs.getBigDecimal("waived_amount"));
         f.setOutstandingAmount(rs.getBigDecimal("outstanding_amount"));
         f.setStatus(FineStatus.fromString(rs.getString("status")));
+        try {
+            String ft = rs.getString("fine_type");
+            if (ft != null && !ft.trim().isEmpty()) {
+                f.setFineType(ft.trim().toUpperCase());
+            }
+        } catch (SQLException ignored) {}
         f.setCreatedAt(rs.getTimestamp("created_at"));
         f.setUpdatedAt(rs.getTimestamp("updated_at"));
 

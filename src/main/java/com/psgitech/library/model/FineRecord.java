@@ -29,6 +29,7 @@ public class FineRecord {
     private BigDecimal waivedAmount;
     private BigDecimal outstandingAmount;
     private FineStatus status;
+    private String fineType = "OVERDUE";
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
@@ -255,6 +256,18 @@ public class FineRecord {
 
     public void setStatus(FineStatus status) {
         this.status = status;
+    }
+
+    public String getFineType() {
+        return fineType != null ? fineType : "OVERDUE";
+    }
+
+    public void setFineType(String fineType) {
+        this.fineType = fineType;
+    }
+
+    public boolean isCompensation() {
+        return "COMPENSATION".equalsIgnoreCase(this.fineType);
     }
 
     public Timestamp getCreatedAt() {
