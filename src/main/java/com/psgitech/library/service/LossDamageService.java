@@ -803,12 +803,16 @@ public class LossDamageService {
             return; // Already terminal
         }
 
+        int actorId = caseRecord.getStudentId() > 0 ? caseRecord.getStudentId() : 1;
+        String actorRole = "STUDENT";
         if (paidAmount != null && paidAmount.compareTo(BigDecimal.ZERO) > 0) {
-            caseRecord.markResolvedPaid(0);
+            caseRecord.markResolvedPaid(actorId);
         } else if (waivedAmount != null && waivedAmount.compareTo(BigDecimal.ZERO) > 0) {
-            caseRecord.markWaived(0);
+            actorId = 1;
+            actorRole = "ADMIN";
+            caseRecord.markWaived(actorId);
         } else {
-            caseRecord.markResolvedPaid(0);
+            caseRecord.markResolvedPaid(actorId);
         }
 
         caseRepository.updateCase(conn, caseRecord, oldStatus);
@@ -818,8 +822,8 @@ public class LossDamageService {
                 caseRecord.getStatus() == CaseStatus.WAIVED ? "CASE_WAIVED" : "CASE_RESOLVED_PAID",
                 oldStatus.name(),
                 caseRecord.getStatus().name(),
-                0,
-                "SYSTEM",
+                actorId,
+                actorRole,
                 "Case resolved via full fine settlement (Paid: INR " + paidAmount + ", Waived: INR " + waivedAmount + ")."
         );
         caseRepository.recordEvent(conn, event);

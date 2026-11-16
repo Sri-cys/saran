@@ -253,14 +253,41 @@ public class LossDamageCaseRepository {
     }
 
     public int cancelReportedCaseForTransaction(Connection conn, int transactionId, int actorId, String reason) throws SQLException {
+        List<Integer> caseIds = new ArrayList<>();
+        String findSql = "SELECT case_id FROM loss_damage_cases WHERE borrow_transaction_id = ? AND status = 'REPORTED'";
+        try (PreparedStatement ps = conn.prepareStatement(findSql)) {
+            ps.setInt(1, transactionId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    caseIds.add(rs.getInt("case_id"));
+                }
+            }
+        }
+
         String sql = "UPDATE loss_damage_cases SET status = 'CANCELLED', rejection_reason = ?, resolved_at = CURRENT_TIMESTAMP, resolved_by = ? " +
                 "WHERE borrow_transaction_id = ? AND status = 'REPORTED'";
+        int updated;
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, reason);
             ps.setInt(2, actorId);
             ps.setInt(3, transactionId);
-            return ps.executeUpdate();
+            updated = ps.executeUpdate();
         }
+
+        for (Integer cid : caseIds) {
+            CaseEvent event = new CaseEvent(
+                    cid,
+                    "CASE_CANCELLED",
+                    "REPORTED",
+                    "CANCELLED",
+                    actorId,
+                    "LIBRARIAN",
+                    reason
+            );
+            recordEvent(conn, event);
+        }
+
+        return updated;
     }
 
     public List<LossDamageCase> findCasesByStudentId(int studentId) {
