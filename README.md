@@ -521,11 +521,15 @@ Run the full test suite and build the WAR package:
 ```bash
 mvn clean package
 ```
-*Verification: Confirms 246 tests pass and generates `target/psgitech-library.war`.*
+*Verification: Confirms 286 tests pass and generates `target/psgitech-library.war`.*
 
-### Step 3: Deploy to Apache Tomcat 10.1
-Because Tomcat 10.1 uses Jakarta EE (`jakarta.servlet.*`), migrate and deploy the WAR using Tomcat's migration tool:
+### Step 3: Deploy to Apache Tomcat 10.1 / 9
+Because Tomcat 10.1 uses Jakarta EE (`jakarta.servlet.*`), migrate and deploy the WAR using Tomcat's migration tool, or deploy directly to Tomcat 9:
 ```bash
+# For Tomcat 9:
+cp target/psgitech-library.war <TOMCAT_HOME>/webapps/
+
+# For Tomcat 10+:
 java -jar <TOMCAT_HOME>/lib/jakartaee-migration-*.jar \
   target/psgitech-library.war \
   <TOMCAT_HOME>/webapps/psgitech-library.war
@@ -545,10 +549,10 @@ http://localhost:8081/psgitech-library/
 ### Default Accounts for Verification
 | Role | Email / Login Identifier | Password | Access Capabilities |
 |---|---|---|---|
-| **Admin** | `admin@psgitech.ac.in` | `AdminPassword@123` | User administration, concurrency monitor, full access |
-| **Librarian** | `librarian@psgitech.ac.in` (`LIB101`) | `Librarian@123` | Circulation desk, book catalog, UPI verification, fine waivers |
-| **Student** | `sivakathir.22cs@psgitech.ac.in` (`715522104045`) | `Student@123` | Catalog, borrow history, reservation queue, peer transfer, UPI pay |
-| **Student** | `ananya.23ai@psgitech.ac.in` (`715523105012`) | `Student@123` | Catalog, borrow history, reservation queue, peer transfer, UPI pay |
+| **Admin** | `admin@psgitech.ac.in` | `AdminPassword@123` | User administration, concurrency monitor, financial overrides, full access |
+| **Librarian** | `librarian@psgitech.ac.in` (`LIB101`) | `Librarian@123` | Circulation desk, book catalog, loss assessment, replacement processing, UPI verification, fine waivers |
+| **Student** | `sivakathir.22cs@psgitech.ac.in` (`715522104045`) | `Student@123` | Catalog, borrow history, reservation queue, peer transfer, loss reporting, replacement tracking, UPI pay |
+| **Student** | `ananya.23ai@psgitech.ac.in` (`715523105012`) | `Student@123` | Catalog, borrow history, reservation queue, peer transfer, loss reporting, replacement tracking, UPI pay |
 
 ---
 
@@ -568,6 +572,7 @@ http://localhost:8081/psgitech-library/
 | **Feature 10: Smart Book Discovery** | **Fully Implemented (+ Autocomplete & Recommendations)** | `SmartDiscoveryService.java`, `BookRecommendationService.java`, `BookPopularityService.java`, `DiscoveryRepository.java`, `RecommendationRepository.java`, `RecommendationStrategy.java`, `PopularBookStrategy.java`, `SimilarBookStrategy.java`, `CategoryBasedStrategy.java`, `AutocompleteRateLimiter.java`, `SmartDiscoveryServlet.java`, `BookSuggestionServlet.java`, `PopularBooksServlet.java`, `PersonalizedRecommendationsServlet.java`, `SimilarBooksServlet.java`, `BookCategoriesServlet.java`, `smart-discovery.html`, `discovery.js` |
 | **Feature 11: Smart Notification & Alert System** | **Fully Implemented (+ Transactional Outbox)** | `NotificationService.java`, `NotificationRecorder.java`, `NotificationRepository.java`, `NotificationOutboxRepository.java`, `NotificationPreferenceRepository.java`, `NotificationDeliveryService.java`, `NotificationReminderService.java`, `NotificationTemplateService.java`, `NotificationWorker.java`, `NotificationsServlet.java`, `NotificationUnreadCountServlet.java`, `NotificationReadServlet.java`, `NotificationReadAllServlet.java`, `NotificationPreferencesServlet.java`, `AdminNotificationStatsServlet.java`, `notifications.html`, `notification-bell.js`, `notifications-page.js`, `notifications` & `notification_outbox` tables |
 | **Feature 12: Exam-Season Dynamic Borrowing Policy** | **Fully Implemented (+ Hysteresis Dampening & Exam Windows)** | `LoanPolicy.java`, `StandardLoanPolicy.java`, `HighDemandLoanPolicy.java`, `PolicyTransitionRule.java`, `LoanPolicyManager.java`, `LoanPolicyService.java`, `LoanPolicyRepository.java`, `LoanPolicySettings.java`, `BookPolicyState.java`, `LoanPolicyChangeRecord.java`, `LoanPolicyWindow.java`, `BookPolicyServlet.java`, `LoanPolicySettingsServlet.java`, `LoanPolicyUpdateServlet.java`, `LoanPolicyPreviewServlet.java`, `LoanPolicyHighDemandServlet.java`, `LoanPolicyHistoryServlet.java`, `LoanPolicyWindowsServlet.java`, `LoanPolicyWindowCreateServlet.java`, `LoanPolicyWindowDeactivateServlet.java`, `loan-policy.html`, `loan-policy.js`, `loan_policy_settings`, `book_loan_policy_state`, `loan_policy_changes` & `loan_policy_windows` tables |
+| **Feature 14: Lost & Damaged Book Replacement** | **Fully Implemented (+ Depreciation & Physical Replacement Queue Offering)** | `LossDamageService.java`, `LossDamageCaseRepository.java`, `CompensationCalculator.java`, `PenaltyResolution.java`, `MonetaryCompensation.java`, `PhysicalReplacement.java`, `CaseReportServlet.java`, `MyCasesServlet.java`, `CaseChooseServlet.java`, `CaseListServlet.java`, `CaseDetailServlet.java`, `CaseAssessServlet.java`, `CaseReplacementReceiveServlet.java`, `CaseReplacementAcceptServlet.java`, `CaseReplacementRejectServlet.java`, `CaseConvertServlet.java`, `CaseCancelServlet.java`, `CaseOverrideServlet.java`, `my-cases.html`, `cases.js`, `borrowing-management.html` (Tab 10), `loss_damage_cases` & `loss_damage_case_events` tables |
 | **Node.js Server (`server.js`)** | **Mock / Dev Artifact** | `server.js` (Used strictly as a lightweight local mockup for early UI prototype review; independent of Java Tomcat backend) |
 
 ---

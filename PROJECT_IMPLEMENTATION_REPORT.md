@@ -749,14 +749,131 @@ The Feature 12 test suite comprehensively validates all mathematical transition 
 
 ---
 
-## 14. Conclusion & Operational Sign-Off
+## 14. Feature 14: Lost or Damaged Book Replacement Management
 
-The **PSG iTech Library Resource and Queue Management System** now encompasses Features 1 through 12, comprising:
-- **54 Production Servlets** handling 60 REST & web endpoints.
-- **20 Relational Database Tables** with 11 additive performance indexes.
-- **20 Responsive Web Portal Pages** adhering to institutional academic styling.
-- **40 JUnit Test Classes with 246 Passing Automated Tests** (0 failures, 0 errors, 0 skipped).
-- 100% backward compatibility with user registration, OTP credentials, Code 128 barcodes, circulation desk operations, FIFO waitlists, 24-hour hold shelves, fine UPI payments, fair concurrency admission control, peer book transfers, smart discovery autocomplete, transactional notifications, and exam-season dynamic borrowing policy management.
+### 14.1 Architectural Overview & Core Design Decisions
+
+Feature 14 establishes an end-to-end institutional workflow for handling lost or damaged library resources. It transitions physical items, active loans, and student debt through a deterministic, auditable state machine supporting both server-computed monetary compensation (with linear annual depreciation and fixed processing fees) and exact physical replacement copy accessioning.
+
+```
++-------------------------------------------------------------------------------------------------------------------------+
+|                                        FEATURE 14 STATE MACHINE & LIFECYCLE                                              |
++-------------------------------------------------------------------------------------------------------------------------+
+|                                                                                                                         |
+|       [Student / Staff]                                                                                                 |
+|       reportLost()                                                                                                      |
+|            |                                                                                                            |
+|            v                                                                                                            |
+|     +--------------+   Desk Return (Found)    +---------------+                                                         |
+|     |   REPORTED   | -----------------------> |   CANCELLED   | (Copy restored to AVAILABLE, loan RETURNED)             |
+|     +--------------+                          +---------------+                                                         |
+|            |                                                                                                            |
+|            | assessLost() [Staff confirms loss]                                                                         |
+|            v                                                                                                            |
+|     +--------------+ <---------------------------------------------+                                                    |
+|     |   ASSESSED   | (Copy -> ARCHIVED, Loan -> LOST)              | rejectReplacement()                                |
+|     +--------------+                                               | (reverts to ASSESSED so student may pay/replace)   |
+|       /          \                                                 |                                                    |
+|      /            \                                                |                                                    |
+|     / choosePayment\ chooseReplacement                             |                                                    |
+|    v                v                                              |                                                    |
+| +----------------+ +---------------------+                         |                                                    |
+| | PAYMENT_PENDING| | REPLACEMENT_PENDING |                         |                                                    |
+| +----------------+ +---------------------+                         |                                                    |
+|    | (Fine gen)             |                                      |                                                    |
+|    | (COMPENSATION)         | receiveReplacement()                 |                                                    |
+|    |                        v                                      |                                                    |
+|    |               +-----------------------+                       |                                                    |
+|    |               | REPLACEMENT_SUBMITTED | ----------------------+                                                    |
+|    |               +-----------------------+                                                                            |
+|    |                        | acceptReplacement() (ISBN & Condition Verified)                                           |
+|    |                        v                                                                                           |
+|    |               +-----------------------+                                                                            |
+|    |               |   RESOLVED_REPLACED   | (New copy accessioned; offered to reservation queue FIFO / shelf)         |
+|    |               +-----------------------+                                                                            |
+|    |                                                                                                                    |
+|    | Pay / Settle Fine (handleFineSettled)                                                                              |
+|    v                                                                                                                    |
+| +----------------+                                                                                                      |
+| | RESOLVED_PAID  | (Student borrowing eligibility unblocked)                                                            |
+| +----------------+                                                                                                      |
+|                                                                                                                         |
++-------------------------------------------------------------------------------------------------------------------------+
+```
+
+#### Key Architecture Decisions (D1 - D16):
+1. **D1: Server-Computed Depreciation & Fees**:
+   - Age is calculated in days between item acquisition (`book_copies.created_at` or `books.created_at`) and assessment date.
+   - Depreciation rate is 10% per year, strictly capped at a maximum of 50%:
+     $$\text{Depreciation} = \min\left(0.50, \frac{\text{ageDays}}{365} \times 0.10\right)$$
+   - Depreciated value:
+     $$\text{Depreciated Value} = \text{Replacement Price} \times (1 - \text{Depreciation})$$
+   - Monetary compensation calculation:
+     $$\text{Computed Amount} = (\text{Depreciated Value} \times \text{Severity Fraction}) + \text{Processing Fee}$$
+   - Severity multipliers: `MINOR` (0.25), `MAJOR` (0.60), `UNUSABLE` (1.00). Fixed processing fee default: ₹50.00 (`LossDamageConfig.DEFAULT_PROCESSING_FEE`). All computations utilize `BigDecimal` with `HALF_UP` rounding.
+2. **D2: Dual Resolution Strategy**:
+   - Students may elect either **Monetary Compensation** or **Physical Replacement**.
+   - Physical replacement grants a 30-day institutional deadline (`LossDamageConfig.DEFAULT_REPLACEMENT_DEADLINE_DAYS`).
+3. **D3: Canonical Lock Sequence (Deadlock Prevention)**:
+   All mutating operations acquire database locks in strictly ascending foreign key hierarchy:
+   $$\text{users} \to \text{books} \to \text{book\_copies} \to \text{borrow\_transactions} \to \text{reservations} \to \text{allocations} \to \text{fines} \to \text{payments} \to \text{loss\_damage\_cases} \to \text{loss\_damage\_case\_events} \to \text{notifications}$$
+4. **D4: Physical Inventory Retirement**:
+   Confirmed lost or unusable physical copies transition directly to `CopyStatus.ARCHIVED`. They are permanently withdrawn and can never be circulated or allocated again.
+5. **D5: Physical Replacement Accessioning & Queue Offering**:
+   Upon librarian acceptance of a replacement copy (`acceptReplacement`):
+   - A new physical copy is added to the catalog via `BookRepository.addSingleCopy` (`PSG-BK{bookId}-C{num}`).
+   - The copy is immediately offered to waiting reservation queue candidates in strict FIFO order via `AllocationService.offerNewCopy`. If a student is waiting, the copy transitions to `ALLOCATED` with a 24-hour hold window; if no queue exists, it transitions to `AVAILABLE`.
+6. **D6: Return Desk Found-Book Hook**:
+   When a student returns a book previously marked `REPORTED`, desk return with condition `GOOD` automatically cancels the open case (`CaseStatus.CANCELLED`) with note `"FOUND: Returned at desk"`. Copy returns to `AVAILABLE` without financial penalties.
+7. **D7: Direct Damaged-Book Return Assessment**:
+   Returning a damaged copy at the circulation desk auto-creates an `ASSESSED` case in the same atomic transaction. Minor damage can optionally be returned to circulation (`CopyDisposition.RETURNED_TO_CIRCULATION`), while major damage is retired (`WITHDRAWN` $\to$ `ARCHIVED`).
+8. **D8: Borrowing Eligibility & Blocking Obligations**:
+   `BorrowingPolicy.hasUnresolvedCase` and `BorrowingPolicy.hasBlockingObligation` prohibit new checkouts, renewals, allocation pickups, and peer book interchanges while any unresolved case exists (`ASSESSED`, `PAYMENT_PENDING`, `REPLACEMENT_PENDING`, `REPLACEMENT_SUBMITTED`).
+9. **D9: Feature 6 Payment & Fine Integration**:
+   Monetary settlement generates a fine record with `fine_type = 'COMPENSATION'`. Seamlessly reuses Feature 6 UPI QR generation and settlement verification. When fine is paid in `PaymentService.verifyPayment` or waived in `FineService.applyWaiver`, `LossDamageService.handleFineSettled` automatically transitions the case to `RESOLVED_PAID` or `WAIVED`. Refunds are strictly blocked on settled compensation fines.
+10. **D10: Append-Only Case Event Audit Trail**:
+    Table `loss_damage_case_events` logs immutable audit snapshots of all lifecycle state transitions, capturing actor ID, actor role, timestamp, old status, new status, and detailed context.
+11. **D11: Unique Active Loan Constraint**:
+    Column `active_loan_key` generated stored column in `loss_damage_cases` prevents duplicate active cases for any single loan (`UNIQUE KEY uq_active_loan_case`), eliminating race-induced double assessments.
+12. **D12: Transaction Retry Helper**:
+    All service operations execute within `TransactionRetryHelper.executeWithRetry` (3 attempts with exponential backoff and randomized jitter) to seamlessly withstand transient MySQL row-lock contention.
+13. **D13: Cross-Tenant Isolation & RBAC**:
+    Students are strictly confined to their own cases. Staff-only actions (assessment, receipt, acceptance, rejection, conversion) require `LIBRARIAN` or `ADMIN` roles. Financial overrides require `ADMIN` role.
+14. **D14: Administrative Override**:
+    Authorized administrators can override compensation amounts with mandatory audit logging and reason capture.
+15. **D15: Notification Engine Integration**:
+    Automated in-app and email notifications trigger on: `CASE_REPORTED`, `CASE_ASSESSED`, `REPLACEMENT_SUBMITTED`, `REPLACEMENT_ACCEPTED`, `REPLACEMENT_REJECTED`, and `CASE_RESOLVED`. Due-date reminder workers exclude books under active loss/damage cases.
+16. **D16: Comprehensive Web Portals**:
+    - `my-cases.html` & `cases.js`: Student case dashboard with real-time status tracking, breakdown viewing, resolution choice selectors, and direct UPI payment links.
+    - `borrowing-management.html`: Tab 10 ("Lost & Damaged") librarian workbench with multi-criteria filtering, assessment modal, replacement receiving/accepting/rejecting modals, and conversion actions. Return desk card enhanced with condition and severity selectors.
+    - `my-borrowings.html`: "Report Lost" modal, open-case status indicators, and renewal lockdown.
+    - `manage-books.html`: Catalog replacement price configuration.
+    - `my-fines.html`: `COMPENSATION` fine badges and official compensation receipt generation.
+
+---
+
+### 14.2 Automated Test Suite Verification
+
+The Feature 14 test suite comprehensively validates mathematical depreciation calculations, MySQL integration flows, RBAC enforcement, cross-tenant isolation, and high-concurrency race conditions:
+
+| Test Class | Test Count | Focus Areas | Status |
+|---|:---:|---|:---:|
+| `CompensationCalculatorTest` | 15 | Zero-age new books, 1-year and 3-year depreciation, 50% cap enforcement, missing acquisition date age flagging, `MINOR`, `MAJOR`, `UNUSABLE` severity fractions, `HALF_UP` precision rounding, non-positive price rejection, and configurable institutional fees | **PASS** |
+| `LostDamagedIntegrationTest` | 12 | End-to-end lifecycle on MySQL: report lost, assess loss (loan `LOST`, copy `ARCHIVED`), desk return auto-cancel (`FOUND`), direct damaged return (`WITHDRAWN` vs `RETURNED_TO_CIRCULATION`), choose payment fine creation (`COMPENSATION`), fine settlement (`RESOLVED_PAID`), physical replacement queue offering (`RESOLVED_REPLACED`, copy `ALLOCATED`), ISBN mismatch rejection, replacement rejection and conversion, borrowing blocks, and admin financial override | **PASS** |
+| `LostDamagedSecurityAndEndpointTest` | 10 | Security & HTTP codes: Anonymous access 401 across 5 endpoints, Student role forbidden on staff endpoints 403, Librarian forbidden on Admin override 403, cross-tenant loan report denial 403, cross-tenant option choice denial 403, student isolation in `my-cases`, missing parameters 400, invalid choice 400, ISBN mismatch 422, and override validation 400 | **PASS** |
+| `LostDamagedConcurrencyTest` | 3 | High-concurrency race conditions: 2-thread simultaneous loss assessment (exactly 1 succeeds, 1 fails with conflict), simultaneous student `choosePayment` vs staff `convertToPayment` (exactly 1 fine created), and concurrent loss assessment vs return desk standard return (mutual exclusion, zero data corruption) | **PASS** |
+
+---
+
+## 15. Conclusion & Operational Sign-Off
+
+The **PSG iTech Library Resource and Queue Management System** now encompasses Features 1 through 14, comprising:
+- **66 Production Servlets** handling 72 REST & web endpoints.
+- **22 Relational Database Tables** with 16 additive performance indexes and append-only audit trails.
+- **22 Responsive Web Portal Pages** adhering to institutional academic styling.
+- **44 JUnit Test Classes with 286 Passing Automated Tests** (0 failures, 0 errors, 0 skipped).
+- 100% backward compatibility with user registration, OTP credentials, Code 128 barcodes, circulation desk operations, FIFO waitlists, 24-hour hold shelves, fine UPI payments, fair concurrency admission control, peer book transfers, smart discovery autocomplete, transactional notifications, exam-season dynamic borrowing policy management, and lost or damaged book replacement workflows.
+- Successful deployment and verified localhost operation on Apache Tomcat 9 (port 8081).
 
 
 
