@@ -43,6 +43,7 @@ public class BorrowTransaction {
 
     // Feature 6 Overdue Fine Record upon return
     private FineRecord fineRecord;
+    private LossDamageCase lossDamageCase;
 
     // Feature 8 Interchange Display Metadata
     private boolean transferred;
@@ -322,6 +323,14 @@ public class BorrowTransaction {
 
     public void setFineRecord(FineRecord fineRecord) {
         this.fineRecord = fineRecord;
+    }
+
+    public LossDamageCase getLossDamageCase() {
+        return lossDamageCase;
+    }
+
+    public void setLossDamageCase(LossDamageCase lossDamageCase) {
+        this.lossDamageCase = lossDamageCase;
     }
 
     public boolean isTransferred() {

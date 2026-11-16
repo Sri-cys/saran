@@ -118,9 +118,36 @@ public class BorrowingService {
         if (existing.getStatus() == BorrowStatus.RETURNED) {
             throw new InvalidBorrowingOperationException("Transaction #" + transactionId + " has already been returned. Duplicate return recording is prohibited.");
         }
+        if (existing.getStatus() == BorrowStatus.LOST) {
+            throw new InvalidBorrowingOperationException("Transaction #" + transactionId + " was closed as LOST. Cannot process standard return for a lost book.");
+        }
 
         LocalDate returnDate = LocalDate.now();
         return borrowRepository.returnBookTransaction(transactionId, staffUserId, returnDate);
+    }
+
+    public BorrowTransaction returnBook(int transactionId, int staffUserId, LocalDate returnDate,
+                                        String condition, com.psgitech.library.enums.DamageSeverity severity,
+                                        com.psgitech.library.enums.CopyDisposition disposition,
+                                        BigDecimal assessedValue, String note) {
+        if (transactionId <= 0) {
+            throw new IllegalArgumentException("Valid transaction ID is required.");
+        }
+
+        BorrowTransaction existing = borrowRepository.findById(transactionId);
+        if (existing == null) {
+            throw new BorrowTransactionNotFoundException("Borrowing transaction #" + transactionId + " was not found.");
+        }
+        if (existing.getStatus() == BorrowStatus.RETURNED) {
+            throw new InvalidBorrowingOperationException("Transaction #" + transactionId + " has already been returned. Duplicate return recording is prohibited.");
+        }
+        if (existing.getStatus() == BorrowStatus.LOST) {
+            throw new InvalidBorrowingOperationException("Transaction #" + transactionId + " was closed as LOST. Cannot process standard return for a lost book.");
+        }
+
+        LocalDate effectiveReturnDate = (returnDate != null) ? returnDate : LocalDate.now();
+        return borrowRepository.returnBookTransaction(transactionId, staffUserId, effectiveReturnDate,
+                condition, severity, disposition, assessedValue, note);
     }
 
     /**

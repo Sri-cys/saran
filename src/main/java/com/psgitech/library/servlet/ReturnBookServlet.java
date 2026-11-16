@@ -76,6 +76,11 @@ public class ReturnBookServlet extends HttpServlet {
         }
 
         Integer transactionId = null;
+        String condition = "GOOD";
+        com.psgitech.library.enums.DamageSeverity severity = null;
+        com.psgitech.library.enums.CopyDisposition disposition = null;
+        BigDecimal assessedValue = null;
+        String note = null;
 
         String contentType = req.getContentType();
         if (contentType != null && contentType.contains("application/json")) {
@@ -89,6 +94,21 @@ public class ReturnBookServlet extends HttpServlet {
             try {
                 JsonObject json = JsonParser.parseString(sb.toString()).getAsJsonObject();
                 if (json.has("transactionId")) transactionId = json.get("transactionId").getAsInt();
+                if (json.has("condition") && !json.get("condition").isJsonNull()) {
+                    condition = json.get("condition").getAsString();
+                }
+                if (json.has("severity") && !json.get("severity").isJsonNull()) {
+                    severity = com.psgitech.library.enums.DamageSeverity.fromString(json.get("severity").getAsString());
+                }
+                if (json.has("disposition") && !json.get("disposition").isJsonNull()) {
+                    disposition = com.psgitech.library.enums.CopyDisposition.fromString(json.get("disposition").getAsString());
+                }
+                if (json.has("assessedValue") && !json.get("assessedValue").isJsonNull()) {
+                    assessedValue = json.get("assessedValue").getAsBigDecimal();
+                }
+                if (json.has("note") && !json.get("note").isJsonNull()) {
+                    note = json.get("note").getAsString();
+                }
             } catch (Exception e) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 Map<String, Object> err = new HashMap<>();
@@ -104,6 +124,23 @@ public class ReturnBookServlet extends HttpServlet {
                     transactionId = Integer.parseInt(txStr.trim());
                 } catch (NumberFormatException ignored) {}
             }
+            if (req.getParameter("condition") != null) {
+                condition = req.getParameter("condition");
+            }
+            if (req.getParameter("severity") != null) {
+                severity = com.psgitech.library.enums.DamageSeverity.fromString(req.getParameter("severity"));
+            }
+            if (req.getParameter("disposition") != null) {
+                disposition = com.psgitech.library.enums.CopyDisposition.fromString(req.getParameter("disposition"));
+            }
+            if (req.getParameter("assessedValue") != null && !req.getParameter("assessedValue").trim().isEmpty()) {
+                try {
+                    assessedValue = new BigDecimal(req.getParameter("assessedValue").trim());
+                } catch (Exception ignored) {}
+            }
+            if (req.getParameter("note") != null) {
+                note = req.getParameter("note");
+            }
         }
 
         Map<String, Object> responseData = new HashMap<>();
@@ -117,7 +154,8 @@ public class ReturnBookServlet extends HttpServlet {
         }
 
         try {
-            BorrowTransaction tx = borrowingService.returnBook(transactionId, currentUser.getUserId());
+            BorrowTransaction tx = borrowingService.returnBook(transactionId, currentUser.getUserId(), LocalDate.now(),
+                    condition, severity, disposition, assessedValue, note);
 
             resp.setStatus(HttpServletResponse.SC_OK);
             responseData.put("success", true);
@@ -163,11 +201,33 @@ public class ReturnBookServlet extends HttpServlet {
                 data.put("fine", null);
             }
 
+            // Feature 14: Add "case" object or null
+            com.psgitech.library.model.LossDamageCase ldc = tx.getLossDamageCase();
+            if (ldc != null) {
+                Map<String, Object> caseMap = new HashMap<>();
+                caseMap.put("caseId", ldc.getCaseId());
+                caseMap.put("status", ldc.getStatus().name());
+                caseMap.put("caseType", ldc.getCaseType().name());
+                caseMap.put("severity", ldc.getSeverity() != null ? ldc.getSeverity().name() : null);
+                caseMap.put("disposition", ldc.getCopyDisposition() != null ? ldc.getCopyDisposition().name() : null);
+                caseMap.put("finalAmount", ldc.getFinalAmount());
+                caseMap.put("computedAmount", ldc.getComputedAmount());
+                data.put("case", caseMap);
+            } else {
+                data.put("case", null);
+            }
+
             responseData.put("data", data);
             resp.getWriter().write(gson.toJson(responseData));
 
         } catch (BorrowTransactionNotFoundException e) {
             resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            responseData.put("success", false);
+            responseData.put("message", e.getMessage());
+            resp.getWriter().write(gson.toJson(responseData));
+
+        } catch (com.psgitech.library.exception.MissingReplacementPriceException e) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             responseData.put("success", false);
             responseData.put("message", e.getMessage());
             resp.getWriter().write(gson.toJson(responseData));

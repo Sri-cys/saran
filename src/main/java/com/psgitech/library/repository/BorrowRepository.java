@@ -298,6 +298,19 @@ public class BorrowRepository {
      * Atomically executes automatic allocation and fine assessment within the same transaction.
      */
     public BorrowTransaction returnBookTransaction(int transactionId, int returnedBy, LocalDate returnDate) {
+        return returnBookTransaction(transactionId, returnedBy, returnDate, "GOOD", null, null, null, null);
+    }
+
+    /**
+     * Executes an atomic, concurrency-safe Book Return transaction with optional damage assessment.
+     * Follows canonical lock sequence: users -> books -> book_copies -> borrow_transactions -> reservations -> allocations -> fines -> case -> book_interchanges.
+     * Enforces stale-borrower verification and retry loop if ownership transferred concurrently via interchange.
+     * Atomically executes automatic allocation and fine assessment within the same transaction.
+     */
+    public BorrowTransaction returnBookTransaction(int transactionId, int returnedBy, LocalDate returnDate,
+                                                   String condition, com.psgitech.library.enums.DamageSeverity severity,
+                                                   com.psgitech.library.enums.CopyDisposition disposition,
+                                                   BigDecimal assessedValue, String note) {
         return TransactionRetryHelper.executeWithRetry(() -> {
             int maxBorrowerRetries = 3;
             for (int attempt = 1; attempt <= maxBorrowerRetries; attempt++) {
@@ -328,6 +341,9 @@ public class BorrowRepository {
                             if (BorrowStatus.RETURNED.name().equalsIgnoreCase(currentStatus)) {
                                 throw new InvalidBorrowingOperationException("This book copy has already been returned. Duplicate return recording is prohibited.");
                             }
+                            if (BorrowStatus.LOST.name().equalsIgnoreCase(currentStatus)) {
+                                throw new InvalidBorrowingOperationException("Transaction #" + transactionId + " was closed as LOST. Cannot process standard return for a lost book.");
+                            }
                             if (!BorrowStatus.ACTIVE.name().equalsIgnoreCase(currentStatus)) {
                                 throw new InvalidBorrowingOperationException("Transaction #" + transactionId + " is not in ACTIVE status (" + currentStatus + ").");
                             }
@@ -353,8 +369,10 @@ public class BorrowRepository {
                     }
 
                     // 2b. Level 2: Lock parent book row in books SECOND
-                    String bookLockSql = "SELECT book_id, title FROM books WHERE book_id = ? FOR UPDATE";
+                    String bookLockSql = "SELECT book_id, title, replacement_price, created_at FROM books WHERE book_id = ? FOR UPDATE";
                     String bookTitle = "";
+                    BigDecimal bookReplacementPrice = null;
+                    LocalDate bookCreatedAt = null;
                     try (PreparedStatement psBook = conn.prepareStatement(bookLockSql)) {
                         psBook.setInt(1, bookId);
                         try (ResultSet rs = psBook.executeQuery()) {
@@ -362,12 +380,16 @@ public class BorrowRepository {
                                 throw new BookNotFoundException("Book #" + bookId + " not found.");
                             }
                             bookTitle = rs.getString("title");
+                            bookReplacementPrice = rs.getBigDecimal("replacement_price");
+                            Timestamp ts = rs.getTimestamp("created_at");
+                            if (ts != null) bookCreatedAt = ts.toLocalDateTime().toLocalDate();
                         }
                     }
 
                     // 2c. Level 3: Lock physical copy row in book_copies THIRD
-                    String copyLockSql = "SELECT copy_id, copy_code, status FROM book_copies WHERE copy_id = ? FOR UPDATE";
+                    String copyLockSql = "SELECT copy_id, copy_code, status, created_at FROM book_copies WHERE copy_id = ? FOR UPDATE";
                     String copyCode = "";
+                    LocalDate copyCreatedAt = null;
                     try (PreparedStatement psCopy = conn.prepareStatement(copyLockSql)) {
                         psCopy.setInt(1, copyId);
                         try (ResultSet rs = psCopy.executeQuery()) {
@@ -376,6 +398,8 @@ public class BorrowRepository {
                             }
                             String copyStatus = rs.getString("status");
                             copyCode = rs.getString("copy_code");
+                            Timestamp ts = rs.getTimestamp("created_at");
+                            if (ts != null) copyCreatedAt = ts.toLocalDateTime().toLocalDate();
                             if (!CopyStatus.BORROWED.name().equalsIgnoreCase(copyStatus)) {
                                 LOGGER.warning("Copy " + copyCode + " had unexpected status '" + copyStatus + "' during return.");
                             }
@@ -392,6 +416,9 @@ public class BorrowRepository {
                                 throw new BorrowTransactionNotFoundException("Borrowing transaction #" + transactionId + " does not exist.");
                             }
                             String currentStatus = rs.getString("status");
+                            if (BorrowStatus.LOST.name().equalsIgnoreCase(currentStatus)) {
+                                throw new InvalidBorrowingOperationException("Transaction #" + transactionId + " was closed as LOST. Cannot process standard return for a lost book.");
+                            }
                             if (!BorrowStatus.ACTIVE.name().equalsIgnoreCase(currentStatus)) {
                                 throw new InvalidBorrowingOperationException("Transaction #" + transactionId + " is not ACTIVE (" + currentStatus + ").");
                             }
@@ -428,9 +455,96 @@ public class BorrowRepository {
                         }
                     }
 
-                    // 5. Feature 5: Execute automatic allocation inside the return transaction (Levels 5 & 6)
-                    AllocationService allocService = new AllocationService();
-                    AllocationResult allocOutcome = allocService.allocateReturnedCopy(conn, copyId, bookId, transactionId);
+                    // Feature 14 Decision D14: Auto-cancel open REPORTED case if book is returned (Found)
+                    LossDamageCaseRepository caseRepo = new LossDamageCaseRepository();
+                    int cancelledCases = caseRepo.cancelReportedCaseForTransaction(conn, transactionId, returnedBy, "Auto-cancelled: Book copy returned to library desk (FOUND)");
+                    if (cancelledCases > 0) {
+                        LOGGER.info("Auto-cancelled " + cancelledCases + " REPORTED case(s) for returned transaction #" + transactionId);
+                        try {
+                            com.psgitech.library.model.NotificationDraft foundDraft = com.psgitech.library.model.NotificationDraft
+                                    .builder(com.psgitech.library.enums.NotificationType.CASE_CANCELLED, lockedStudentId, "CASE_FOUND:" + transactionId)
+                                    .entity("BORROW_TRANSACTION", transactionId)
+                                    .param("reason", "Book returned to circulation desk (Found)")
+                                    .build();
+                            new com.psgitech.library.service.NotificationRecorder().record(conn, foundDraft);
+                        } catch (SQLException e) {
+                            if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                            LOGGER.log(Level.WARNING, "Failed to record case cancelled notification on found return", e);
+                        }
+                    }
+
+                    // 5. Handling copy status and allocation (Normal GOOD return vs DAMAGED return)
+                    boolean isDamaged = "DAMAGED".equalsIgnoreCase(condition);
+                    AllocationResult allocOutcome = null;
+                    LossDamageCase damagedCaseResult = null;
+
+                    if (!isDamaged) {
+                        // Feature 5: Execute automatic allocation inside the return transaction (Levels 5 & 6)
+                        AllocationService allocService = new AllocationService();
+                        allocOutcome = allocService.allocateReturnedCopy(conn, copyId, bookId, transactionId);
+                    } else {
+                        // Feature 14: Damaged Book at return desk (Decisions D2, D3, D6, D10)
+                        if (severity == null) {
+                            throw new IllegalArgumentException("Damage severity (MINOR, MAJOR, UNUSABLE) is required when book is returned DAMAGED.");
+                        }
+                        com.psgitech.library.enums.CopyDisposition disp = (disposition != null) ? disposition : com.psgitech.library.enums.CopyDisposition.WITHDRAWN;
+                        if (disp == com.psgitech.library.enums.CopyDisposition.RETURNED_TO_CIRCULATION) {
+                            if (severity != com.psgitech.library.enums.DamageSeverity.MINOR) {
+                                throw new IllegalArgumentException("Only MINOR damage may be returned to circulation; major/unusable damage must be WITHDRAWN.");
+                            }
+                            AllocationService allocService = new AllocationService();
+                            allocOutcome = allocService.allocateReturnedCopy(conn, copyId, bookId, transactionId);
+                        } else {
+                            // WITHDRAWN: copy transitions BORROWED -> ARCHIVED, no allocation
+                            String retireCopySql = "UPDATE book_copies SET status = 'ARCHIVED', updated_at = CURRENT_TIMESTAMP WHERE copy_id = ? AND status = 'BORROWED'";
+                            try (PreparedStatement psRetire = conn.prepareStatement(retireCopySql)) {
+                                psRetire.setInt(1, copyId);
+                                psRetire.executeUpdate();
+                            }
+                        }
+
+                        // Determine replacement price
+                        BigDecimal priceToUse = bookReplacementPrice;
+                        if (priceToUse == null || priceToUse.compareTo(BigDecimal.ZERO) <= 0) {
+                            if (assessedValue == null || assessedValue.compareTo(BigDecimal.ZERO) <= 0) {
+                                throw new MissingReplacementPriceException("Catalog book has no replacement price. Assessed replacement value must be provided.");
+                            }
+                            priceToUse = assessedValue;
+                        }
+
+                        LocalDate acquiredDate = (copyCreatedAt != null) ? copyCreatedAt : bookCreatedAt;
+                        CompensationCalculator calc = new CompensationCalculator();
+                        CompensationBreakdown breakdown = calc.calculate(CaseType.DAMAGED, severity, priceToUse, acquiredDate);
+
+                        // Create case in ASSESSED status
+                        LossDamageCase damagedCase = LossDamageCase.createDamagedAssessment(
+                                transactionId, lockedStudentId, bookId, copyId, returnedBy, severity, disp, breakdown, note);
+                        damagedCaseResult = caseRepo.insertCase(conn, damagedCase);
+
+                        CaseEvent caseEvent = new CaseEvent(
+                                damagedCaseResult.getCaseId(),
+                                "CASE_ASSESSED",
+                                null,
+                                CaseStatus.ASSESSED.name(),
+                                returnedBy,
+                                "STAFF",
+                                "Damaged book assessed at return. Severity: " + severity + ", Disposition: " + disp + ", Amount: INR " + breakdown.getComputedAmount()
+                        );
+                        caseRepo.recordEvent(conn, caseEvent);
+
+                        try {
+                            com.psgitech.library.model.NotificationDraft dmgDraft = com.psgitech.library.model.NotificationDraft
+                                    .builder(com.psgitech.library.enums.NotificationType.CASE_ASSESSED, lockedStudentId, "CASE_ASSESSED:" + damagedCaseResult.getCaseId())
+                                    .entity("CASE", damagedCaseResult.getCaseId())
+                                    .param("bookTitle", bookTitle)
+                                    .param("amount", breakdown.getComputedAmount().toPlainString())
+                                    .build();
+                            new com.psgitech.library.service.NotificationRecorder().record(conn, dmgDraft);
+                        } catch (SQLException e) {
+                            if (e.getErrorCode() == 1213 || e.getErrorCode() == 1205) throw e;
+                            LOGGER.log(Level.WARNING, "Failed to record damaged case notification", e);
+                        }
+                    }
 
                     // 6. Feature 6: Calculate and record fine if overdue for verified borrower (Level 7)
                     FineService fineService = new FineService();
@@ -475,6 +589,7 @@ public class BorrowRepository {
                     tx.setBookTitle(bookTitle);
                     tx.setAllocationResult(allocOutcome);
                     tx.setFineRecord(fineRecord);
+                    tx.setLossDamageCase(damagedCaseResult);
                     tx.computeDynamicMetrics(effectiveReturnDate);
 
                     return tx;
