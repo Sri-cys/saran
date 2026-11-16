@@ -98,7 +98,7 @@ public class BookInterchangeService {
         if (tx.getStatus() != com.psgitech.library.enums.BorrowStatus.ACTIVE) {
             throw new InterchangeNotAllowedException("Only ACTIVE book borrowings can be transferred.");
         }
-        if (new com.psgitech.library.repository.LossDamageCaseRepository().hasOpenCaseForTransaction(transactionId, null)) {
+        if (new com.psgitech.library.repository.LossDamageCaseRepository().hasOpenCaseForTransaction(transactionId)) {
             throw new InterchangeNotAllowedException("An open lost or damaged case exists for this loan; transfer is not permitted.");
         }
 

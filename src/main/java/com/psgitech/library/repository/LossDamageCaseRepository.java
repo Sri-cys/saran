@@ -230,7 +230,17 @@ public class LossDamageCaseRepository {
         return null;
     }
 
+    public boolean hasUnresolvedCase(int studentId) {
+        try (Connection conn = DBConnection.getConnection()) {
+            return hasUnresolvedCase(studentId, conn);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error checking unresolved case for student #" + studentId, e);
+            throw new RuntimeException("Database error checking unresolved case: " + e.getMessage(), e);
+        }
+    }
+
     public boolean hasUnresolvedCase(int studentId, Connection conn) throws SQLException {
+        if (conn == null) return hasUnresolvedCase(studentId);
         String sql = "SELECT COUNT(*) FROM loss_damage_cases WHERE student_id = ? " +
                 "AND status IN ('ASSESSED','PAYMENT_PENDING','REPLACEMENT_PENDING','REPLACEMENT_SUBMITTED')";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -241,7 +251,17 @@ public class LossDamageCaseRepository {
         }
     }
 
+    public boolean hasOpenCaseForTransaction(int transactionId) {
+        try (Connection conn = DBConnection.getConnection()) {
+            return hasOpenCaseForTransaction(transactionId, conn);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error checking open case for tx #" + transactionId, e);
+            throw new RuntimeException("Database error checking open case for transaction: " + e.getMessage(), e);
+        }
+    }
+
     public boolean hasOpenCaseForTransaction(int transactionId, Connection conn) throws SQLException {
+        if (conn == null) return hasOpenCaseForTransaction(transactionId);
         String sql = "SELECT COUNT(*) FROM loss_damage_cases WHERE borrow_transaction_id = ? " +
                 "AND status IN ('REPORTED','ASSESSED','PAYMENT_PENDING','REPLACEMENT_PENDING','REPLACEMENT_SUBMITTED')";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {

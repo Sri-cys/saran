@@ -59,6 +59,7 @@ public class PaymentService {
         this.auditRepository = auditRepo;
         this.manualUpiMethod = paymentMethod;
         this.upiService = upiService;
+        this.lossDamageCaseRepository = new LossDamageCaseRepository();
     }
 
     /**
