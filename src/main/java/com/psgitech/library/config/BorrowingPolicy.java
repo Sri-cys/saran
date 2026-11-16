@@ -94,6 +94,33 @@ public class BorrowingPolicy {
         }
     }
 
+    public static boolean hasUnresolvedCase(int studentId) {
+        try (java.sql.Connection conn = com.psgitech.library.util.DBConnection.getConnection()) {
+            return hasUnresolvedCase(studentId, conn);
+        } catch (java.sql.SQLException e) {
+            java.util.logging.Logger.getLogger(BorrowingPolicy.class.getName())
+                    .log(java.util.logging.Level.SEVERE, "Error checking unresolved cases for student #" + studentId, e);
+            throw new RuntimeException("Database error checking student case dues: " + e.getMessage(), e);
+        }
+    }
+
+    public static boolean hasUnresolvedCase(int studentId, java.sql.Connection conn) {
+        if (conn == null) {
+            return hasUnresolvedCase(studentId);
+        }
+        try {
+            return new com.psgitech.library.repository.LossDamageCaseRepository().hasUnresolvedCase(studentId, conn);
+        } catch (java.sql.SQLException e) {
+            java.util.logging.Logger.getLogger(BorrowingPolicy.class.getName())
+                    .log(java.util.logging.Level.SEVERE, "Error checking unresolved cases for student #" + studentId, e);
+            throw new RuntimeException("Database error checking student case dues: " + e.getMessage(), e);
+        }
+    }
+
+    public static boolean hasBlockingObligation(int studentId, java.sql.Connection conn) {
+        return hasOutstandingFines(studentId, conn) || hasUnresolvedCase(studentId, conn);
+    }
+
     /**
      * Calculates the calculated due date from an issue date.
      */

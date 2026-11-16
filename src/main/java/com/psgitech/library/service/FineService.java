@@ -236,6 +236,10 @@ public class FineService {
                     throw new InvalidFineOperationException("Concurrent modification detected while applying waiver.");
                 }
 
+                if (fine.isCompensation() && fine.getOutstandingAmount().compareTo(BigDecimal.ZERO) == 0) {
+                    new LossDamageService().handleFineSettled(conn, fineId, fine.getPaidAmount(), fine.getWaivedAmount());
+                }
+
                 // Record audit
                 PaymentAuditEntry audit = new PaymentAuditEntry(
                         fineId,

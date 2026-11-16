@@ -94,6 +94,9 @@ public class BorrowRepository {
                 if (BorrowingPolicy.hasOutstandingFines(studentId, conn)) {
                     throw new StudentNotEligibleException("Student has outstanding unpaid library fines. Clear dues before borrowing.");
                 }
+                if (BorrowingPolicy.hasUnresolvedCase(studentId, conn)) {
+                    throw new StudentNotEligibleException("Student has an unresolved lost or damaged book case. Clear obligations before borrowing.");
+                }
 
                 // 2c. Lock book row in books
                 String bookLockSql = "SELECT book_id, title, is_archived FROM books WHERE book_id = ? FOR UPDATE";
@@ -1123,6 +1126,15 @@ public class BorrowRepository {
                             throw new InvalidBorrowingOperationException("Cannot renew: You have outstanding unpaid fines that must be cleared first.");
                         }
                     }
+                }
+
+                // 7b. Validation: Cannot renew if loan has an open loss/damage case or student has unresolved cases
+                LossDamageCaseRepository caseRepo = new LossDamageCaseRepository();
+                if (caseRepo.hasOpenCaseForTransaction(transactionId, conn)) {
+                    throw new InvalidBorrowingOperationException("LOSS_CASE_OPEN: An open lost or damaged case exists for this loan; renewal is not permitted.");
+                }
+                if (caseRepo.hasUnresolvedCase(candidateStudentId, conn)) {
+                    throw new InvalidBorrowingOperationException("Cannot renew: You have an unresolved lost or damaged book case.");
                 }
 
                 // 8. Execute Renewal Mutation

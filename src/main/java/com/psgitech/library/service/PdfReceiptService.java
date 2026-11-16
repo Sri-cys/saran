@@ -56,9 +56,11 @@ public class PdfReceiptService {
                 PDFont fontBold = PDType1Font.TIMES_BOLD;
                 PDFont fontRegular = PDType1Font.TIMES_ROMAN;
 
+                boolean isCompensation = "COMPENSATION".equalsIgnoreCase(String.valueOf(receiptData.get("fineType")));
+
                 drawCenteredText(cs, fontBold, 15, "PSG INSTITUTE OF TECHNOLOGY AND APPLIED RESEARCH", pageWidth, bannerY + 60);
                 drawCenteredText(cs, fontRegular, 10, "Neelambur, Coimbatore - 641 062 | Central Library & Information Center", pageWidth, bannerY + 44);
-                drawCenteredText(cs, fontBold, 12, "OFFICIAL FINE PAYMENT RECEIPT", pageWidth, bannerY + 24);
+                drawCenteredText(cs, fontBold, 12, isCompensation ? "OFFICIAL COMPENSATION PAYMENT RECEIPT" : "OFFICIAL FINE PAYMENT RECEIPT", pageWidth, bannerY + 24);
 
                 // Thin gold/warm accent bar below navy header
                 cs.setNonStrokingColor(new Color(197, 139, 36));
@@ -142,7 +144,7 @@ public class PdfReceiptService {
                 drawText(cs, 150, infoTextY, bookTitle);
 
                 cs.setFont(fontBold, 10);
-                drawText(cs, 340, infoTextY, "Fine Ref ID:");
+                drawText(cs, 340, infoTextY, isCompensation ? "Case Ref ID:" : "Fine Ref ID:");
                 cs.setFont(fontRegular, 10);
                 drawText(cs, 415, infoTextY, "#" + receiptData.getOrDefault("fineId", "-"));
 
@@ -170,8 +172,8 @@ public class PdfReceiptService {
 
                 // Table Rows
                 String[][] tableData = {
-                    {"Original Assessed Overdue Fine", "INR " + receiptData.getOrDefault("originalFineAmount", "0.00")},
-                    {"Total Fine Amount Waived (Admin)", "INR " + receiptData.getOrDefault("totalWaived", "0.00")},
+                    {isCompensation ? "Assessed Lost/Damaged Book Compensation" : "Original Assessed Overdue Fine", "INR " + receiptData.getOrDefault("originalFineAmount", "0.00")},
+                    {isCompensation ? "Total Compensation Amount Waived (Admin)" : "Total Fine Amount Waived (Admin)", "INR " + receiptData.getOrDefault("totalWaived", "0.00")},
                     {"Total Paid Prior to this Payment", "INR " + calculatePriorPaid(receiptData)},
                     {"Amount Paid (This Transaction)", "INR " + receiptData.getOrDefault("amountPaidThisPayment", "0.00")},
                     {"Remaining Outstanding Balance", "INR " + receiptData.getOrDefault("remainingOutstanding", "0.00")},

@@ -2,6 +2,7 @@ package com.psgitech.library.service;
 
 import com.psgitech.library.config.FineConfig;
 import com.psgitech.library.enums.AuditEventType;
+import com.psgitech.library.enums.CaseStatus;
 import com.psgitech.library.enums.FineStatus;
 import com.psgitech.library.enums.PaymentMethodType;
 import com.psgitech.library.enums.PaymentStatus;
@@ -10,6 +11,7 @@ import com.psgitech.library.exception.*;
 import com.psgitech.library.interfaces.PaymentMethod;
 import com.psgitech.library.model.*;
 import com.psgitech.library.repository.FineRepository;
+import com.psgitech.library.repository.LossDamageCaseRepository;
 import com.psgitech.library.repository.PaymentAuditRepository;
 import com.psgitech.library.repository.PaymentRepository;
 import com.psgitech.library.util.DBConnection;
@@ -36,6 +38,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final FineRepository fineRepository;
     private final PaymentAuditRepository auditRepository;
+    private final LossDamageCaseRepository lossDamageCaseRepository;
     private final PaymentMethod manualUpiMethod;
     private final UpiService upiService;
 
@@ -43,6 +46,7 @@ public class PaymentService {
         this.paymentRepository = new PaymentRepository();
         this.fineRepository = new FineRepository();
         this.auditRepository = new PaymentAuditRepository();
+        this.lossDamageCaseRepository = new LossDamageCaseRepository();
         this.upiService = new UpiService();
         this.manualUpiMethod = new ManualUpiPaymentMethod(this.upiService);
     }
@@ -409,6 +413,10 @@ public class PaymentService {
                 fineRepository.updateFineAmountsAndStatus(conn, fine.getFineId(),
                         fine.getPaidAmount(), fine.getWaivedAmount(), fine.getOutstandingAmount(), fine.getStatus());
 
+                if (fine.isCompensation() && fine.getOutstandingAmount().compareTo(BigDecimal.ZERO) == 0) {
+                    new LossDamageService().handleFineSettled(conn, fine.getFineId(), fine.getPaidAmount(), fine.getWaivedAmount());
+                }
+
                 // Record audit log
                 PaymentAuditEntry audit = new PaymentAuditEntry(
                         fine.getFineId(),
@@ -686,6 +694,13 @@ public class PaymentService {
                     throw new InvalidPaymentException("Only SUCCESS payments can be marked as refunded. Current status: " + payment.getStatus());
                 }
 
+                if (fine.isCompensation()) {
+                    LossDamageCase ldCase = lossDamageCaseRepository.findCaseByFineId(conn, fine.getFineId());
+                    if (ldCase != null && (ldCase.getStatus() == CaseStatus.RESOLVED_PAID || ldCase.getStatus() == CaseStatus.WAIVED)) {
+                        throw new InvalidPaymentException("Compensation payment cannot be refunded once the loss/damage case is settled.");
+                    }
+                }
+
                 String oldStatus = payment.getStatus().name();
                 payment.markRefunded(adminUserId, reason.trim());
                 fine.reversePayment(payment.getAmount());
@@ -753,6 +768,7 @@ public class PaymentService {
 
         FineRecord fine = fineRepository.findById(payment.getFineId());
         Map<String, Object> data = new HashMap<>();
+        data.put("fineType", fine.getFineType());
         data.put("receiptNumber", payment.getReceiptNumber());
         data.put("paymentId", payment.getPaymentId());
         data.put("paymentCode", payment.getPaymentCode());

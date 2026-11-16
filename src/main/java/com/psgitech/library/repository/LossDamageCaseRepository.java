@@ -172,6 +172,28 @@ public class LossDamageCaseRepository {
         return null;
     }
 
+    public LossDamageCase findCaseByFineId(Connection conn, int fineId) throws SQLException {
+        String sql = BASE_JOINED_SELECT + " WHERE c.fine_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, fineId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    public LossDamageCase findCaseByFineId(int fineId) {
+        try (Connection conn = DBConnection.getConnection()) {
+            return findCaseByFineId(conn, fineId);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error finding case by fineId #" + fineId, e);
+            throw new RuntimeException("Database error finding case by fineId #" + fineId, e);
+        }
+    }
+
     public LossDamageCase lockCaseById(Connection conn, int caseId) throws SQLException {
         String sql = BASE_JOINED_SELECT + " WHERE c.case_id = ? FOR UPDATE";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {

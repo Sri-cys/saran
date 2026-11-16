@@ -98,6 +98,9 @@ public class BookInterchangeService {
         if (tx.getStatus() != com.psgitech.library.enums.BorrowStatus.ACTIVE) {
             throw new InterchangeNotAllowedException("Only ACTIVE book borrowings can be transferred.");
         }
+        if (new com.psgitech.library.repository.LossDamageCaseRepository().hasOpenCaseForTransaction(transactionId, null)) {
+            throw new InterchangeNotAllowedException("An open lost or damaged case exists for this loan; transfer is not permitted.");
+        }
 
         // 3. Due-date eligibility check using configured Asia/Kolkata library timezone
         ZoneId libraryZone = FineConfig.getLibraryZone();
@@ -131,6 +134,9 @@ public class BookInterchangeService {
         }
         if (BorrowingPolicy.hasOutstandingFines(recipient.getUserId())) {
             throw new RecipientNotEligibleException("Recipient student has unpaid library fines. Fines must be cleared before receiving books.");
+        }
+        if (BorrowingPolicy.hasUnresolvedCase(recipient.getUserId())) {
+            throw new RecipientNotEligibleException("Recipient student has an unresolved lost or damaged book case. Clear obligations before receiving books.");
         }
         int activeLoans = borrowRepository.countActiveByStudentId(recipient.getUserId());
         int activeAllocations = countActiveAllocationsForStudent(recipient.getUserId());
@@ -281,6 +287,9 @@ public class BookInterchangeService {
                 if (BorrowingPolicy.hasOutstandingFines(toStudentId, conn)) {
                     throw new RecipientNotEligibleException("Recipient student has outstanding unpaid library fines. Clear dues before accepting transfer.");
                 }
+                if (BorrowingPolicy.hasUnresolvedCase(toStudentId, conn)) {
+                    throw new RecipientNotEligibleException("Recipient student has an unresolved lost or damaged book case. Clear obligations before accepting transfer.");
+                }
 
                 // Re-verify recipient quota under user lock
                 int recipientActiveLoans = countActiveLoans(conn, toStudentId);
@@ -346,6 +355,10 @@ public class BookInterchangeService {
                         }
                         dueDate = rs.getDate("due_date").toLocalDate();
                     }
+                }
+
+                if (new com.psgitech.library.repository.LossDamageCaseRepository().hasOpenCaseForTransaction(transactionId, conn)) {
+                    throw new InterchangeNotAllowedException("An open lost or damaged case exists for this loan; transfer is not permitted.");
                 }
 
                 // Re-verify recipient quota under Level 4 lock to ensure concurrent acceptance hasn't saturated quota

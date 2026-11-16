@@ -43,7 +43,9 @@ public class NotificationReminderService {
                 "JOIN books b ON bt.book_id = b.book_id " +
                 "JOIN users u ON bt.student_id = u.user_id " +
                 "WHERE bt.status = 'ACTIVE' " +
-                "AND bt.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 2 DAY)";
+                "AND bt.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 2 DAY) " +
+                "AND NOT EXISTS (SELECT 1 FROM loss_damage_cases ldc WHERE ldc.borrow_transaction_id = bt.transaction_id " +
+                "AND ldc.status IN ('REPORTED','ASSESSED','PAYMENT_PENDING','REPLACEMENT_PENDING','REPLACEMENT_SUBMITTED'))";
 
         int queued = 0;
         try (Connection conn = DBConnection.getConnection()) {
@@ -87,7 +89,9 @@ public class NotificationReminderService {
                 "JOIN users u ON bt.student_id = u.user_id " +
                 "WHERE bt.status = 'ACTIVE' " +
                 "AND bt.due_date < CURDATE() " +
-                "AND DATEDIFF(CURDATE(), bt.due_date) IN (1, 7, 14)";
+                "AND DATEDIFF(CURDATE(), bt.due_date) IN (1, 7, 14) " +
+                "AND NOT EXISTS (SELECT 1 FROM loss_damage_cases ldc WHERE ldc.borrow_transaction_id = bt.transaction_id " +
+                "AND ldc.status IN ('REPORTED','ASSESSED','PAYMENT_PENDING','REPLACEMENT_PENDING','REPLACEMENT_SUBMITTED'))";
 
         int queued = 0;
         try (Connection conn = DBConnection.getConnection()) {

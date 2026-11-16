@@ -660,6 +660,12 @@ public class AllocationService {
                     return false;
                 }
 
+                // 2b. Unresolved loss/damage case check
+                if (BorrowingPolicy.hasUnresolvedCase(studentId, conn)) {
+                    lastRejectionReason = "Student #" + studentId + " has an unresolved lost or damaged book case.";
+                    return false;
+                }
+
                 // 3. Verify student does not already hold an active borrow transaction for this book
                 String activeLoanSql = "SELECT COUNT(*) FROM borrow_transactions WHERE student_id = ? AND book_id = ? AND status = 'ACTIVE'";
                 try (PreparedStatement ps = conn.prepareStatement(activeLoanSql)) {
