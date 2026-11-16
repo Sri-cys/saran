@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS books (
     department VARCHAR(50) NOT NULL,
     description TEXT,
     cover_image_url VARCHAR(500),
+    replacement_price DECIMAL(10,2) NULL,
     is_archived BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -140,9 +141,10 @@ CREATE TABLE IF NOT EXISTS fines (
     waived_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     outstanding_amount DECIMAL(10,2) NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'UNPAID',
+    fine_type VARCHAR(20) NOT NULL DEFAULT 'OVERDUE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (borrow_transaction_id),
+    UNIQUE (borrow_transaction_id, fine_type),
     FOREIGN KEY (borrow_transaction_id) REFERENCES borrow_transactions (transaction_id) ON DELETE RESTRICT,
     FOREIGN KEY (student_id) REFERENCES users (user_id) ON DELETE RESTRICT,
     FOREIGN KEY (book_id) REFERENCES books (book_id) ON DELETE RESTRICT,
@@ -402,6 +404,67 @@ CREATE TABLE IF NOT EXISTS loan_policy_windows (
     CONSTRAINT chk_window_override CHECK (enter_threshold_override >= 2),
     INDEX idx_policy_windows_dates (active, start_date, end_date)
 );
+
+CREATE TABLE IF NOT EXISTS loss_damage_cases (
+    case_id INT AUTO_INCREMENT PRIMARY KEY,
+    case_type VARCHAR(20) NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'REPORTED',
+    borrow_transaction_id INT NOT NULL,
+    student_id INT NOT NULL,
+    book_id INT NOT NULL,
+    copy_id INT NOT NULL,
+    reported_by INT NOT NULL,
+    reported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    report_note VARCHAR(300) NULL,
+    severity VARCHAR(20) NULL,
+    copy_disposition VARCHAR(30) NULL,
+    assessed_by INT NULL,
+    assessed_at TIMESTAMP NULL,
+    price_used DECIMAL(10,2) NULL,
+    age_days INT NULL,
+    age_flag BOOLEAN NOT NULL DEFAULT FALSE,
+    depreciation_applied DECIMAL(6,4) NULL,
+    processing_fee DECIMAL(10,2) NULL,
+    severity_fraction DECIMAL(4,2) NULL,
+    computed_amount DECIMAL(10,2) NULL,
+    final_amount DECIMAL(10,2) NULL,
+    override_by INT NULL,
+    override_reason VARCHAR(200) NULL,
+    resolution_choice VARCHAR(20) NULL,
+    fine_id INT NULL,
+    replacement_deadline DATE NULL,
+    replacement_copy_id INT NULL,
+    rejection_reason VARCHAR(200) NULL,
+    resolved_at TIMESTAMP NULL,
+    resolved_by INT NULL,
+    active_loan_key INT AS (CASE WHEN status IN ('REPORTED','ASSESSED','PAYMENT_PENDING','REPLACEMENT_PENDING','REPLACEMENT_SUBMITTED') THEN borrow_transaction_id ELSE NULL END),
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    UNIQUE (active_loan_key),
+    FOREIGN KEY (borrow_transaction_id) REFERENCES borrow_transactions (transaction_id) ON DELETE RESTRICT,
+    FOREIGN KEY (student_id) REFERENCES users (user_id) ON DELETE RESTRICT,
+    FOREIGN KEY (book_id) REFERENCES books (book_id) ON DELETE RESTRICT,
+    FOREIGN KEY (copy_id) REFERENCES book_copies (copy_id) ON DELETE RESTRICT,
+    FOREIGN KEY (reported_by) REFERENCES users (user_id) ON DELETE RESTRICT,
+    FOREIGN KEY (assessed_by) REFERENCES users (user_id) ON DELETE RESTRICT,
+    FOREIGN KEY (fine_id) REFERENCES fines (fine_id) ON DELETE RESTRICT,
+    FOREIGN KEY (replacement_copy_id) REFERENCES book_copies (copy_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS loss_damage_case_events (
+    event_id INT AUTO_INCREMENT PRIMARY KEY,
+    case_id INT NOT NULL,
+    event_type VARCHAR(50) NOT NULL,
+    old_status VARCHAR(30) NULL,
+    new_status VARCHAR(30) NOT NULL,
+    actor_user_id INT NOT NULL,
+    actor_role VARCHAR(30) NOT NULL,
+    details VARCHAR(500) NULL,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    FOREIGN KEY (case_id) REFERENCES loss_damage_cases (case_id) ON DELETE RESTRICT,
+    FOREIGN KEY (actor_user_id) REFERENCES users (user_id) ON DELETE RESTRICT
+);
+
 
 
 

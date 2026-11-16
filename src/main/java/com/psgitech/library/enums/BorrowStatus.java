@@ -7,7 +7,8 @@ package com.psgitech.library.enums;
  */
 public enum BorrowStatus {
     ACTIVE,
-    RETURNED;
+    RETURNED,
+    LOST;
 
     public static BorrowStatus fromString(String value) {
         if (value == null) return ACTIVE;

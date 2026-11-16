@@ -39,7 +39,15 @@ public enum NotificationType {
     PASSWORD_CHANGED,
 
     // Stretch Discovery Alerts
-    DISCOVERY_NEW_BOOK;
+    DISCOVERY_NEW_BOOK,
+
+    // Feature 14: Loss & Damage Cases
+    CASE_REPORTED,
+    CASE_ASSESSED,
+    REPLACEMENT_ACCEPTED,
+    REPLACEMENT_REJECTED,
+    CASE_RESOLVED,
+    CASE_CANCELLED;
 
     public static NotificationType fromString(String name) {
         if (name == null || name.trim().isEmpty()) {
