@@ -156,40 +156,94 @@ public class UserRepository {
     }
 
     public boolean saveStudent(Student student) {
-        String sql = "INSERT INTO users (name, email, password_hash, phone, role, register_number, department, `year`, active, must_change_password, email_verified, email_verified_at) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, student.getName());
-            ps.setString(2, student.getEmail().toLowerCase());
-            ps.setString(3, student.getPasswordHash());
-            ps.setString(4, student.getPhone());
-            ps.setString(5, Role.STUDENT.name());
-            ps.setString(6, student.getRegisterNumber().toUpperCase());
-            ps.setString(7, student.getDepartment());
-            if (student.getYear() != null) {
-                ps.setInt(8, student.getYear());
-            } else {
-                ps.setNull(8, java.sql.Types.INTEGER);
-            }
-            ps.setBoolean(9, student.isActive());
-            ps.setBoolean(10, false);
-            ps.setBoolean(11, student.isEmailVerified());
-            ps.setTimestamp(12, student.getEmailVerifiedAt());
+        return saveStudentWithMaster(student, null);
+    }
 
-            int affected = ps.executeUpdate();
-            if (affected > 0) {
-                try (ResultSet rs = ps.getGeneratedKeys()) {
+    /**
+     * Atomically creates a student user account and binds it to their verified
+     * master student directory record within a single database transaction.
+     */
+    public boolean saveStudentWithMaster(Student student, Integer masterStudentId) {
+        String insertUserSql = "INSERT INTO users (name, email, password_hash, phone, role, register_number, department, `year`, active, must_change_password, email_verified, email_verified_at) " +
+                               "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String updateMasterSql = "UPDATE students SET registration_status = 'REGISTERED', user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE student_id = ?";
+
+        Connection conn = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            int generatedUserId = -1;
+            try (PreparedStatement psUser = conn.prepareStatement(insertUserSql, Statement.RETURN_GENERATED_KEYS)) {
+                psUser.setString(1, student.getName());
+                psUser.setString(2, student.getEmail().toLowerCase());
+                psUser.setString(3, student.getPasswordHash());
+                psUser.setString(4, student.getPhone());
+                psUser.setString(5, Role.STUDENT.name());
+                psUser.setString(6, student.getRegisterNumber().toUpperCase());
+                psUser.setString(7, student.getDepartment());
+                if (student.getYear() != null) {
+                    psUser.setInt(8, student.getYear());
+                } else {
+                    psUser.setNull(8, java.sql.Types.INTEGER);
+                }
+                psUser.setBoolean(9, student.isActive());
+                psUser.setBoolean(10, false);
+                psUser.setBoolean(11, student.isEmailVerified());
+                psUser.setTimestamp(12, student.getEmailVerifiedAt());
+
+                int affected = psUser.executeUpdate();
+                if (affected <= 0) {
+                    conn.rollback();
+                    return false;
+                }
+                try (ResultSet rs = psUser.getGeneratedKeys()) {
                     if (rs.next()) {
-                        student.setUserId(rs.getInt(1));
+                        generatedUserId = rs.getInt(1);
+                        student.setUserId(generatedUserId);
+                    } else {
+                        conn.rollback();
+                        return false;
                     }
                 }
-                return true;
             }
+
+            // Link master student record if provided
+            if (masterStudentId != null && masterStudentId > 0) {
+                try (PreparedStatement psMaster = conn.prepareStatement(updateMasterSql)) {
+                    psMaster.setInt(1, generatedUserId);
+                    psMaster.setInt(2, masterStudentId);
+                    int updatedMaster = psMaster.executeUpdate();
+                    if (updatedMaster <= 0) {
+                        conn.rollback();
+                        return false;
+                    }
+                }
+            }
+
+            conn.commit();
+            return true;
+
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Error saving student: " + student.getEmail(), e);
+            LOGGER.log(Level.SEVERE, "Error in atomic student registration with master link: " + student.getEmail(), e);
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    LOGGER.log(Level.SEVERE, "Error rolling back student registration transaction", ex);
+                }
+            }
+            return false;
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException ex) {
+                    LOGGER.log(Level.WARNING, "Error closing connection after student registration", ex);
+                }
+            }
         }
-        return false;
     }
 
     public boolean markEmailVerified(int userId) {

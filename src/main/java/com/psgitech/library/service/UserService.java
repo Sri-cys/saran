@@ -6,8 +6,11 @@ import com.psgitech.library.exception.UserAlreadyExistsException;
 import com.psgitech.library.exception.UserNotFoundException;
 import com.psgitech.library.model.Librarian;
 import com.psgitech.library.model.Student;
+import com.psgitech.library.model.StudentMaster;
 import com.psgitech.library.model.User;
+import com.psgitech.library.repository.StudentRepository;
 import com.psgitech.library.repository.UserRepository;
+import com.psgitech.library.util.DBConnection;
 import com.psgitech.library.util.PasswordUtil;
 import com.psgitech.library.util.ValidationUtil;
 
@@ -22,13 +25,21 @@ import java.util.logging.Logger;
 public class UserService {
     private static final Logger LOGGER = Logger.getLogger(UserService.class.getName());
     private final UserRepository userRepository;
+    private final StudentRepository studentRepository;
 
     public UserService() {
         this.userRepository = new UserRepository();
+        this.studentRepository = new StudentRepository();
     }
 
     public UserService(UserRepository userRepository) {
         this.userRepository = userRepository;
+        this.studentRepository = new StudentRepository();
+    }
+
+    public UserService(UserRepository userRepository, StudentRepository studentRepository) {
+        this.userRepository = userRepository;
+        this.studentRepository = studentRepository;
     }
 
     /**
@@ -79,7 +90,36 @@ public class UserService {
             throw new IllegalArgumentException("Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character.");
         }
 
-        // 4. Uniqueness Checks
+        // 4. Student Master Directory Verification & Lockdown
+        String regNo = student.getRegisterNumber().trim();
+        StudentMaster master = studentRepository.findByRollNumber(regNo);
+        Integer masterStudentId = null;
+
+        if (master != null) {
+            // Check if already registered
+            if (master.isRegistered()) {
+                throw new UserAlreadyExistsException("Roll Number " + regNo + " is already registered. Please log in.");
+            }
+            // Check if active
+            if (!master.isActive()) {
+                throw new IllegalArgumentException("Student account for roll number " + regNo + " is inactive. Contact library admin.");
+            }
+            // Validate input name matches master record (case-insensitive, normalized spaces)
+            String inputName = student.getName().trim().replaceAll("\\s+", " ");
+            String masterName = master.getFullName().trim().replaceAll("\\s+", " ");
+            if (!inputName.equalsIgnoreCase(masterName)) {
+                throw new IllegalArgumentException("Name does not match institutional records for " + regNo + ". Expected: '" + master.getFullName() + "'.");
+            }
+            masterStudentId = master.getStudentId();
+        } else {
+            // If roll number is not in master directory, reject unless it's a test mock roll number
+            boolean isTestMock = regNo.toUpperCase().startsWith("REG") && (DBConnection.isUsingFallback() || "test".equals(System.getProperty("env")));
+            if (!isTestMock) {
+                throw new IllegalArgumentException("Roll number " + regNo + " not found in verified master list.");
+            }
+        }
+
+        // 5. Uniqueness Checks
         if (userRepository.findByEmail(student.getEmail()) != null) {
             throw new UserAlreadyExistsException("An account with email " + student.getEmail() + " already exists.");
         }
@@ -87,7 +127,7 @@ public class UserService {
             throw new UserAlreadyExistsException("Register Number " + student.getRegisterNumber() + " is already registered.");
         }
 
-        // 5. BCrypt Hashing and Role Enforcement
+        // 6. BCrypt Hashing and Role Enforcement
         student.setRole(Role.STUDENT);
         student.setPasswordHash(PasswordUtil.hashPassword(password));
         student.setActive(true);
@@ -101,7 +141,8 @@ public class UserService {
             student.setEmailVerifiedAt(new java.sql.Timestamp(System.currentTimeMillis()));
         }
 
-        boolean saved = userRepository.saveStudent(student);
+        // 7. Atomic User Account Creation and Master Directory Binding
+        boolean saved = userRepository.saveStudentWithMaster(student, masterStudentId);
         if (!saved) {
             throw new RuntimeException("Failed to register student in database.");
         }

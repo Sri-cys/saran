@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Master Directory | PSG iTech Library</title>
+    <meta name="description" content="Verified institutional student directory and peer-to-peer book handover network.">
+    <link rel="stylesheet" href="css/library-theme.css">
+</head>
+<body>
+
+    <!-- Global Navigation -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-left">
+                <img src="images/psgitech-logo.png" alt="PSG iTech Logo" class="logo-icon">
+                <span class="brand-text">PSG iTECH LIBRARY</span>
+            </a>
+
+            <div class="nav-middle">
+                <ul class="nav-menu">
+                    <li><a href="student-home.html" id="navLinkDashboard">Dashboard</a></li>
+                    <li><a href="smart-discovery.html">Discover</a></li>
+                    <li><a href="student-directory.html" class="active">Student Directory</a></li>
+                    <li><a href="my-borrowings.html" id="navLinkBorrowings">My Borrowings</a></li>
+                    <li><a href="browse.html">Browse Catalog</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-right">
+                <div id="authNavArea">
+                    <a href="login.html" class="btn btn-primary btn-sm" id="btnLoginLink">Sign In</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-content" style="padding: 28px 0 60px 0;">
+        <div class="container">
+
+            <!-- Page Header -->
+            <div style="border-bottom: 2px solid var(--primary); padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h1 style="margin-bottom: 6px;">Institutional Student Master Directory</h1>
+                    <p class="text-secondary" style="font-size: 1rem; margin: 0;">
+                        Single Source of Truth &bull; Verified Institutional Identity &bull; Peer-to-Peer Book Interchange Network
+                    </p>
+                </div>
+                <div>
+                    <a href="register.html" class="btn btn-outline btn-sm">+ Register Student Account</a>
+                </div>
+            </div>
+
+            <!-- Metric Summary Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 28px;">
+                <div class="card" style="background: var(--background-warm); border-left: 4px solid var(--primary); padding: 18px 20px;">
+                    <div class="text-secondary" style="font-size: 0.85rem; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
+                        Total Master Students
+                    </div>
+                    <div style="font-size: 2.2rem; font-weight: bold; color: var(--primary); margin-top: 4px;" id="metricTotal">
+                        63
+                    </div>
+                    <div class="text-secondary" style="font-size: 0.82rem; margin-top: 4px;">
+                        Institutional Class Roster
+                    </div>
+                </div>
+
+                <div class="card" style="background: var(--background-warm); border-left: 4px solid var(--success); padding: 18px 20px;">
+                    <div class="text-secondary" style="font-size: 0.85rem; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
+                        Registered Accounts
+                    </div>
+                    <div style="font-size: 2.2rem; font-weight: bold; color: var(--success); margin-top: 4px;" id="metricRegistered">
+                        --
+                    </div>
+                    <div class="text-secondary" style="font-size: 0.82rem; margin-top: 4px;">
+                        Active Library Members
+                    </div>
+                </div>
+
+                <div class="card" style="background: var(--background-warm); border-left: 4px solid var(--warning); padding: 18px 20px;">
+                    <div class="text-secondary" style="font-size: 0.85rem; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
+                        Pending Registration
+                    </div>
+                    <div style="font-size: 2.2rem; font-weight: bold; color: var(--warning); margin-top: 4px;" id="metricUnregistered">
+                        --
+                    </div>
+                    <div class="text-secondary" style="font-size: 0.82rem; margin-top: 4px;">
+                        Eligible Institutional Students
+                    </div>
+                </div>
+
+                <div class="card" style="background: var(--background-warm); border-left: 4px solid #344F70; padding: 18px 20px;">
+                    <div class="text-secondary" style="font-size: 0.85rem; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
+                        Active Status
+                    </div>
+                    <div style="font-size: 2.2rem; font-weight: bold; color: #344F70; margin-top: 4px;" id="metricActive">
+                        63
+                    </div>
+                    <div class="text-secondary" style="font-size: 0.82rem; margin-top: 4px;">
+                        Good Institutional Standing
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls & Filters Toolbar -->
+            <div class="card" style="padding: 18px 20px; margin-bottom: 24px; background: #FFFFFF; border: 1px solid var(--border);">
+                <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between;">
+                    
+                    <!-- Search Input -->
+                    <div style="flex: 1; min-width: 280px;">
+                        <label for="searchInput" class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">
+                            Search Master Directory
+                        </label>
+                        <div style="position: relative;">
+                            <input type="text" id="searchInput" class="form-control" placeholder="Search by student name or roll number (e.g. 715525104210, Vishal)..." style="padding-left: 36px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Registration Filter -->
+                    <div style="min-width: 180px;">
+                        <label for="filterRegistration" class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">
+                            Registration Status
+                        </label>
+                        <select id="filterRegistration" class="form-control">
+                            <option value="ALL">All Accounts</option>
+                            <option value="REGISTERED">Registered Only</option>
+                            <option value="NOT_REGISTERED">Not Registered</option>
+                        </select>
+                    </div>
+
+                    <!-- Account Status Filter -->
+                    <div style="min-width: 160px;">
+                        <label for="filterAccount" class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">
+                            Account Status
+                        </label>
+                        <select id="filterAccount" class="form-control">
+                            <option value="ALL">All Statuses</option>
+                            <option value="ACTIVE">Active Only</option>
+                            <option value="INACTIVE">Inactive Only</option>
+                        </select>
+                    </div>
+
+                    <!-- Page Size Selector -->
+                    <div style="min-width: 140px;">
+                        <label for="filterPageSize" class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">
+                            Show Per Page
+                        </label>
+                        <select id="filterPageSize" class="form-control">
+                            <option value="20" selected>20 Students</option>
+                            <option value="50">50 Students</option>
+                            <option value="63">All (63 Students)</option>
+                        </select>
+                    </div>
+
+                    <!-- Clear Filters Button -->
+                    <div>
+                        <button type="button" class="btn btn-outline" id="btnClearFilters" style="padding: 10px 18px;">
+                            Reset Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Directory Table Card -->
+            <div class="card" style="padding: 0; overflow: hidden; border: 1px solid var(--border); margin-bottom: 20px;">
+                <div style="padding: 14px 20px; background: var(--background-warm); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: bold; color: var(--primary); font-size: 1.05rem;" id="tableResultSummary">
+                        Verified Student Class List (63 Records)
+                    </div>
+                    <div class="text-secondary" style="font-size: 0.9rem;" id="tablePaginationSummary">
+                        Showing 1 - 20 of 63
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="table" style="width: 100%; margin: 0; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #FAF8F5; border-bottom: 2px solid var(--border); text-align: left;">
+                                <th style="padding: 12px 16px; width: 60px; font-weight: bold;">S.No</th>
+                                <th style="padding: 12px 16px; font-weight: bold;">Permanent Roll Number</th>
+                                <th style="padding: 12px 16px; font-weight: bold;">Verified Student Name</th>
+                                <th style="padding: 12px 16px; font-weight: bold;">Institutional Department</th>
+                                <th style="padding: 12px 16px; font-weight: bold; text-align: center;">Account Status</th>
+                                <th style="padding: 12px 16px; font-weight: bold; text-align: center;">Registration Status</th>
+                                <th style="padding: 12px 16px; font-weight: bold; text-align: center; width: 180px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                    Loading verified student directory...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination Bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 8px;">
+                <div class="text-secondary" style="font-size: 0.9rem;" id="paginationInfo">
+                    Showing 1 to 20 of 63 entries
+                </div>
+                <div style="display: flex; gap: 6px;" id="paginationButtons">
+                    <!-- Dynamic page buttons -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal: Student Profile & Book Holdings -->
+    <div class="modal-overlay" id="profileModal" style="display: none;">
+        <div class="modal-container" style="max-width: 650px; background: #FFFFFF; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <div class="modal-header" style="background: var(--primary); color: #FFFFFF; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 class="modal-title" style="color: #FFFFFF !important; margin: 0; font-size: 1.25rem;">
+                    Institutional Student Profile
+                </h3>
+                <button type="button" class="modal-close" onclick="closeProfileModal()" style="color: #FFFFFF; font-size: 1.6rem; background: none; border: none; cursor: pointer;">&times;</button>
+            </div>
+
+            <div class="modal-body" style="padding: 24px;">
+                <!-- Identity Card Header -->
+                <div style="display: flex; align-items: center; gap: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--border); margin-bottom: 18px;">
+                    <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--primary); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: bold;" id="modalAvatar">
+                        S
+                    </div>
+                    <div>
+                        <h2 style="margin: 0; font-size: 1.4rem; color: var(--primary);" id="modalStudentName">
+                            Student Full Name
+                        </h2>
+                        <div class="text-secondary" style="font-size: 0.95rem; margin-top: 2px;">
+                            Roll Number: <strong id="modalRollNumber" style="color: var(--primary);">715525104210</strong>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 8px;">
+                            <span class="badge" id="modalAccountBadge">ACTIVE</span>
+                            <span class="badge" id="modalRegBadge">REGISTERED</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Academic & Contact Details Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 22px; background: var(--background-warm); padding: 14px 16px; border-radius: 6px; border: 1px solid var(--border);">
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.8rem; text-transform: uppercase; font-weight: bold;">Institutional Email</div>
+                        <div id="modalEmail" style="font-weight: 500; font-size: 0.95rem; word-break: break-all;">--</div>
+                    </div>
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.8rem; text-transform: uppercase; font-weight: bold;">Department &amp; Year</div>
+                        <div id="modalDeptYear" style="font-weight: 500; font-size: 0.95rem;">--</div>
+                    </div>
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.8rem; text-transform: uppercase; font-weight: bold;">Contact Mobile</div>
+                        <div id="modalPhone" style="font-weight: 500; font-size: 0.95rem;">--</div>
+                    </div>
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.8rem; text-transform: uppercase; font-weight: bold;">Library Account ID</div>
+                        <div id="modalUserId" style="font-weight: 500; font-size: 0.95rem;">--</div>
+                    </div>
+                </div>
+
+                <!-- Active Book Holdings Section -->
+                <div style="margin-bottom: 16px;">
+                    <h3 style="font-size: 1.15rem; color: var(--primary); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Currently Checked Out Physical Books</span>
+                        <span class="badge badge-primary" id="modalHoldingsCountBadge" style="font-size: 0.8rem;">0 Books</span>
+                    </h3>
+                    <div id="modalHoldingsList">
+                        <div style="padding: 16px; text-align: center; color: var(--text-secondary); background: #FAF9F6; border-radius: 4px; border: 1px dashed var(--border);">
+                            No active books currently held by this student.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Peer Handover Quick Note -->
+                <div id="modalInterchangeSection" style="display: none; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);">
+                    <div class="alert alert-info" style="margin-bottom: 12px; font-size: 0.9rem;">
+                        <strong>Peer-to-Peer Transfer:</strong> This student is verified, registered, and active. You can hand over physical textbooks directly to them.
+                    </div>
+                    <button type="button" class="btn btn-primary" id="btnInitiatePeerHandover" style="width: 100%;">
+                        Handover a Book to this Student &rarr;
+                    </button>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="padding: 14px 20px; background: var(--background-warm); border-top: 1px solid var(--border); display: flex; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline" onclick="closeProfileModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Peer Book Interchange Initiation (from directory) -->
+    <div class="modal-overlay" id="peerInterchangeModal" style="display: none;">
+        <div class="modal-container" style="max-width: 520px; background: #FFFFFF; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <div class="modal-header" style="background: var(--primary); color: #FFFFFF; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 class="modal-title" style="color: #FFFFFF !important; margin: 0; font-size: 1.25rem;">
+                    Transfer Book to Verified Peer
+                </h3>
+                <button type="button" class="modal-close" onclick="closePeerInterchangeModal()" style="color: #FFFFFF; font-size: 1.6rem; background: none; border: none; cursor: pointer;">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <div style="background: var(--background-warm); border: 1px solid var(--border); border-radius: 6px; padding: 14px; margin-bottom: 16px;">
+                    <div class="text-secondary" style="font-size: 0.85rem; text-transform: uppercase; font-weight: bold;">Recipient Student</div>
+                    <div style="font-size: 1.15rem; font-weight: bold; color: var(--primary);" id="handoverPeerName">--</div>
+                    <div class="text-secondary" style="font-size: 0.9rem; margin-top: 2px;">
+                        Roll Number: <code id="handoverPeerRoll">--</code>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="handoverBookSelect" class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">
+                        Select Book from Your Current Borrowings *
+                    </label>
+                    <select id="handoverBookSelect" class="form-control" required>
+                        <option value="" disabled selected>Loading your borrowed books...</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="handoverMessage" class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">
+                        Handover Note / Meeting Place (Optional)
+                    </label>
+                    <input type="text" id="handoverMessage" class="form-control" placeholder="e.g. Handing over copy at Library 1st Floor Desk">
+                </div>
+
+                <div class="alert alert-warning" style="font-size: 0.85rem; margin-bottom: 0;">
+                    <strong>Handover Policy:</strong> The original due date remains strictly in effect. You remain responsible for the physical copy until the peer accepts and enters OTP verification.
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 14px 20px; background: var(--background-warm); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn btn-outline" onclick="closePeerInterchangeModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btnSubmitHandover" onclick="submitPeerHandover()">
+                    Send Handover Request
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer" style="background: var(--background-warm); border-top: 1px solid var(--border); padding: 24px 0; margin-top: auto;">
+        <div class="container text-secondary" style="text-align: center; font-size: 0.9rem;">
+            <p>&copy; 2026 PSG Institute of Technology and Applied Research &bull; Institutional Digital Library System</p>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/student-directory.js"></script>
+</body>
+</html>

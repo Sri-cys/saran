@@ -42,7 +42,8 @@
                     </div>
                     <div>
                         <label for="registerNumber" class="form-label">Register Number *</label>
-                        <input type="text" id="registerNumber" name="registerNumber" class="form-control" placeholder="e.g. 715522104045" required autocomplete="username">
+                        <input type="text" id="registerNumber" name="registerNumber" class="form-control" placeholder="e.g. 715525104xxx" required autocomplete="username">
+                        <small id="rollVerifyFeedback" style="display: block; margin-top: 4px; font-size: 0.82rem; font-weight: 500;"></small>
                     </div>
                 </div>
 
@@ -167,5 +168,49 @@
     </main>
 
     <script src="js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const rollInput = document.getElementById('registerNumber');
+            const nameInput = document.getElementById('name');
+            const feedback = document.getElementById('rollVerifyFeedback');
+            let timeout = null;
+
+            if (rollInput && feedback) {
+                rollInput.addEventListener('input', function () {
+                    clearTimeout(timeout);
+                    const val = this.value.trim();
+                    if (!val || val.length < 5) {
+                        feedback.textContent = '';
+                        return;
+                    }
+                    timeout = setTimeout(function () {
+                        fetch('api/students/verify?rollNumber=' + encodeURIComponent(val))
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data && data.valid && data.existsInMaster) {
+                                    if (data.alreadyRegistered) {
+                                        feedback.style.color = 'var(--danger)';
+                                        feedback.textContent = '⚠️ ' + data.message;
+                                    } else if (!data.active) {
+                                        feedback.style.color = 'var(--danger)';
+                                        feedback.textContent = '⚠️ ' + data.message;
+                                    } else {
+                                        feedback.style.color = 'var(--success)';
+                                        feedback.textContent = '✓ Institutional record verified: ' + data.fullName;
+                                        if (nameInput && !nameInput.value.trim()) {
+                                            nameInput.value = data.fullName;
+                                        }
+                                    }
+                                } else {
+                                    feedback.style.color = '#B45309';
+                                    feedback.textContent = 'ℹ️ Note: Roll number must match verified institutional master list.';
+                                }
+                            })
+                            .catch(() => {});
+                    }, 350);
+                });
+            }
+        });
+    </script>
 </body>
 </html>

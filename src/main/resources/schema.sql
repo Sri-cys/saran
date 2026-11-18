@@ -465,6 +465,19 @@ CREATE TABLE IF NOT EXISTS loss_damage_case_events (
     FOREIGN KEY (actor_user_id) REFERENCES users (user_id) ON DELETE RESTRICT
 );
 
+CREATE TABLE IF NOT EXISTS students (
+    student_id INT AUTO_INCREMENT PRIMARY KEY,
+    permanent_roll_number VARCHAR(50) NOT NULL UNIQUE,
+    full_name VARCHAR(100) NOT NULL,
+    account_status ENUM('ACTIVE', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+    registration_status ENUM('NOT_REGISTERED', 'REGISTERED') NOT NULL DEFAULT 'NOT_REGISTERED',
+    user_id INT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
+
 
 
 
