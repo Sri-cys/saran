@@ -10,6 +10,8 @@ import { initCirculationView } from './librarian-circulation.js';
 import { initStudentsView } from './librarian-students.js';
 import { initQueuesView } from './librarian-queues.js';
 import { initFinesView } from './librarian-fines.js';
+import { initOperationsModule, loadAcquisitions, loadStudentQueries, loadPurchases } from './librarian-operations.js';
+import { initReportsModule, loadActivityLogs, generateCurrentReport } from './librarian-reports.js';
 
 let initializedViews = new Set();
 
@@ -19,6 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupGlobalSearch();
     setupNotificationBell();
     setupMobileMenu();
+
+    initOperationsModule();
+    initReportsModule();
 
     // Trigger initial route
     handleHashChange();
@@ -38,13 +43,28 @@ function setupNavigationRouting() {
 
 function handleHashChange() {
     let hash = window.location.hash || '#home';
-    let baseRoute = hash.split('?')[0].split('/')[0];
-    if (!baseRoute) baseRoute = '#home';
+    let cleanHash = hash.split('?')[0];
+
+    // Handle due calendar redirect to circulation sub-tab
+    if (cleanHash === '#operations/due-calendar') {
+        window.location.hash = '#circulation';
+        if (window.librarianCirculation && window.librarianCirculation.loadCirculationTab) {
+            document.querySelectorAll('.circ-tab-btn').forEach(b => {
+                if (b.dataset.tab === 'due-calendar') b.classList.add('active');
+                else b.classList.remove('active');
+            });
+            window.librarianCirculation.loadCirculationTab('due-calendar');
+        }
+        return;
+    }
+
+    let primaryTab = cleanHash.split('/')[0];
+    let subRoute = cleanHash.substring(1).replace(/\//g, '-');
 
     // Update active nav pill
     document.querySelectorAll('.nav-pill').forEach(pill => {
         const target = pill.getAttribute('href');
-        if (target === baseRoute || (baseRoute === '#home' && target === '#home')) {
+        if (target === primaryTab || (primaryTab === '#home' && target === '#home')) {
             pill.classList.add('active');
         } else {
             pill.classList.remove('active');
@@ -54,18 +74,23 @@ function handleHashChange() {
     // Hide all view sections
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
 
-    const sectionId = 'section-' + baseRoute.substring(1);
-    const targetSection = document.getElementById(sectionId);
+    let sectionId = 'section-' + subRoute;
+    let targetSection = document.getElementById(sectionId);
+    if (!targetSection) {
+        sectionId = 'section-' + primaryTab.substring(1);
+        targetSection = document.getElementById(sectionId);
+    }
+
     if (targetSection) {
         targetSection.classList.add('active');
     } else {
         const homeSec = document.getElementById('section-home');
         if (homeSec) homeSec.classList.add('active');
-        baseRoute = '#home';
+        primaryTab = '#home';
     }
 
-    // Initialize module if not already initialized
-    if (baseRoute === '#home') {
+    // Initialize/load modules on route activation
+    if (primaryTab === '#home') {
         if (!initializedViews.has('home')) {
             initHomeView();
             initializedViews.add('home');
@@ -76,21 +101,31 @@ function handleHashChange() {
         stopStatsPolling();
     }
 
-    if (baseRoute === '#inventory' && !initializedViews.has('inventory')) {
+    if (primaryTab === '#inventory' && !initializedViews.has('inventory')) {
         initInventoryView();
         initializedViews.add('inventory');
-    } else if (baseRoute === '#circulation' && !initializedViews.has('circulation')) {
+    } else if (primaryTab === '#circulation' && !initializedViews.has('circulation')) {
         initCirculationView();
         initializedViews.add('circulation');
-    } else if (baseRoute === '#students' && !initializedViews.has('students')) {
+    } else if (primaryTab === '#students' && !initializedViews.has('students')) {
         initStudentsView();
         initializedViews.add('students');
-    } else if (baseRoute === '#queues' && !initializedViews.has('queues')) {
+    } else if (primaryTab === '#queues' && !initializedViews.has('queues')) {
         initQueuesView();
         initializedViews.add('queues');
-    } else if (baseRoute === '#fines' && !initializedViews.has('fines')) {
+    } else if (primaryTab === '#fines' && !initializedViews.has('fines')) {
         initFinesView();
         initializedViews.add('fines');
+    } else if (cleanHash === '#operations/acquisitions') {
+        loadAcquisitions();
+    } else if (cleanHash === '#operations/queries') {
+        loadStudentQueries();
+    } else if (cleanHash === '#operations/purchases') {
+        loadPurchases();
+    } else if (cleanHash === '#reports/activity-logs') {
+        loadActivityLogs(1);
+    } else if (cleanHash === '#reports/analytics') {
+        generateCurrentReport();
     }
 }
 

@@ -315,10 +315,11 @@
                 <button class="btn-quick circ-tab-btn" data-tab="overdue">Overdue Loans</button>
                 <button class="btn-quick circ-tab-btn" data-tab="recent-issued">Recently Issued</button>
                 <button class="btn-quick circ-tab-btn" data-tab="recent-returned">Recently Returned</button>
+                <button class="btn-quick circ-tab-btn" data-tab="due-calendar">Due-Date Calendar</button>
             </div>
 
-            <!-- Circulation Table -->
-            <div class="data-table-container">
+            <!-- Circulation Table Container -->
+            <div id="circTableContainer" class="data-table-container">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -333,6 +334,25 @@
                     </thead>
                     <tbody id="circTableBody"></tbody>
                 </table>
+            </div>
+
+            <!-- Circulation Calendar Sub-View -->
+            <div id="circCalendarContainer" style="display: none; background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <button id="calPrevMonthBtn" class="btn-quick">&larr; Previous</button>
+                        <h2 id="calMonthTitle" style="font-size: 18px; font-weight: bold; color: var(--navy-primary); min-width: 160px; text-align: center;"></h2>
+                        <button id="calNextMonthBtn" class="btn-quick">Next &rarr;</button>
+                    </div>
+                    <div style="display: flex; gap: 12px; font-size: 12px;">
+                        <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: #0A2540; border-radius: 2px;"></span> Loans Due</span>
+                        <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: #E02020; border-radius: 2px;"></span> Overdue Cluster</span>
+                    </div>
+                </div>
+                <div class="calendar-days-header" style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: 600; color: var(--navy-light); font-size: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+                <div id="calendarDaysGrid" class="calendar-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 8px;"></div>
             </div>
         </section>
 
@@ -475,6 +495,387 @@
                     <tbody id="finesTableBody"></tbody>
                 </table>
             </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION G: OPERATIONS - ACQUISITIONS (#operations/acquisitions)
+             ================================================================== -->
+        <section id="section-operations-acquisitions" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Acquisition Requests &amp; Demand</h1>
+            </div>
+
+            <div class="table-filter-bar">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label class="form-label" style="margin: 0; font-size: 12px;">Status:</label>
+                    <select id="acqStatusFilter" class="form-input" style="width: 150px; padding: 4px 8px; font-size: 12px;">
+                        <option value="ALL">All Statuses</option>
+                        <option value="REQUESTED">Requested</option>
+                        <option value="APPROVED">Approved</option>
+                        <option value="ORDERED">Ordered</option>
+                        <option value="RECEIVED">Received</option>
+                        <option value="REJECTED">Rejected</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label class="form-label" style="margin: 0; font-size: 12px;">Department:</label>
+                    <select id="acqDeptFilter" class="form-input" style="width: 140px; padding: 4px 8px; font-size: 12px;">
+                        <option value="ALL">All Depts</option>
+                        <option value="CSE">CSE</option>
+                        <option value="ECE">ECE</option>
+                        <option value="EEE">EEE</option>
+                        <option value="MECH">MECH</option>
+                        <option value="CIVIL">CIVIL</option>
+                        <option value="AI_DS">AI &amp; DS</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Req ID</th>
+                            <th>Book Title &amp; Author</th>
+                            <th>ISBN</th>
+                            <th>Department</th>
+                            <th>Student Demand</th>
+                            <th>Status</th>
+                            <th>Requester</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="acqTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION H: OPERATIONS - BULK CSV IMPORT (#operations/import-csv)
+             ================================================================== -->
+        <section id="section-operations-import-csv" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div>
+                    <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Bulk Book Catalog CSV Import</h1>
+                    <p style="font-size: 13px; color: var(--navy-light); margin-top: 4px;">Upload standard RFC 4180 CSV files to create books, physical copies, and shelf locations in batch.</p>
+                </div>
+                <a href="api/librarian/operations/import-csv/template" class="btn-quick" style="text-decoration: none;">
+                    ⬇ Download CSV Template
+                </a>
+            </div>
+
+            <div style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <div id="csvDropZone" class="csv-drop-zone" style="border: 2px dashed #CBD5E1; border-radius: 8px; padding: 36px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease;">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--navy-light)" stroke-width="1.5" style="margin-bottom: 8px;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <div style="font-size: 15px; font-weight: 600; color: var(--navy-primary); margin-bottom: 4px;">Drag and drop your book CSV file here</div>
+                    <div style="font-size: 12px; color: var(--navy-light); margin-bottom: 12px;">Supports UTF-8, optional BOM, max 500 rows per file</div>
+                    <label class="btn-quick btn-quick-primary" style="cursor: pointer; display: inline-block;">
+                        Browse File
+                        <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display: none;">
+                    </label>
+                </div>
+
+                <div style="margin-top: 16px; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="skipDuplicatesCheck" checked style="cursor: pointer;">
+                    <label for="skipDuplicatesCheck" style="font-size: 13px; color: var(--navy-primary); cursor: pointer;">
+                        <strong>Skip duplicate ISBNs</strong> (uncheck to abort entire batch if duplicate is encountered)
+                    </label>
+                </div>
+            </div>
+
+            <!-- Preview Box -->
+            <div id="csvPreviewContainer" style="display: none; background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <div>
+                        <h3 style="font-size: 16px; font-weight: bold; color: var(--navy-primary);">CSV Import Preview</h3>
+                        <div id="csvStatsSummary" style="font-size: 13px; margin-top: 4px;"></div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span id="csvRowCountBadge" class="badge" style="background: rgba(10,37,64,0.08); font-size: 12px;"></span>
+                        <button id="commitCsvBtn" class="btn-quick btn-quick-primary">Commit Import</button>
+                    </div>
+                </div>
+
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Title</th>
+                                <th>Author</th>
+                                <th>ISBN</th>
+                                <th>Category</th>
+                                <th>Copies</th>
+                                <th>Shelf</th>
+                                <th>Validation</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="csvPreviewBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION I: OPERATIONS - QR & BARCODE SCANNER (#operations/barcode)
+             ================================================================== -->
+        <section id="section-operations-barcode" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div>
+                    <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">QR &amp; Barcode Scanner</h1>
+                    <p style="font-size: 13px; color: var(--navy-light); margin-top: 4px;">Scan book copies via camera or manual ID for instantaneous circulation actions and shelf coordinates.</p>
+                </div>
+                <button id="printLabelsModalBtn" class="btn-quick" onclick="window.librarianOperations.openPrintLabelsModal()">
+                    🏷 Print Copy Barcode Labels
+                </button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                <!-- Camera / Native Scanner -->
+                <div style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <h3 style="font-size: 16px; font-weight: bold; color: var(--navy-primary); margin-bottom: 12px;">Webcam / Barcode Detector</h3>
+                    <div style="position: relative; background: #0A2540; border-radius: 8px; height: 240px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 14px;">
+                        <video id="scannerVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; display: none;"></video>
+                        <div id="scannerPlaceholder" style="text-align: center; color: white;">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 8px; opacity: 0.7;">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <div style="font-size: 13px; opacity: 0.8;">Camera is stopped</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="startCameraBtn" class="btn-quick btn-quick-primary">Start Camera Scanner</button>
+                        <button id="stopCameraBtn" class="btn-quick" style="display: none;">Stop Camera</button>
+                    </div>
+                </div>
+
+                <!-- Manual Lookup Fallback -->
+                <div style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <h3 style="font-size: 16px; font-weight: bold; color: var(--navy-primary); margin-bottom: 12px;">Manual Barcode / Copy ID Entry</h3>
+                    <p style="font-size: 12px; color: var(--navy-light); margin-bottom: 14px;">Handheld USB scanners emulate keyboard input. Scan directly into this field or enter Copy Code (e.g. <code>PSG-BK1-C01</code>).</p>
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <input type="text" id="manualCodeInput" class="form-input" placeholder="e.g. PSG-BK1-C01 or Barcode number" autocomplete="off" style="font-size: 14px; font-family: monospace;">
+                        <button id="manualCodeLookupBtn" class="btn-quick btn-quick-primary">Lookup Copy</button>
+                    </div>
+                    <div style="font-size: 11px; color: var(--navy-light);">
+                        💡 Tip: Pressing Enter or scanning with a USB gun triggers instantaneous lookup.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scanned Copy Card Action Container -->
+            <div id="scannedCopyCard" style="display: none;"></div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION J: OPERATIONS - STUDENT QUERIES (#operations/queries)
+             ================================================================== -->
+        <section id="section-operations-queries" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Student Reference &amp; Inquiries Helpdesk</h1>
+            </div>
+
+            <div class="table-filter-bar">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label class="form-label" style="margin: 0; font-size: 12px;">Filter Status:</label>
+                    <select id="queryStatusFilter" class="form-input" style="width: 140px; padding: 4px 8px; font-size: 12px;">
+                        <option value="ALL">All Inquiries</option>
+                        <option value="OPEN" selected>Open</option>
+                        <option value="RESOLVED">Resolved</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Query ID</th>
+                            <th>Subject &amp; Message</th>
+                            <th>Category</th>
+                            <th>Student</th>
+                            <th>Status</th>
+                            <th>Submitted</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queriesTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION K: OPERATIONS - PURCHASES (#operations/purchases)
+             ================================================================== -->
+        <section id="section-operations-purchases" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div>
+                    <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Book Purchase Records &amp; Invoices</h1>
+                    <p style="font-size: 13px; color: var(--navy-light); margin-top: 4px;">Vendor acquisition ledger, invoice tracking, and expenditure auditing.</p>
+                </div>
+                <button class="btn-quick btn-quick-primary" onclick="document.getElementById('addPurchaseModal').classList.add('show')">
+                    + Record Purchase Invoice
+                </button>
+            </div>
+
+            <!-- 3 Summary Metrics -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                <div style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <div style="font-size: 11px; text-transform: uppercase; color: var(--navy-light); font-weight: 600; margin-bottom: 4px;">Total Expenditure</div>
+                    <div id="purchaseTotalSpend" style="font-size: 22px; font-weight: bold; color: var(--navy-primary);">Rs. 0.00</div>
+                </div>
+                <div style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <div style="font-size: 11px; text-transform: uppercase; color: var(--navy-light); font-weight: 600; margin-bottom: 4px;">Total Items Purchased</div>
+                    <div id="purchaseTotalItems" style="font-size: 22px; font-weight: bold; color: #008770;">0</div>
+                </div>
+                <div style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <div style="font-size: 11px; text-transform: uppercase; color: var(--navy-light); font-weight: 600; margin-bottom: 4px;">Recorded Invoices</div>
+                    <div id="purchaseTotalInvoices" style="font-size: 22px; font-weight: bold; color: #4A90E2;">0</div>
+                </div>
+            </div>
+
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Purchase ID</th>
+                            <th>Invoice Number</th>
+                            <th>Supplier Name</th>
+                            <th>Purchase Date</th>
+                            <th>Unit Price</th>
+                            <th>Quantity</th>
+                            <th>Total Amount</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody id="purchasesTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION L: REPORTS - ACTIVITY LOGS (#reports/activity-logs)
+             ================================================================== -->
+        <section id="section-reports-activity-logs" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Library Activity Audit Trail</h1>
+            </div>
+
+            <div class="table-filter-bar" style="flex-wrap: wrap;">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label class="form-label" style="margin: 0; font-size: 12px;">Event:</label>
+                    <select id="logEventTypeFilter" class="form-input" style="width: 170px; padding: 4px 8px; font-size: 12px;">
+                        <option value="">All Events</option>
+                        <option value="LOAN_ISSUED">LOAN_ISSUED</option>
+                        <option value="LOAN_RETURNED">LOAN_RETURNED</option>
+                        <option value="LOAN_RENEWED">LOAN_RENEWED</option>
+                        <option value="BOOK_ADDED">BOOK_ADDED</option>
+                        <option value="COPIES_ADDED">COPIES_ADDED</option>
+                        <option value="COPY_RETIRED">COPY_RETIRED</option>
+                        <option value="BULK_CSV_IMPORT">BULK_CSV_IMPORT</option>
+                        <option value="ACQUISITION_STATUS_UPDATED">ACQUISITION_STATUS_UPDATED</option>
+                        <option value="STUDENT_QUERY_RESOLVED">STUDENT_QUERY_RESOLVED</option>
+                        <option value="STUDENT_STATUS_TOGGLED">STUDENT_STATUS_TOGGLED</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label class="form-label" style="margin: 0; font-size: 12px;">From:</label>
+                    <input type="date" id="logFromDate" class="form-input" style="width: 130px; padding: 4px 8px; font-size: 12px;">
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label class="form-label" style="margin: 0; font-size: 12px;">To:</label>
+                    <input type="date" id="logToDate" class="form-input" style="width: 130px; padding: 4px 8px; font-size: 12px;">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="logFilterBtn" class="btn-quick btn-quick-primary">Filter Logs</button>
+                    <button id="logResetBtn" class="btn-quick">Reset</button>
+                </div>
+            </div>
+
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Log ID</th>
+                            <th>Event Type</th>
+                            <th>Actor</th>
+                            <th>Target Entity</th>
+                            <th>Action Details</th>
+                            <th>Origin IP</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activityLogsTableBody"></tbody>
+                </table>
+            </div>
+            <div id="logsPagination"></div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION M: REPORTS - ANALYTICS (#reports/analytics)
+             ================================================================== -->
+        <section id="section-reports-analytics" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Strategic Reports &amp; Analytics</h1>
+                <button id="exportReportCsvBtn" class="btn-quick">
+                    ⬇ Export Report (Formula-Safe CSV)
+                </button>
+            </div>
+
+            <div class="table-filter-bar" style="flex-wrap: wrap;">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label class="form-label" style="margin: 0; font-size: 12px;">Report Type:</label>
+                    <select id="reportTypeSelect" class="form-input" style="width: 250px; padding: 4px 8px; font-size: 12px;">
+                        <option value="MONTHLY_BORROW_VS_RETURN">1. Monthly Borrowing vs Returns</option>
+                        <option value="TOP_10_BOOKS">2. Top 10 Most Borrowed Books</option>
+                        <option value="POPULAR_CATEGORIES">3. Popular Categories Breakdown</option>
+                        <option value="DEPT_BORROWING">4. Department-Wise Borrowing</option>
+                        <option value="MONTHLY_FINES">5. Monthly Fine Collection</option>
+                        <option value="INVENTORY_SPLIT">6. Physical Inventory Status Split</option>
+                        <option value="OVERDUE_AGE_BUCKETS">7. Overdue Age Buckets</option>
+                        <option value="TOP_BORROWERS">8. Top Student Borrowers</option>
+                        <option value="ACQUISITION_EXPENDITURE">9. Acquisition Expenditure</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label class="form-label" style="margin: 0; font-size: 12px;">Range Preset:</label>
+                    <select id="reportPresetSelect" class="form-input" style="width: 140px; padding: 4px 8px; font-size: 12px;">
+                        <option value="LAST_30_DAYS" selected>Last 30 Days</option>
+                        <option value="TODAY">Today</option>
+                        <option value="LAST_7_DAYS">Last 7 Days</option>
+                        <option value="THIS_MONTH">This Month</option>
+                        <option value="THIS_YEAR">This Year</option>
+                        <option value="CUSTOM">Custom Range...</option>
+                    </select>
+                </div>
+                <div id="reportCustomDateGroup" style="display: none; gap: 8px; align-items: center;">
+                    <label class="form-label" style="margin: 0; font-size: 12px;">From:</label>
+                    <input type="date" id="reportFromDate" class="form-input" style="width: 130px; padding: 4px 8px; font-size: 12px;">
+                    <label class="form-label" style="margin: 0; font-size: 12px;">To:</label>
+                    <input type="date" id="reportToDate" class="form-input" style="width: 130px; padding: 4px 8px; font-size: 12px;">
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label class="form-label" style="margin: 0; font-size: 12px;">Dept:</label>
+                    <select id="reportDeptSelect" class="form-input" style="width: 120px; padding: 4px 8px; font-size: 12px;">
+                        <option value="ALL">All Depts</option>
+                        <option value="CSE">CSE</option>
+                        <option value="ECE">ECE</option>
+                        <option value="EEE">EEE</option>
+                        <option value="MECH">MECH</option>
+                        <option value="CIVIL">CIVIL</option>
+                    </select>
+                </div>
+                <button id="generateReportBtn" class="btn-quick btn-quick-primary">Generate Report</button>
+            </div>
+
+            <!-- Dynamic Report Content Area -->
+            <div id="reportContentArea"></div>
         </section>
 
     </main>
@@ -766,6 +1167,230 @@
                     <button type="submit" class="btn-quick btn-quick-primary">Confirm Status Change</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal: Update Acquisition Request Status -->
+    <div id="acqStatusModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Update Acquisition Request</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('acqStatusModal').classList.remove('show')">✕</button>
+            </div>
+            <form id="acqStatusForm">
+                <input type="hidden" id="acqStatusRequestId">
+                <input type="hidden" id="acqStatusTarget">
+                <div class="modal-body">
+                    <p style="font-size: 13px; margin-bottom: 12px;">
+                        Set status of request to <strong id="acqTargetStatusName" style="color: var(--navy-primary);"></strong>:
+                    </p>
+                    <div>
+                        <label class="form-label">Administrative Remarks</label>
+                        <textarea id="acqStatusRemarks" class="form-input" rows="3" placeholder="Add approval notes, purchase order references, or rejection reasons..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-quick" onclick="document.getElementById('acqStatusModal').classList.remove('show')">Cancel</button>
+                    <button type="submit" class="btn-quick btn-quick-primary">Confirm Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Convert Acquisition to Catalog Inventory -->
+    <div id="convertAcqModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Convert Acquisition to Inventory</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('convertAcqModal').classList.remove('show')">✕</button>
+            </div>
+            <form id="convertAcqForm">
+                <input type="hidden" id="convertAcqId">
+                <div class="modal-body">
+                    <p style="font-size: 13px; margin-bottom: 12px;">
+                        Converting <strong id="convertAcqTitle"></strong> into catalog book and creating physical copies.
+                    </p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label class="form-label">Category *</label>
+                            <input type="text" id="convertCategory" class="form-input" required>
+                        </div>
+                        <div>
+                            <label class="form-label">Number of Copies to Add *</label>
+                            <input type="number" id="convertCopies" class="form-input" min="1" value="1" required>
+                        </div>
+                    </div>
+                    <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px; color: var(--navy-primary);">Shelf Locator Coordinates</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                        <div>
+                            <label class="form-label">Floor</label>
+                            <input type="text" id="convertFloor" class="form-input" value="1">
+                        </div>
+                        <div>
+                            <label class="form-label">Block</label>
+                            <input type="text" id="convertBlock" class="form-input" value="Main">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                        <div>
+                            <label class="form-label">Section</label>
+                            <input type="text" id="convertSection" class="form-input" value="A">
+                        </div>
+                        <div>
+                            <label class="form-label">Rack</label>
+                            <input type="text" id="convertRack" class="form-input" value="R1">
+                        </div>
+                        <div>
+                            <label class="form-label">Shelf</label>
+                            <input type="text" id="convertShelf" class="form-input" value="S1">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-quick" onclick="document.getElementById('convertAcqModal').classList.remove('show')">Cancel</button>
+                    <button type="submit" class="btn-quick btn-quick-primary">Create Book &amp; Copies</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Reply to Student Query -->
+    <div id="replyQueryModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Reply to Student Inquiry</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('replyQueryModal').classList.remove('show')">✕</button>
+            </div>
+            <form id="replyQueryForm">
+                <input type="hidden" id="replyQueryId">
+                <div class="modal-body">
+                    <div style="background: #f8fafc; border-radius: 6px; padding: 12px; margin-bottom: 14px; font-size: 13px;">
+                        <div style="color: var(--navy-light); font-size: 11px; margin-bottom: 2px;">Inquiry from <span id="replyStudentName" style="font-weight: 600; color: var(--navy-primary);"></span></div>
+                        <div id="replySubject" style="font-weight: 600; color: var(--navy-primary); margin-bottom: 6px;"></div>
+                        <div id="replyMessage" style="color: #475569; font-size: 12px;"></div>
+                    </div>
+                    <div>
+                        <label class="form-label">Librarian Response *</label>
+                        <textarea id="replyQueryText" class="form-input" rows="4" required placeholder="Type your response to the student... (This will dispatch an in-app alert to their student portal)"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-quick" onclick="document.getElementById('replyQueryModal').classList.remove('show')">Cancel</button>
+                    <button type="submit" class="btn-quick btn-quick-primary">Send Reply &amp; Resolve</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: View Query Details -->
+    <div id="viewQueryModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Inquiry Details &amp; Response</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('viewQueryModal').classList.remove('show')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 14px;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: var(--navy-light); font-weight: 600;">Subject</div>
+                    <div id="viewQuerySubject" style="font-size: 15px; font-weight: 600; color: var(--navy-primary);"></div>
+                </div>
+                <div style="margin-bottom: 14px;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: var(--navy-light); font-weight: 600;">Student Message</div>
+                    <div id="viewQueryMessage" style="font-size: 13px; color: #475569; background: #f8fafc; padding: 10px; border-radius: 6px;"></div>
+                </div>
+                <div>
+                    <div style="font-size: 11px; text-transform: uppercase; color: var(--navy-light); font-weight: 600;">Librarian Response (by <span id="viewQueryResolver"></span>)</div>
+                    <div id="viewQueryReply" style="font-size: 13px; color: #0A2540; background: #f0fdf4; padding: 10px; border-radius: 6px; border-left: 3px solid #00D4B2;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-quick" onclick="document.getElementById('viewQueryModal').classList.remove('show')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Record Purchase Invoice -->
+    <div id="addPurchaseModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Record Book Purchase Invoice</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('addPurchaseModal').classList.remove('show')">✕</button>
+            </div>
+            <form id="addPurchaseForm">
+                <div class="modal-body">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label class="form-label">Supplier / Vendor *</label>
+                            <input type="text" id="purSupplier" class="form-input" required placeholder="e.g. Oxford Book Depot">
+                        </div>
+                        <div>
+                            <label class="form-label">Invoice Number *</label>
+                            <input type="text" id="purInvoice" class="form-input" required placeholder="e.g. INV-2026-089">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label class="form-label">Purchase Date *</label>
+                            <input type="date" id="purDate" class="form-input" required>
+                        </div>
+                        <div>
+                            <label class="form-label">Unit Price (Rs.) *</label>
+                            <input type="number" id="purUnitPrice" class="form-input" step="0.01" min="0.01" required placeholder="e.g. 450.00">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label class="form-label">Quantity (Items) *</label>
+                            <input type="number" id="purQuantity" class="form-input" min="1" value="1" required>
+                        </div>
+                        <div>
+                            <label class="form-label">Server-Computed Total</label>
+                            <div id="purTotalPreview" style="padding: 9px 12px; background: #f8fafc; border-radius: 6px; font-weight: bold; color: var(--navy-primary); font-size: 14px;">Rs. 0.00</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">Remarks / Notes</label>
+                        <textarea id="purRemarks" class="form-input" rows="2" placeholder="Purchase notes, grant/budget references..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-quick" onclick="document.getElementById('addPurchaseModal').classList.remove('show')">Cancel</button>
+                    <button type="submit" class="btn-quick btn-quick-primary">Save Purchase Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Printable Barcode Labels Sheet -->
+    <div id="printLabelsModal" class="modal-backdrop">
+        <div class="modal-dialog" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Print Copy Barcode Labels</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('printLabelsModal').classList.remove('show')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="printable-labels-container" id="printableLabelsSheet" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                    <!-- Sample printable labels -->
+                    <div class="barcode-label-card" style="border: 1px dashed #94A3B8; padding: 12px; border-radius: 4px; text-align: center; background: white;">
+                        <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #0A2540;">PSG Institute of Technology</div>
+                        <div style="font-size: 9px; color: #64748B;">Central Library Collection</div>
+                        <div style="font-family: monospace; font-size: 14px; font-weight: bold; margin: 8px 0; letter-spacing: 2px;">*PSG-BK0012-C01*</div>
+                        <div style="font-size: 10px; font-weight: 600;">Data Structures &amp; Algorithms</div>
+                        <div style="font-size: 9px; color: #64748B;">Floor 1 • Aisle 2 • Shelf B</div>
+                    </div>
+                    <div class="barcode-label-card" style="border: 1px dashed #94A3B8; padding: 12px; border-radius: 4px; text-align: center; background: white;">
+                        <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #0A2540;">PSG Institute of Technology</div>
+                        <div style="font-size: 9px; color: #64748B;">Central Library Collection</div>
+                        <div style="font-family: monospace; font-size: 14px; font-weight: bold; margin: 8px 0; letter-spacing: 2px;">*PSG-BK0012-C02*</div>
+                        <div style="font-size: 10px; font-weight: 600;">Data Structures &amp; Algorithms</div>
+                        <div style="font-size: 9px; color: #64748B;">Floor 1 • Aisle 2 • Shelf B</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-quick" onclick="document.getElementById('printLabelsModal').classList.remove('show')">Close</button>
+                <button type="button" class="btn-quick btn-quick-primary" onclick="window.print()">🖨 Print Label Sheet</button>
+            </div>
         </div>
     </div>
 

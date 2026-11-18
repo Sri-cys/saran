@@ -47,7 +47,10 @@ public enum NotificationType {
     REPLACEMENT_ACCEPTED,
     REPLACEMENT_REJECTED,
     CASE_RESOLVED,
-    CASE_CANCELLED;
+    CASE_CANCELLED,
+
+    // Librarian Inquiries
+    QUERY_REPLIED;
 
     public static NotificationType fromString(String name) {
         if (name == null || name.trim().isEmpty()) {

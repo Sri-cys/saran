@@ -1245,4 +1245,31 @@ public class BorrowRepository {
             }
         }, "renewLoan");
     }
+
+    public List<java.util.Map<String, Object>> findDueCalendarData(int year, int month) {
+        String sql = "SELECT due_date, COUNT(*) AS total_due, " +
+                     "SUM(CASE WHEN due_date < CURDATE() AND status = 'ACTIVE' THEN 1 ELSE 0 END) AS overdue_count " +
+                     "FROM borrow_transactions " +
+                     "WHERE status = 'ACTIVE' AND YEAR(due_date) = ? AND MONTH(due_date) = ? " +
+                     "GROUP BY due_date ORDER BY due_date ASC";
+        List<java.util.Map<String, Object>> result = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, year);
+            ps.setInt(2, month);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    java.util.Map<String, Object> map = new java.util.HashMap<>();
+                    Date dt = rs.getDate("due_date");
+                    map.put("date", dt != null ? dt.toString() : "");
+                    map.put("totalDue", rs.getInt("total_due"));
+                    map.put("overdueCount", rs.getInt("overdue_count"));
+                    result.add(map);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Failed to query due date calendar data", e);
+        }
+        return result;
+    }
 }

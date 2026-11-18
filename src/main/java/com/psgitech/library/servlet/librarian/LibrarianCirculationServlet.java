@@ -82,7 +82,19 @@ public class LibrarianCirculationServlet extends HttpServlet {
         String path = req.getRequestURI().substring(req.getContextPath().length());
 
         try {
-            if (path.endsWith("/due-soon")) {
+            if (path.endsWith("/calendar")) {
+                int year = LocalDate.now().getYear();
+                int month = LocalDate.now().getMonthValue();
+                if (req.getParameter("year") != null) {
+                    try { year = Integer.parseInt(req.getParameter("year")); } catch (NumberFormatException ignored) {}
+                }
+                if (req.getParameter("month") != null) {
+                    try { month = Integer.parseInt(req.getParameter("month")); } catch (NumberFormatException ignored) {}
+                }
+                List<Map<String, Object>> data = borrowRepository.findDueCalendarData(year, month);
+                resp.setStatus(HttpServletResponse.SC_OK);
+                resp.getWriter().write(gson.toJson(ApiResponse.ok(data)));
+            } else if (path.endsWith("/due-soon")) {
                 List<BorrowTransaction> list = borrowRepository.findDueSoonTransactions();
                 resp.setStatus(HttpServletResponse.SC_OK);
                 resp.getWriter().write(gson.toJson(ApiResponse.ok(list)));
@@ -99,9 +111,17 @@ public class LibrarianCirculationServlet extends HttpServlet {
                 resp.setStatus(HttpServletResponse.SC_OK);
                 resp.getWriter().write(gson.toJson(ApiResponse.ok(list)));
             } else {
-                // Default: active borrowings with optional search query
+                // Default: active borrowings with optional search query or specific due date
                 String query = req.getParameter("q");
-                List<BorrowTransaction> list = borrowingService.getAllActiveBorrowings(query);
+                String dueDateStr = req.getParameter("dueDate");
+                List<BorrowTransaction> list;
+                if (dueDateStr != null && !dueDateStr.trim().isEmpty()) {
+                    list = borrowingService.getAllActiveBorrowings(null).stream()
+                            .filter(t -> t.getDueDate() != null && t.getDueDate().toString().equals(dueDateStr.trim()))
+                            .collect(java.util.stream.Collectors.toList());
+                } else {
+                    list = borrowingService.getAllActiveBorrowings(query);
+                }
                 resp.setStatus(HttpServletResponse.SC_OK);
                 resp.getWriter().write(gson.toJson(ApiResponse.ok(list)));
             }

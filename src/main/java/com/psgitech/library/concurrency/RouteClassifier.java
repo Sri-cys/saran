@@ -99,6 +99,14 @@ public class RouteClassifier {
         routes.put("/api/librarian/students/*", ConcurrencyOperation.USER_ADMIN_MUTATION);
         routes.put("/api/librarian/students/toggle-status", ConcurrencyOperation.USER_ADMIN_MUTATION);
         routes.put("/api/librarian/fines/*", ConcurrencyOperation.FINE_WAIVER);
+        routes.put("/api/librarian/operations/*", ConcurrencyOperation.BOOK_CATALOG_MUTATION);
+        routes.put("/api/librarian/operations/acquisitions/status", ConcurrencyOperation.BOOK_CATALOG_MUTATION);
+        routes.put("/api/librarian/operations/acquisitions/convert-to-inventory", ConcurrencyOperation.BOOK_CATALOG_MUTATION);
+        routes.put("/api/librarian/operations/import-csv/preview", ConcurrencyOperation.BOOK_CATALOG_MUTATION);
+        routes.put("/api/librarian/operations/import-csv/commit", ConcurrencyOperation.BOOK_CATALOG_MUTATION);
+        routes.put("/api/librarian/operations/queries/reply", ConcurrencyOperation.NOTIFICATION);
+        routes.put("/api/librarian/operations/purchases", ConcurrencyOperation.BOOK_CATALOG_MUTATION);
+        routes.put("/api/librarian/reports/*", ConcurrencyOperation.USER_PROFILE_MUTATION);
 
         POST_ROUTES = Collections.unmodifiableMap(routes);
     }

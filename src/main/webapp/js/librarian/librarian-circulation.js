@@ -30,6 +30,23 @@ export function initCirculationView() {
 }
 
 export async function loadCirculationTab(tab) {
+    const tableContainer = document.getElementById('circTableContainer');
+    const calContainer = document.getElementById('circCalendarContainer');
+
+    if (tab === 'due-calendar') {
+        if (tableContainer) tableContainer.style.display = 'none';
+        if (calContainer) {
+            calContainer.style.display = 'block';
+            if (window.librarianOperations && window.librarianOperations.loadDueCalendar) {
+                window.librarianOperations.loadDueCalendar();
+            }
+        }
+        return;
+    }
+
+    if (tableContainer) tableContainer.style.display = 'block';
+    if (calContainer) calContainer.style.display = 'none';
+
     const tbody = document.getElementById('circTableBody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px;">Loading circulation records...</td></tr>';
 
@@ -43,6 +60,25 @@ export async function loadCirculationTab(tab) {
         const res = await apiFetch(endpoint);
         if (res && res.success && res.data) {
             renderCirculationTable(res.data, tab);
+        }
+    } catch (err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #B91C1C; padding: 24px;">Failed to load records: ${escapeHtml(err.message)}</td></tr>`;
+    }
+}
+
+export async function loadActiveLoansForDueDate(dateStr) {
+    const tableContainer = document.getElementById('circTableContainer');
+    const calContainer = document.getElementById('circCalendarContainer');
+    if (tableContainer) tableContainer.style.display = 'block';
+    if (calContainer) calContainer.style.display = 'none';
+
+    const tbody = document.getElementById('circTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px;">Loading loans due on ' + escapeHtml(dateStr) + '...</td></tr>';
+
+    try {
+        const res = await apiFetch(`/api/librarian/circulation?dueDate=${encodeURIComponent(dateStr)}`);
+        if (res && res.success && res.data) {
+            renderCirculationTable(res.data, 'active');
         }
     } catch (err) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #B91C1C; padding: 24px;">Failed to load records: ${escapeHtml(err.message)}</td></tr>`;
@@ -225,5 +261,7 @@ window.librarianCirculation = {
     openReturnModal,
     openPickupModal,
     renewLoan,
-    sendOverdueReminder
+    sendOverdueReminder,
+    loadCirculationTab,
+    loadActiveLoansForDueDate
 };

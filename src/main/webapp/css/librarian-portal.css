@@ -873,15 +873,16 @@ h1, h2, h3, h4, .brand-text, .kpi-number, .book-title-serif {
     background: var(--bg-panel);
 }
 
-/* Print Stylesheet for No-Dues Clearance Slip */
+/* Print Stylesheet for No-Dues Clearance Slip and Barcode Labels */
 @media print {
     body * {
         visibility: hidden;
     }
-    .print-slip-area, .print-slip-area * {
+    .print-slip-area, .print-slip-area *,
+    .printable-labels-container, .printable-labels-container * {
         visibility: visible;
     }
-    .print-slip-area {
+    .print-slip-area, .printable-labels-container {
         position: absolute;
         left: 0;
         top: 0;
@@ -890,8 +891,89 @@ h1, h2, h3, h4, .brand-text, .kpi-number, .book-title-serif {
         padding: 24px;
         background: #FFFFFF;
         color: #000000;
+    }
+    .print-slip-area {
         border: 2px solid #000000;
     }
+    .printable-labels-container {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 16px !important;
+    }
+    .barcode-label-card {
+        border: 1px dashed #000000 !important;
+        page-break-inside: avoid;
+    }
+}
+
+/* Due-Date Calendar Styles */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+.calendar-day {
+    min-height: 85px;
+    background: #FFFFFF;
+    border: 1px solid var(--border-panel);
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    flex-direction: column;
+}
+.calendar-day:hover {
+    border-color: var(--teal-accent);
+    box-shadow: 0 2px 6px rgba(0, 212, 178, 0.15);
+}
+.calendar-day.empty {
+    background: #F8FAFC;
+    border: 1px dashed #E2E8F0;
+    cursor: default;
+}
+.calendar-day.empty:hover {
+    border-color: #E2E8F0;
+    box-shadow: none;
+}
+.calendar-day.today {
+    background: #F0FDFA;
+    border-color: var(--teal-accent);
+}
+.calendar-day.today .day-number {
+    color: var(--teal-accent);
+    font-weight: bold;
+}
+.day-number {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--navy-dark);
+    margin-bottom: 4px;
+}
+.day-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 2px;
+    font-weight: 600;
+    text-align: center;
+}
+.due-badge {
+    background: rgba(10, 37, 64, 0.08);
+    color: var(--navy-dark);
+}
+.overdue-badge {
+    background: rgba(224, 32, 32, 0.15);
+    color: #E02020;
+}
+.calendar-day.has-overdue {
+    border-left: 3px solid #E02020;
+}
+
+/* CSV Drop Zone */
+.csv-drop-zone.drag-over {
+    border-color: var(--teal-accent) !important;
+    background: rgba(0, 212, 178, 0.05) !important;
 }
 
 /* Responsive adjustments */
