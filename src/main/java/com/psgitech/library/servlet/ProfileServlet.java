@@ -36,7 +36,20 @@ public class ProfileServlet extends HttpServlet {
         HttpSession session = req.getSession(false);
         User currentUser = (session != null) ? (User) session.getAttribute("user") : null;
 
+        boolean isAjax = "XMLHttpRequest".equalsIgnoreCase(req.getHeader("X-Requested-With"))
+                || (req.getHeader("Accept") != null && req.getHeader("Accept").contains("application/json"));
+
         if (currentUser == null) {
+            if (isAjax) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                resp.setContentType("application/json");
+                resp.setCharacterEncoding("UTF-8");
+                Map<String, Object> err = new HashMap<>();
+                err.put("success", false);
+                err.put("message", "Session expired or authentication required. Please log in.");
+                resp.getWriter().write(gson.toJson(err));
+                return;
+            }
             resp.sendRedirect(req.getContextPath() + "/login.html");
             return;
         }
@@ -47,9 +60,6 @@ public class ProfileServlet extends HttpServlet {
             session.setAttribute("user", refreshed);
             currentUser = refreshed;
         }
-
-        boolean isAjax = "XMLHttpRequest".equalsIgnoreCase(req.getHeader("X-Requested-With"))
-                || "application/json".equalsIgnoreCase(req.getHeader("Accept"));
 
         if (isAjax) {
             resp.setContentType("application/json");

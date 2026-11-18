@@ -69,7 +69,6 @@
         } else if (navContainer) {
             navContainer.appendChild(bellWrapper);
         }
-        }
 
         bindBellEvents();
         fetchUnreadCount();

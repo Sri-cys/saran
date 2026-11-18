@@ -158,6 +158,12 @@ function renderStudentBorrowingCard(tx) {
         </button>
     ` : '';
 
+    const returnBtnHtml = (tx.status === 'ACTIVE' && !hasOpenCase) ? `
+        <button class="btn btn-primary btn-sm" onclick="handleStudentReturnBook(${tx.transactionId}, '${escapeHtml(tx.bookTitle || '').replace(/'/g, "\\'")}', '${escapeHtml(tx.copyCode || '')}')">
+            &#10003; Return Book
+        </button>
+    ` : '';
+
     const reportLostBtnHtml = (tx.status === 'ACTIVE' && !hasOpenCase) ? `
         <button class="btn btn-outline btn-sm" style="color: var(--danger); border-color: #E6B0AA;" onclick="openReportLostModal(${tx.transactionId}, '${escapeHtml(tx.bookTitle || '').replace(/'/g, "\\'")}', '${escapeHtml(tx.copyCode || '')}')">
             Report Lost
@@ -202,7 +208,8 @@ function renderStudentBorrowingCard(tx) {
 
                 <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                     <div>${peerOriginHtml}</div>
-                    <div style="display: flex; gap: 8px; align-items: center;">
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        ${returnBtnHtml}
                         ${renewBtnHtml}
                         ${transferBtnHtml}
                         ${reportLostBtnHtml}
@@ -212,6 +219,41 @@ function renderStudentBorrowingCard(tx) {
         </div>
     `;
 }
+
+window.handleStudentReturnBook = async function(txId, title, copyCode) {
+    if (!confirm(`Are you sure you want to return "${title}" (Copy: ${copyCode}) to the library?`)) {
+        return;
+    }
+    try {
+        const res = await fetch('borrow/return', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ transactionId: txId, condition: 'GOOD' })
+        });
+        const json = await res.json();
+        if (res.ok && json.success) {
+            let msg = json.message || 'Book returned successfully!';
+            if (json.fineIncurred && json.fineAmount > 0) {
+                msg += `\nOverdue fine assessed: ₹${json.fineAmount}. Please settle your dues in the My Fines tab.`;
+            }
+            alert(msg);
+            if (typeof loadStudentActiveBorrowings === 'function') {
+                loadStudentActiveBorrowings();
+            }
+            if (typeof loadStudentBorrowingHistory === 'function') {
+                loadStudentBorrowingHistory();
+            }
+        } else {
+            alert(json.message || 'Unable to process return.');
+        }
+    } catch (e) {
+        console.error('Error returning book:', e);
+        alert('Network error while processing return.');
+    }
+};
 
 async function handleRenewLoan(txId) {
     if (!confirm('Are you sure you want to renew this book loan? Your due date will be extended by 14 days.')) {

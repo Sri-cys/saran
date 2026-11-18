@@ -7,6 +7,7 @@ import com.psgitech.library.enums.Role;
 import com.psgitech.library.exception.*;
 import com.psgitech.library.model.AllocationRecord;
 import com.psgitech.library.model.BorrowTransaction;
+import com.psgitech.library.model.Student;
 import com.psgitech.library.model.User;
 import com.psgitech.library.repository.AllocationRepository;
 import com.psgitech.library.service.BorrowingService;
@@ -64,17 +65,21 @@ public class IssueBookServlet extends HttpServlet {
             return;
         }
 
-        if (!isStaff(currentUser)) {
+        boolean isStaffUser = isStaff(currentUser);
+        boolean isStudentUser = (currentUser.getRole() == Role.STUDENT);
+
+        if (!isStaffUser && !isStudentUser) {
             resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
             Map<String, Object> err = new HashMap<>();
             err.put("success", false);
-            err.put("message", "Access denied. Only Librarians and Administrators can issue books.");
+            err.put("message", "Access denied. Only registered students and library staff can borrow or issue books.");
             resp.getWriter().write(gson.toJson(err));
             return;
         }
 
         String studentRegisterNumber = null;
         Integer copyId = null;
+        Integer bookId = null;
 
         String contentType = req.getContentType();
         if (contentType != null && contentType.contains("application/json")) {
@@ -90,6 +95,7 @@ public class IssueBookServlet extends HttpServlet {
                 if (json.has("registerNumber")) studentRegisterNumber = json.get("registerNumber").getAsString();
                 else if (json.has("studentRegisterNumber")) studentRegisterNumber = json.get("studentRegisterNumber").getAsString();
                 if (json.has("copyId")) copyId = json.get("copyId").getAsInt();
+                if (json.has("bookId")) bookId = json.get("bookId").getAsInt();
             } catch (Exception e) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 Map<String, Object> err = new HashMap<>();
@@ -107,9 +113,23 @@ public class IssueBookServlet extends HttpServlet {
                     copyId = Integer.parseInt(copyIdStr.trim());
                 } catch (NumberFormatException ignored) {}
             }
+            String bookIdStr = req.getParameter("bookId");
+            if (bookIdStr != null && !bookIdStr.trim().isEmpty()) {
+                try {
+                    bookId = Integer.parseInt(bookIdStr.trim());
+                } catch (NumberFormatException ignored) {}
+            }
         }
 
         Map<String, Object> responseData = new HashMap<>();
+
+        // If student is borrowing directly
+        if (isStudentUser) {
+            studentRegisterNumber = currentUser.getIdentifier();
+            if ((studentRegisterNumber == null || studentRegisterNumber.trim().isEmpty()) && currentUser instanceof Student) {
+                studentRegisterNumber = ((Student) currentUser).getRegisterNumber();
+            }
+        }
 
         if (studentRegisterNumber == null || studentRegisterNumber.trim().isEmpty()) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -119,28 +139,44 @@ public class IssueBookServlet extends HttpServlet {
             return;
         }
 
-        if (copyId == null || copyId <= 0) {
+        if ((copyId == null || copyId <= 0) && (bookId == null || bookId <= 0)) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             responseData.put("success", false);
-            responseData.put("message", "Valid physical book copy ID is required.");
+            responseData.put("message", "Valid book ID or physical copy ID is required.");
             resp.getWriter().write(gson.toJson(responseData));
             return;
         }
 
         try {
-            // Check if copy was held under an active allocation
-            AllocationRepository allocRepo = new AllocationRepository();
-            AllocationRecord priorAlloc = allocRepo.findActiveByCopy(copyId);
+            BorrowTransaction tx;
+            boolean collectedFromAllocation = false;
 
-            BorrowTransaction tx = borrowingService.issueBook(studentRegisterNumber, copyId, currentUser.getUserId());
+            if (isStudentUser && (copyId == null || copyId <= 0) && bookId != null && bookId > 0) {
+                // Direct student self-borrow by book ID
+                tx = borrowingService.borrowBookForStudent(currentUser.getUserId(), bookId);
+            } else {
+                // Resolved or explicit copy ID
+                if ((copyId == null || copyId <= 0) && bookId != null && bookId > 0) {
+                    com.psgitech.library.repository.BookRepository bookRepo = new com.psgitech.library.repository.BookRepository();
+                    copyId = bookRepo.findFirstAvailableCopyId(bookId);
+                    if (copyId <= 0) {
+                        throw new BookCopyUnavailableException("All physical copies of this book are currently borrowed or on hold.");
+                    }
+                }
 
-            boolean collectedFromAllocation = (priorAlloc != null);
+                // Check if copy was held under an active allocation
+                AllocationRepository allocRepo = new AllocationRepository();
+                AllocationRecord priorAlloc = allocRepo.findActiveByCopy(copyId);
+                collectedFromAllocation = (priorAlloc != null);
+
+                tx = borrowingService.issueBook(studentRegisterNumber, copyId, currentUser.getUserId());
+            }
 
             resp.setStatus(HttpServletResponse.SC_CREATED);
             responseData.put("success", true);
             responseData.put("message", collectedFromAllocation ?
                     "Book collected and issued successfully from hold allocation." :
-                    "Book issued successfully");
+                    "Book borrowed successfully! Enjoy your reading.");
 
             Map<String, Object> txData = new HashMap<>();
             txData.put("transactionId", tx.getTransactionId());

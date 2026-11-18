@@ -100,7 +100,7 @@ public class BookDetailsServlet extends HttpServlet {
                 result.put("loanPolicy", policyMap);
             }
 
-            // Feature 5 (Section 9.6): Add myReservation for student view
+            // Feature 5 (Section 9.6): Add myReservation and borrowing status for student view
             if (currentUser != null && currentUser.getRole() == Role.STUDENT && book != null) {
                 ReservationService resService = new ReservationService();
                 Reservation activeRes = resService.getActiveReservationForStudentAndBook(currentUser.getUserId(), book.getBookId());
@@ -129,6 +129,18 @@ public class BookDetailsServlet extends HttpServlet {
                 } else {
                     result.put("myReservation", null);
                 }
+
+                com.psgitech.library.repository.BorrowRepository borrowRepo = new com.psgitech.library.repository.BorrowRepository();
+                com.psgitech.library.repository.ReservationRepository resRepo = new com.psgitech.library.repository.ReservationRepository();
+                boolean currentlyBorrowed = borrowRepo.hasActiveBorrowingForBook(currentUser.getUserId(), book.getBookId());
+                int activeLoansCount = borrowRepo.countActiveByStudentId(currentUser.getUserId());
+                boolean hasOutstandingFines = com.psgitech.library.config.BorrowingPolicy.hasOutstandingFines(currentUser.getUserId());
+                int activeReservationsCount = resRepo.countActiveByStudent(currentUser.getUserId());
+
+                result.put("currentlyBorrowedByMe", currentlyBorrowed);
+                result.put("activeLoansCount", activeLoansCount);
+                result.put("hasOutstandingFines", hasOutstandingFines);
+                result.put("activeReservationsCount", activeReservationsCount);
             }
 
             resp.getWriter().write(gson.toJson(result));

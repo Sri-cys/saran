@@ -131,9 +131,8 @@ public class AuthorizationFilter implements Filter {
 
         // Librarian & Staff protection (Librarian Operations, Borrowing Management & Fines)
         if (path.startsWith("/librarian/") || path.contains("librarian-dashboard") || path.contains("borrowing-management")
-                || path.startsWith("/borrow/issue") || path.startsWith("/borrow/return") || path.startsWith("/borrow/active")
-                || path.startsWith("/borrow/overdue") || path.startsWith("/borrow/lookup")
-                || path.startsWith("/fines") || path.startsWith("/payments/verify")
+                || path.startsWith("/borrow/active") || path.startsWith("/borrow/overdue") || path.startsWith("/borrow/lookup")
+                || (path.equals("/fines") && "GET".equalsIgnoreCase(req.getMethod())) || path.startsWith("/payments/verify")
                 || path.startsWith("/books/copies/barcode") || path.contains("barcode-labels")) {
             if (user == null) {
                 if (path.endsWith(".html") || !path.contains(".")) {
@@ -154,10 +153,14 @@ public class AuthorizationFilter implements Filter {
                 || path.contains("my-reservations") || path.contains("my-books") || path.contains("my-fines")
                 || path.contains("my-cases")) {
             if (user == null) {
-                res.sendRedirect(contextPath + "/login.html?redirect=" + path);
+                if (path.endsWith(".html")) {
+                    res.sendRedirect(contextPath + "/login.html?redirect=" + path);
+                } else {
+                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
+                }
                 return;
             }
-            if (user.getRole() != Role.STUDENT && user.getRole() != Role.ADMIN) {
+            if (user.getRole() != Role.STUDENT && user.getRole() != Role.ADMIN && user.getRole() != Role.LIBRARIAN) {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Student role required.");
                 return;
             }
@@ -198,7 +201,8 @@ public class AuthorizationFilter implements Filter {
         }
 
         // Student & Staff API & Receipt protection
-        if (path.startsWith("/borrow/student") || path.startsWith("/borrow/history") 
+        if (path.startsWith("/borrow/issue") || path.startsWith("/borrow/return")
+                || path.startsWith("/borrow/student") || path.startsWith("/borrow/history") 
                 || path.startsWith("/borrow/renew")
                 || path.startsWith("/reservations") || path.startsWith("/allocations")
                 || path.startsWith("/my-fines") || path.startsWith("/payments") || path.startsWith("/receipt")
@@ -219,7 +223,11 @@ public class AuthorizationFilter implements Filter {
         // Profile / Change Password protection
         if (path.contains("profile.html") || path.equals("/profile")) {
             if (user == null) {
-                res.sendRedirect(contextPath + "/login.html?redirect=" + path);
+                if (path.endsWith(".html")) {
+                    res.sendRedirect(contextPath + "/login.html?redirect=" + path);
+                } else {
+                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required.");
+                }
                 return;
             }
         }

@@ -538,6 +538,27 @@ public class BookRepository {
     /**
      * Retrieves all physical copies of a book.
      */
+    /**
+     * Finds the first available physical copy ID for a given book title.
+     * Returns -1 if no copies are currently AVAILABLE.
+     */
+    public int findFirstAvailableCopyId(int bookId) {
+        String sql = "SELECT copy_id FROM book_copies WHERE book_id = ? AND status = 'AVAILABLE' ORDER BY copy_id ASC LIMIT 1";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, bookId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("copy_id");
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error finding available copy for book: " + bookId, e);
+            throw new RuntimeException("Database error retrieving available copy.", e);
+        }
+        return -1;
+    }
+
     public List<BookCopy> findCopiesByBookId(int bookId) {
         try (Connection conn = DBConnection.getConnection()) {
             return findCopiesByBookId(conn, bookId);

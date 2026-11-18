@@ -252,4 +252,68 @@ public class BorrowingServiceTest {
         assertEquals("Not overdue for future date", 0, BorrowingService.calculateOverdueDays(futureDue, today));
         assertEquals("Not overdue when due today", 0, BorrowingService.calculateOverdueDays(today, today));
     }
+
+    @Test
+    public void testBorrowBookForStudent_Success() {
+        // Student ID 5 (Ananya Ramesh, reg: 715523105012) self-borrows Book 4 directly
+        int studentUserId = 5;
+        int bookId = 4;
+
+        // Clean any active borrowings for student 5 on book 4
+        for (BorrowTransaction activeTx : borrowRepository.findActiveByStudentId(studentUserId)) {
+            if (activeTx.getBookId() == bookId) {
+                borrowingService.returnBook(activeTx.getTransactionId(), 2);
+            }
+        }
+
+        BorrowTransaction tx = borrowingService.borrowBookForStudent(studentUserId, bookId);
+
+        assertNotNull("Borrow transaction must not be null", tx);
+        assertEquals("Student ID should match", studentUserId, tx.getStudentId());
+        assertEquals("Book ID should match", bookId, tx.getBookId());
+        assertEquals("Transaction status should be ACTIVE", BorrowStatus.ACTIVE, tx.getStatus());
+        assertEquals("Issue date should be today", LocalDate.now(), tx.getIssueDate());
+        assertNotNull("Due date must be set", tx.getDueDate());
+        assertTrue("Due date must be in the future", tx.getDueDate().isAfter(LocalDate.now()));
+    }
+
+    @Test
+    public void testBorrowBookForStudent_SameBookHolding_ThrowsException() {
+        // Sivakathir (userId 4) already holds an active loan for Book 1 Copy 1
+        int studentUserId = 4;
+        int bookId = 1;
+
+        try {
+            borrowingService.borrowBookForStudent(studentUserId, bookId);
+            fail("Should have thrown InvalidBorrowingOperationException for borrowing the same book twice");
+        } catch (InvalidBorrowingOperationException e) {
+            assertTrue("Exception message should indicate active checkout of same title",
+                    e.getMessage().toLowerCase().contains("already have an active checkout") ||
+                    e.getMessage().toLowerCase().contains("multiple copies"));
+        }
+    }
+
+    @Test
+    public void testBorrowBookForStudent_FinesBlocking() {
+        int studentUserId = 5;
+        int bookId = 3;
+
+        // Insert an unpaid fine for student 5
+        try (java.sql.Connection conn = DBConnection.getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(
+                     "INSERT INTO fines (borrow_transaction_id, student_id, book_id, copy_id, overdue_days, chargeable_days, fine_per_day, grace_period_days, original_amount, paid_amount, waived_amount, outstanding_amount, status, fine_type) " +
+                     "VALUES (1, ?, 1, 1, 5, 5, 2.00, 0, 10.00, 0.00, 0.00, 10.00, 'UNPAID', 'OVERDUE')")) {
+            stmt.setInt(1, studentUserId);
+            stmt.executeUpdate();
+
+            try {
+                borrowingService.borrowBookForStudent(studentUserId, bookId);
+                fail("Should have thrown StudentNotEligibleException due to unpaid fines");
+            } catch (StudentNotEligibleException e) {
+                assertTrue("Message should mention unpaid fines", e.getMessage().toLowerCase().contains("fines") || e.getMessage().toLowerCase().contains("dues"));
+            }
+        } catch (java.sql.SQLException e) {
+            fail("Database setup failed: " + e.getMessage());
+        }
+    }
 }

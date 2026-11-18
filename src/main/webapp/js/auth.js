@@ -456,20 +456,6 @@ function initLoginForm() {
                     window.location.href = data.redirect || 'student-home.html';
                 }, 700);
             } else {
-                // If backend rejected, check local users database before giving up
-                const localMatch = findLocalUser(loginKey, password);
-                if (localMatch) {
-                    sessionStorage.setItem('psgitech_user', JSON.stringify(localMatch));
-                    if (rememberMe) {
-                        localStorage.setItem('psgitech_user', JSON.stringify(localMatch));
-                    }
-                    showAlert(alertBox, 'success', `Login successful! Welcome back, ${localMatch.name}.`);
-                    setTimeout(() => {
-                        window.location.href = 'student-home.html';
-                    }, 700);
-                    return;
-                }
-
                 showAlert(alertBox, 'danger', data.message || 'Invalid credentials. Please verify your login details.');
                 if (submitBtn) {
                     submitBtn.disabled = false;
@@ -478,8 +464,12 @@ function initLoginForm() {
             }
         })
         .catch(err => {
-            // Local fallback simulation for visual inspection
-            simulateFallbackLogin(loginKey, password, alertBox, submitBtn, rememberMe);
+            console.error('Login network error:', err);
+            showAlert(alertBox, 'danger', 'Unable to connect to the authentication server. Please check your network connection.');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Sign In to Library';
+            }
         });
     });
 }

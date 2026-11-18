@@ -104,6 +104,72 @@ public class BorrowingService {
     }
 
     /**
+     * Allows an authenticated eligible student to directly borrow an available book copy.
+     * Automatically resolves the first available physical copy and calculates loan duration.
+     */
+    public BorrowTransaction borrowBookForStudent(int studentUserId, int bookId) {
+        if (studentUserId <= 0) {
+            throw new IllegalArgumentException("Valid student ID is required.");
+        }
+        if (bookId <= 0) {
+            throw new IllegalArgumentException("Valid book ID is required.");
+        }
+
+        User student = userRepository.findById(studentUserId);
+        if (student == null) {
+            throw new StudentNotFoundException("Student with ID " + studentUserId + " was not found.");
+        }
+        if (!student.isActive()) {
+            throw new StudentNotEligibleException("Student account is inactive or suspended. Cannot borrow books.");
+        }
+        if (student.getRole() != Role.STUDENT) {
+            throw new StudentNotEligibleException("Only registered students are eligible for student book borrowing.");
+        }
+
+        Book parentBook = bookRepository.findById(bookId, false);
+        if (parentBook == null) {
+            throw new BookNotFoundException("Book with ID " + bookId + " was not found in catalog.");
+        }
+        if (parentBook.isArchived()) {
+            throw new InvalidBorrowingOperationException("Cannot borrow copies from an archived book title.");
+        }
+
+        // Check active borrowing capacity
+        int activeCount = borrowRepository.countActiveByStudentId(studentUserId);
+        int maxLimit = BorrowingPolicy.getMaxActiveBorrowingLimit();
+        if (activeCount >= maxLimit) {
+            throw new BorrowingLimitExceededException("You have reached the maximum borrowing limit (" + maxLimit + " active books). Return a book before borrowing another.");
+        }
+
+        // Check same-book restriction
+        if (borrowRepository.hasActiveBorrowingForBook(studentUserId, bookId)) {
+            throw new InvalidBorrowingOperationException("You already have an active copy of \"" + parentBook.getTitle() + "\". Multiple copies of the same book cannot be borrowed simultaneously.");
+        }
+
+        // Find first available physical copy
+        int copyId = bookRepository.findFirstAvailableCopyId(bookId);
+        if (copyId <= 0) {
+            throw new BookCopyUnavailableException("All physical copies of \"" + parentBook.getTitle() + "\" are currently borrowed or on hold. Please place a reservation instead.");
+        }
+
+        // Calculate due date according to effective dynamic loan policy
+        LocalDate issueDate = LocalDate.now();
+        com.psgitech.library.policy.LoanPolicy policy = com.psgitech.library.policy.LoanPolicyManager.getInstance().effectivePolicy(bookId);
+        int loanDays = (policy != null) ? policy.getLoanDays() : BorrowingPolicy.getStandardBorrowingDurationDays();
+        LocalDate dueDate = issueDate.plusDays(loanDays);
+
+        return borrowRepository.issueBookTransaction(studentUserId, bookId, copyId, issueDate, dueDate, studentUserId);
+    }
+
+    public BorrowTransaction getTransactionById(int transactionId) {
+        return borrowRepository.findById(transactionId);
+    }
+
+    public BorrowRepository getBorrowRepository() {
+        return borrowRepository;
+    }
+
+    /**
      * Records the return of an active borrowing transaction.
      * Calculates overdue days, marks transaction RETURNED, and resets copy to AVAILABLE.
      */

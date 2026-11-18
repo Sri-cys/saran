@@ -55,6 +55,9 @@ public class AuthenticationFilter implements Filter {
                         if (restored != null) {
                             session = req.getSession(true);
                             session.setAttribute("user", restored);
+                            session.setAttribute("userId", restored.getUserId());
+                            session.setAttribute("userRole", restored.getRole().name());
+                            session.setAttribute("userName", restored.getName());
                             currentUser = restored;
                         }
                         break;

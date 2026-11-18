@@ -51,15 +51,20 @@ function getCurrentUserRole() {
         const stored = sessionStorage.getItem('psgitech_user') || localStorage.getItem('psgitech_user');
         if (stored) {
             const user = JSON.parse(stored);
-            return user.role || 'STUDENT';
+            return user.role || null;
         }
     } catch (e) {}
-    return 'STUDENT';
+    return null;
 }
 
 function isStaffUser() {
     const role = getCurrentUserRole();
     return role === 'LIBRARIAN' || role === 'ADMIN';
+}
+
+function isStudentUser() {
+    const role = getCurrentUserRole();
+    return role === 'STUDENT';
 }
 
 /**
@@ -531,31 +536,141 @@ function renderBookDetailsView(book, isStaff) {
 }
 
 /**
- * Feature 4: Load reservation status & waiting queue for Book Details page
+ * Feature 3 & 4: Load borrowing or reservation action panel for Book Details page
  */
 function loadBookReservationStatus(book, avail, total) {
     const sec = document.getElementById('reservationSection');
     if (!sec || book.archived) return;
 
+    const user = (typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : null;
+    const isStaff = isStaffUser();
+    const isGuest = (!user && book.activeLoansCount === undefined);
+
+    // =========================================================================
+    // CASE A: Physical Copies Available on Shelf (avail > 0) -> Borrowing Flow
+    // =========================================================================
     if (avail > 0) {
+        if (isStaff) {
+            sec.innerHTML = `
+                <div class="info-card" style="background-color: #E8F8F0; border-left: 4px solid var(--primary); padding: 18px 22px; margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                        <div>
+                            <h4 style="margin: 0 0 4px 0; color: var(--primary);">&#10003; ${avail} Physical Copy(ies) In Circulation</h4>
+                            <p class="text-secondary" style="margin: 0; font-size: 0.92rem;">
+                                Physical copies of this title are on library racks ready for issue to registered students.
+                            </p>
+                        </div>
+                        <a href="borrowing-management.html" class="btn btn-secondary btn-sm">Open Circulation Desk to Issue</a>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        if (isGuest) {
+            sec.innerHTML = `
+                <div class="info-card" style="background-color: #E8F8F0; border-left: 4px solid var(--success); padding: 18px 22px; margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                        <div>
+                            <h4 style="margin: 0 0 4px 0; color: #15803D;">&#10003; ${avail} Copy(ies) Available on Shelf</h4>
+                            <p class="text-secondary" style="margin: 0; font-size: 0.92rem;">
+                                This textbook is available for checkout. Log in with your institutional student credentials to borrow.
+                            </p>
+                        </div>
+                        <a href="login.html?redirect=book-details.html?id=${book.bookId}" class="btn btn-primary btn-sm">Log In to Borrow</a>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // Student is logged in: Check business eligibility constraints
+        if (book.currentlyBorrowedByMe) {
+            sec.innerHTML = `
+                <div class="info-card" style="background-color: #FEF3C7; border-left: 4px solid #D97706; padding: 18px 22px; margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                        <div>
+                            <h4 style="margin: 0 0 4px 0; color: #B45309;">Currently Borrowed by You</h4>
+                            <p class="text-secondary" style="margin: 0; font-size: 0.92rem;">
+                                You already have an active loan for a physical copy of this textbook. Institutional policy restricts students to one active copy per title.
+                            </p>
+                        </div>
+                        <a href="my-borrowings.html" class="btn btn-secondary btn-sm">View in My Borrowings</a>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        if (book.hasOutstandingFines) {
+            sec.innerHTML = `
+                <div class="info-card" style="background-color: #FEE2E2; border-left: 4px solid var(--danger); padding: 18px 22px; margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                        <div>
+                            <h4 style="margin: 0 0 4px 0; color: var(--danger);">Borrowing Blocked (Unpaid Dues Pending)</h4>
+                            <p class="text-secondary" style="margin: 0; font-size: 0.92rem;">
+                                You have unpaid library fines or compensation dues on your account. Please settle your dues via UPI to unlock borrowing privileges.
+                            </p>
+                        </div>
+                        <a href="my-fines.html" class="btn btn-primary btn-sm" style="background: var(--danger); border-color: var(--danger);">Pay Fines via UPI</a>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        if (typeof book.activeLoansCount === 'number' && book.activeLoansCount >= 3) {
+            sec.innerHTML = `
+                <div class="info-card" style="background-color: #FEF3C7; border-left: 4px solid #D97706; padding: 18px 22px; margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                        <div>
+                            <h4 style="margin: 0 0 4px 0; color: #B45309;">Borrowing Limit Reached (3 / 3 Books Active)</h4>
+                            <p class="text-secondary" style="margin: 0; font-size: 0.92rem;">
+                                You currently have 3 books checked out, which is the maximum institutional quota. Return a borrowed book before borrowing another title.
+                            </p>
+                        </div>
+                        <a href="my-borrowings.html" class="btn btn-secondary btn-sm">View My Borrowings</a>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // Student is completely eligible to borrow: Render prominent Borrow Book button
+        const loanDays = (book.loanPolicy && book.loanPolicy.loanDays) || 14;
+        const isHighDemand = (book.loanPolicy && book.loanPolicy.isHighDemand);
         sec.innerHTML = `
-            <div class="info-card" style="background-color: #E8F8F0; border-left: 4px solid var(--success); padding: 12px 16px; margin-top: 20px;">
-                <strong style="color: var(--success);">&#10003; Copies Available:</strong> Copies of this textbook are currently available on the shelf for borrowing at the library desk. Reservations are only open when all copies are checked out.
+            <div class="info-card" style="background-color: #E8F8F0; border-left: 4px solid var(--success); padding: 18px 22px; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                    <div>
+                        <h4 style="margin: 0 0 4px 0; color: #15803D;">&#10003; Ready for Immediate Borrowing</h4>
+                        <p class="text-secondary" style="margin: 0; font-size: 0.92rem;">
+                            <strong>${avail}</strong> copy(ies) available on library racks &bull; Loan period: <strong>${loanDays} Days</strong> ${isHighDemand ? '<span class="badge badge-high-demand" style="font-size: 0.72rem; padding: 2px 5px; margin-left: 4px;">High Demand</span>' : ''}
+                        </p>
+                    </div>
+                    <button id="btnBorrowBook" class="btn btn-primary" onclick="handleStudentBorrowBookClick(${book.bookId})">
+                        &#128214; Borrow Book (Immediate Checkout)
+                    </button>
+                </div>
+                <div id="borrowMsgContainer" style="margin-top: 10px;"></div>
             </div>
         `;
         return;
     }
 
+    // =========================================================================
+    // CASE B: All Copies Unavailable (avail === 0) -> Reservation Flow
+    // =========================================================================
     if (total === 0) {
         sec.innerHTML = `
-            <div class="info-card" style="background-color: #FEF3C7; border-left: 4px solid #D97706; padding: 12px 16px; margin-top: 20px;">
+            <div class="info-card" style="background-color: #FEF3C7; border-left: 4px solid #D97706; padding: 16px 20px; margin-top: 20px;">
                 <strong style="color: #B45309;">No Active Copies:</strong> This book has no physical copies in active circulation to reserve.
             </div>
         `;
         return;
     }
 
-    // Call /reservations?bookId=...
+    // Call /reservations?bookId=... to check queue status and user reservation
     fetch('reservations?bookId=' + book.bookId)
         .then(res => {
             if (res.status === 401) {
@@ -566,7 +681,7 @@ function loadBookReservationStatus(book, avail, total) {
         .then(data => {
             if (data.isGuest) {
                 sec.innerHTML = `
-                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 14px 18px; margin-top: 20px;">
+                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 16px 20px; margin-top: 20px;">
                         <h4 style="margin: 0 0 4px 0; color: var(--primary);">All Copies Currently Borrowed</h4>
                         <p class="text-secondary" style="margin: 0 0 10px 0;">Sign in with your student credentials to join the FIFO reservation queue.</p>
                         <a href="login.html?redirect=book-details.html?id=${book.bookId}" class="btn btn-secondary btn-sm">Log In to Reserve</a>
@@ -583,16 +698,19 @@ function loadBookReservationStatus(book, avail, total) {
             if (data.queue) {
                 // Staff view
                 sec.innerHTML = `
-                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 14px 18px; margin-top: 20px;">
+                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 16px 20px; margin-top: 20px;">
                         <h4 style="margin: 0 0 4px 0; color: var(--primary);">Reservation Queue: ${waitingCount} Waiting</h4>
                         <p class="text-secondary" style="margin: 0 0 10px 0;">All physical copies are checked out. View and manage the queue in the circulation desk.</p>
                         <a href="borrowing-management.html" class="btn btn-secondary btn-sm">Open Circulation Desk</a>
                     </div>
                 `;
-            } else if (data.currentlyBorrowedByMe) {
+            } else if (data.currentlyBorrowedByMe || book.currentlyBorrowedByMe) {
                 sec.innerHTML = `
-                    <div class="info-card" style="background-color: #FEF3C7; border-left: 4px solid #D97706; padding: 14px 18px; margin-top: 20px;">
+                    <div class="info-card" style="background-color: #FEF3C7; border-left: 4px solid #D97706; padding: 16px 20px; margin-top: 20px;">
                         <strong style="color: #B45309;">Currently Borrowed by You:</strong> You have an active loan for a copy of this book. Students cannot hold both an active loan and a reservation for the same title.
+                        <div style="margin-top: 8px;">
+                            <a href="my-borrowings.html" class="btn btn-secondary btn-sm">View in My Borrowings</a>
+                        </div>
                     </div>
                 `;
             } else if (data.myReservation && data.myReservation.status === 'ALLOCATED') {
@@ -601,7 +719,7 @@ function loadBookReservationStatus(book, avail, total) {
                 sec.innerHTML = `
                     <div class="info-card" style="background-color: #E8F8F0; border-left: 4px solid #159B50; padding: 16px 20px; margin-top: 20px;">
                         <div style="font-weight: bold; color: #159B50; font-size: 1.15rem; margin-bottom: 6px;">
-                            ✓ Allocated to You - Ready for Collection!
+                            &#10003; Allocated to You - Ready for Collection!
                         </div>
                         <p class="text-secondary" style="margin: 0 0 10px 0;">
                             A physical copy (<code>${escapeHtml(copyCode)}</code>) has been held for you at the library circulation desk.
@@ -613,7 +731,7 @@ function loadBookReservationStatus(book, avail, total) {
             } else if (data.myReservation) {
                 const pos = data.myReservation.queuePosition || 1;
                 sec.innerHTML = `
-                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 14px 18px; margin-top: 20px;">
+                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 16px 20px; margin-top: 20px;">
                         <div style="font-weight: bold; color: var(--primary); font-size: 1.1rem; margin-bottom: 4px;">
                             &#10004; Reserved (Your Queue Position: #${pos})
                         </div>
@@ -621,6 +739,34 @@ function loadBookReservationStatus(book, avail, total) {
                             Waiting Queue: <strong>${waitingLabel}</strong> in line. You will be allocated a copy as soon as a student returns one.
                         </p>
                         <a href="my-reservations.html" class="btn btn-secondary btn-sm">View in My Reservations</a>
+                    </div>
+                `;
+            } else if (book.hasOutstandingFines || data.hasOutstandingFines) {
+                sec.innerHTML = `
+                    <div class="info-card" style="background-color: #FEE2E2; border-left: 4px solid var(--danger); padding: 16px 20px; margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                            <div>
+                                <h4 style="margin: 0 0 4px 0; color: var(--danger);">Reservation Blocked (Unpaid Dues Pending)</h4>
+                                <p class="text-secondary" style="margin: 0; font-size: 0.92rem;">
+                                    You have unpaid library fines. Please clear your dues via UPI before placing new reservations.
+                                </p>
+                            </div>
+                            <a href="my-fines.html" class="btn btn-primary btn-sm" style="background: var(--danger); border-color: var(--danger);">Pay Fines via UPI</a>
+                        </div>
+                    </div>
+                `;
+            } else if ((typeof book.activeReservationsCount === 'number' && book.activeReservationsCount >= 3) || (typeof data.activeReservationsCount === 'number' && data.activeReservationsCount >= 3)) {
+                sec.innerHTML = `
+                    <div class="info-card" style="background-color: #FEF3C7; border-left: 4px solid #D97706; padding: 16px 20px; margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                            <div>
+                                <h4 style="margin: 0 0 4px 0; color: #B45309;">Reservation Limit Reached (3 / 3 Active)</h4>
+                                <p class="text-secondary" style="margin: 0; font-size: 0.92rem;">
+                                    You have reached your maximum limit of 3 active book reservations. Cancel an existing reservation to reserve another title.
+                                </p>
+                            </div>
+                            <a href="my-reservations.html" class="btn btn-secondary btn-sm">View My Reservations</a>
+                        </div>
                     </div>
                 `;
             } else {
@@ -647,6 +793,80 @@ function loadBookReservationStatus(book, avail, total) {
             console.error('Error checking reservation status:', err);
         });
 }
+
+/**
+ * Handles student self-borrowing of an available book directly from the catalog.
+ */
+window.handleStudentBorrowBookClick = async function(bookId) {
+    const btn = document.getElementById('btnBorrowBook');
+    const msgBox = document.getElementById('borrowMsgContainer');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Processing Borrow Request...';
+    }
+    if (msgBox) msgBox.innerHTML = '';
+
+    try {
+        const resp = await fetch('borrow/issue', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ bookId: bookId })
+        });
+        const result = await resp.json();
+
+        if (resp.status === 201 && result.success) {
+            const tx = result.data || {};
+            const dueDate = tx.dueDate || '14 days';
+            const copyCode = tx.copyCode || 'PSG-BK-C01';
+            const sec = document.getElementById('reservationSection');
+            if (sec) {
+                sec.innerHTML = `
+                    <div class="info-card" style="background-color: #E8F8F0; border-left: 4px solid var(--success); padding: 18px 22px; margin-top: 20px;">
+                        <h4 style="margin: 0 0 6px 0; color: #15803D;">&#10004; Book Borrowed Successfully!</h4>
+                        <p style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 0.95rem;">
+                            Physical copy <code>${escapeHtml(copyCode)}</code> has been issued to your student account.
+                            Please return it on or before <strong>${escapeHtml(dueDate)}</strong>.
+                        </p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <a href="my-borrowings.html" class="btn btn-primary btn-sm">View in My Borrowings</a>
+                            <button class="btn btn-secondary btn-sm" onclick="location.reload()">Refresh Details</button>
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Borrow Book (Immediate Checkout)';
+            }
+            if (msgBox) {
+                msgBox.innerHTML = `
+                    <div class="alert alert-danger" style="margin-top: 10px; padding: 10px 14px; font-size: 0.9rem;">
+                        ${escapeHtml(result.message || 'Unable to borrow book.')}
+                    </div>
+                `;
+            } else {
+                alert(result.message || 'Unable to borrow book.');
+            }
+        }
+    } catch (err) {
+        console.error('Error borrowing book:', err);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Borrow Book (Immediate Checkout)';
+        }
+        if (msgBox) {
+            msgBox.innerHTML = `
+                <div class="alert alert-danger" style="margin-top: 10px; padding: 10px 14px; font-size: 0.9rem;">
+                    Network error occurred while processing borrow request. Please try again.
+                </div>
+            `;
+        }
+    }
+};
 
 window.handleReserveBookClick = async function(bookId) {
     const btn = document.getElementById('btnReserveBook');

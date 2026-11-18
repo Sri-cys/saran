@@ -69,11 +69,14 @@ public class ReturnBookServlet extends HttpServlet {
             return;
         }
 
-        if (!isStaff(currentUser)) {
+        boolean isStaffUser = isStaff(currentUser);
+        boolean isStudentUser = (currentUser.getRole() == Role.STUDENT);
+
+        if (!isStaffUser && !isStudentUser) {
             resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
             Map<String, Object> err = new HashMap<>();
             err.put("success", false);
-            err.put("message", "Access denied. Only Librarians and Administrators can process returns.");
+            err.put("message", "Access denied. Only registered students and library staff can process returns.");
             resp.getWriter().write(gson.toJson(err));
             return;
         }
@@ -154,6 +157,25 @@ public class ReturnBookServlet extends HttpServlet {
             responseData.put("message", "Valid transaction ID is required.");
             resp.getWriter().write(gson.toJson(responseData));
             return;
+        }
+
+        // Student validation: Students can only return their OWN active loans
+        if (isStudentUser) {
+            BorrowTransaction existingTx = borrowingService.getTransactionById(transactionId);
+            if (existingTx == null) {
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                responseData.put("success", false);
+                responseData.put("message", "Borrow transaction #" + transactionId + " was not found.");
+                resp.getWriter().write(gson.toJson(responseData));
+                return;
+            }
+            if (existingTx.getStudentId() != currentUser.getUserId()) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                responseData.put("success", false);
+                responseData.put("message", "Access denied. You can only return your own borrowed books.");
+                resp.getWriter().write(gson.toJson(responseData));
+                return;
+            }
         }
 
         try {

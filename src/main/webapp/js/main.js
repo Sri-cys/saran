@@ -47,11 +47,49 @@ document.addEventListener('DOMContentLoaded', function () {
     initNavigation();
     initScrollButtons();
     initSearchHandler();
+    highlightActiveNavigation();
     checkCurrentUserState();
     if (typeof initPasswordVisibilityToggles === 'function') {
         initPasswordVisibilityToggles();
     }
 });
+
+// Global Logout click listener
+document.addEventListener('click', function (e) {
+    const logoutTrigger = e.target.closest('[data-action="logout"]');
+    if (logoutTrigger) {
+        e.preventDefault();
+        sessionStorage.removeItem('psgitech_user');
+        sessionStorage.removeItem('psgitech_csrf_token');
+        localStorage.removeItem('psgitech_user');
+        localStorage.removeItem('psgitech_remember_me');
+        window.location.href = 'logout';
+    }
+});
+
+/**
+ * Automatically highlights the active nav link based on the current page URL.
+ */
+function highlightActiveNavigation() {
+    const path = window.location.pathname;
+    const filename = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
+    document.querySelectorAll('#mainNavMenu a, .nav-menu a').forEach(link => {
+        const href = link.getAttribute('href');
+        const dataPage = link.getAttribute('data-page');
+        if (href === filename || (dataPage && filename.startsWith(dataPage))) {
+            link.classList.add('active');
+        } else if (!href || href === '#') {
+            // ignore empty
+        } else if (filename !== 'index.html' && href === filename) {
+            link.classList.add('active');
+        } else {
+            // Keep manually assigned active if matches
+            if (href !== filename) {
+                link.classList.remove('active');
+            }
+        }
+    });
+}
 
 /**
  * Initializes navbar dropdowns and mobile toggles.
@@ -139,7 +177,33 @@ function initScrollButtons() {
 }
 
 /**
- * Inspects session state or fetches user info to dynamically toggle
+ * Handles automatic redirect when a user is on a protected page but has no active backend session.
+ */
+function handleProtectedPageSessionExpiry() {
+    const path = window.location.pathname;
+    const filename = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
+    const protectedPages = [
+        'my-borrowings.html',
+        'my-reservations.html',
+        'my-fines.html',
+        'my-cases.html',
+        'student-home.html',
+        'profile.html',
+        'librarian-dashboard.html',
+        'borrowing-management.html',
+        'manage-books.html',
+        'admin-users.html',
+        'loan-policy.html',
+        'concurrency-monitor.html'
+    ];
+    if (protectedPages.includes(filename)) {
+        window.location.href = `login.html?expired=true&redirect=${encodeURIComponent(filename)}`;
+    }
+}
+
+/**
+ * Inspects session state and verifies user authentication with backend.
+ */
 function checkCurrentUserState() {
     let cachedUser = null;
     try {
@@ -149,32 +213,43 @@ function checkCurrentUserState() {
         }
     } catch (e) {}
 
-    // Immediate display if remembered
+    // Immediate display if remembered for seamless perception
     if (cachedUser && cachedUser.name) {
         updateNavForLoggedInUser(cachedUser);
     } else {
         updateNavForLoggedOutUser();
     }
 
+    // Always authoritative: verify active session with Java backend
     fetch('profile', {
         headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
     })
-    .then(res => {
-        if (res.ok) return res.json();
-        return cachedUser;
-    })
-    .then(user => {
-        if (user && user.name) {
-            updateNavForLoggedInUser(user);
-            sessionStorage.setItem('psgitech_user', JSON.stringify(user));
-            if (localStorage.getItem('psgitech_remember_me') === 'true' || localStorage.getItem('psgitech_user')) {
-                localStorage.setItem('psgitech_user', JSON.stringify(user));
+    .then(async res => {
+        if (res.ok) {
+            const user = await res.json().catch(() => null);
+            if (user && user.name) {
+                sessionStorage.setItem('psgitech_user', JSON.stringify(user));
+                updateNavForLoggedInUser(user);
+                return;
             }
-        } else if (!cachedUser) {
+        }
+        
+        if (res.status === 401) {
+            // Actual session is absent or expired on backend
+            sessionStorage.removeItem('psgitech_user');
+            localStorage.removeItem('psgitech_user');
+            updateNavForLoggedOutUser();
+            handleProtectedPageSessionExpiry();
+            return;
+        }
+
+        // Other non-OK status (e.g. 500)
+        if (!cachedUser) {
             updateNavForLoggedOutUser();
         }
     })
     .catch(() => {
+        // Network offline fallback
         if (cachedUser) {
             updateNavForLoggedInUser(cachedUser);
         } else {
@@ -184,29 +259,74 @@ function checkCurrentUserState() {
 }
 
 function updateNavForLoggedInUser(user) {
+    if (!user) return;
+
     const loggedOutSection = document.getElementById('navLoggedOut');
     const loggedInSection = document.getElementById('navLoggedIn');
     const navUsername = document.getElementById('navUsername');
+    const studentNavName = document.getElementById('studentNavName');
+    const studentWelcomeName = document.getElementById('studentWelcomeName');
     const navAvatar = document.getElementById('navAvatar');
+    const studentAvatar = document.getElementById('studentAvatar');
     const navDashboardLink = document.getElementById('navDashboardLink');
+    const navBrandLogo = document.getElementById('navBrandLogo');
+    const navDropdownRoleHeader = document.getElementById('navDropdownRoleHeader');
 
+    // Show logged-in elements, hide logged-out
     if (loggedOutSection) loggedOutSection.style.display = 'none';
     if (loggedInSection) loggedInSection.style.display = 'flex';
-    if (navUsername) navUsername.textContent = user.name;
-    if (navAvatar) navAvatar.textContent = (user.name || 'U').charAt(0).toUpperCase();
 
-    if (navDashboardLink) {
-        if (user.role === 'ADMIN') {
+    // Update names
+    const displayName = user.name || 'User';
+    if (navUsername) navUsername.textContent = displayName;
+    if (studentNavName) studentNavName.textContent = displayName;
+    if (studentWelcomeName) studentWelcomeName.textContent = displayName;
+
+    // Update avatars
+    const initial = displayName.charAt(0).toUpperCase() || 'U';
+    if (navAvatar) navAvatar.textContent = initial;
+    if (studentAvatar) studentAvatar.textContent = initial;
+
+    // Role-specific links and headers
+    const staffDeskLink = document.getElementById('navStaffDeskLink');
+    const staffManageLink = document.getElementById('navStaffManageLink');
+    const adminUsersLink = document.getElementById('navAdminUsersLink');
+    const concurrencyLink = document.getElementById('navConcurrencyLink');
+
+    if (user.role === 'ADMIN') {
+        if (navDropdownRoleHeader) navDropdownRoleHeader.textContent = 'Administrator';
+        if (navDashboardLink) {
             navDashboardLink.href = 'admin-users.html';
-            navDashboardLink.textContent = 'Admin Dashboard';
-        } else if (user.role === 'LIBRARIAN') {
+            navDashboardLink.textContent = 'Admin Console';
+        }
+        if (navBrandLogo) navBrandLogo.href = 'admin-users.html';
+        if (staffDeskLink) staffDeskLink.style.display = 'block';
+        if (staffManageLink) staffManageLink.style.display = 'block';
+        if (adminUsersLink) adminUsersLink.style.display = 'block';
+        if (concurrencyLink) concurrencyLink.style.display = 'block';
+    } else if (user.role === 'LIBRARIAN') {
+        if (navDropdownRoleHeader) navDropdownRoleHeader.textContent = 'Librarian Desk';
+        if (navDashboardLink) {
             navDashboardLink.href = 'librarian-dashboard.html';
             navDashboardLink.textContent = 'Librarian Dashboard';
-        } else {
+        }
+        if (navBrandLogo) navBrandLogo.href = 'librarian-dashboard.html';
+        if (staffDeskLink) staffDeskLink.style.display = 'block';
+        if (staffManageLink) staffManageLink.style.display = 'block';
+        if (adminUsersLink) adminUsersLink.style.display = 'none';
+        if (concurrencyLink) concurrencyLink.style.display = 'none';
+    } else {
+        if (navDropdownRoleHeader) navDropdownRoleHeader.textContent = 'Student Portal';
+        if (navDashboardLink) {
             navDashboardLink.href = 'student-home.html';
             navDashboardLink.textContent = 'Student Dashboard';
-            updateStudentInterchangeNotificationBadge();
         }
+        if (navBrandLogo) navBrandLogo.href = 'student-home.html';
+        if (staffDeskLink) staffDeskLink.style.display = 'none';
+        if (staffManageLink) staffManageLink.style.display = 'none';
+        if (adminUsersLink) adminUsersLink.style.display = 'none';
+        if (concurrencyLink) concurrencyLink.style.display = 'none';
+        updateStudentInterchangeNotificationBadge();
     }
 }
 
@@ -227,10 +347,41 @@ function updateStudentInterchangeNotificationBadge() {
         .catch(() => {});
 }
 
+window.openModal = function (modalId) {
+    const el = document.getElementById(modalId);
+    if (el) el.classList.add('show');
+};
+
+window.closeModal = function (modalId) {
+    const el = document.getElementById(modalId);
+    if (el) el.classList.remove('show');
+};
+
+window.getCurrentUser = function () {
+    try {
+        const u = sessionStorage.getItem('psgitech_user') || localStorage.getItem('psgitech_user');
+        return u ? JSON.parse(u) : null;
+    } catch (e) {
+        return null;
+    }
+};
+
+window.isStaffUser = function () {
+    const u = window.getCurrentUser();
+    return u && (u.role === 'LIBRARIAN' || u.role === 'ADMIN');
+};
+
+window.isStudentUser = function () {
+    const u = window.getCurrentUser();
+    return u && u.role === 'STUDENT';
+};
+
 function updateNavForLoggedOutUser() {
     const loggedOutSection = document.getElementById('navLoggedOut');
     const loggedInSection = document.getElementById('navLoggedIn');
+    const navBrandLogo = document.getElementById('navBrandLogo');
 
     if (loggedOutSection) loggedOutSection.style.display = 'flex';
     if (loggedInSection) loggedInSection.style.display = 'none';
+    if (navBrandLogo) navBrandLogo.href = 'index.html';
 }
