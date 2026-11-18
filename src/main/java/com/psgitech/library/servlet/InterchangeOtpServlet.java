@@ -8,8 +8,8 @@ import com.psgitech.library.model.BookInterchange;
 import com.psgitech.library.model.OtpPurpose;
 import com.psgitech.library.model.User;
 import com.psgitech.library.repository.BookInterchangeRepository;
-import com.psgitech.library.service.MailService;
-import com.psgitech.library.service.MailServiceFactory;
+import com.psgitech.library.repository.UserRepository;
+import com.psgitech.library.service.EmailService;
 import com.psgitech.library.service.OtpService;
 import com.psgitech.library.util.GsonProvider;
 
@@ -32,12 +32,14 @@ public class InterchangeOtpServlet extends HttpServlet {
 
     private OtpService otpService;
     private BookInterchangeRepository interchangeRepository;
+    private UserRepository userRepository;
     private Gson gson;
 
     @Override
     public void init() {
         this.otpService = new OtpService();
         this.interchangeRepository = new BookInterchangeRepository();
+        this.userRepository = new UserRepository();
         this.gson = GsonProvider.getGson();
     }
 
@@ -115,20 +117,28 @@ public class InterchangeOtpServlet extends HttpServlet {
                 return;
             }
 
-            String rawOtp = otpService.generateAndSaveOtp(OtpPurpose.INTERCHANGE_HANDOVER, interchangeId, currentUser.getEmail());
+            User sender = userRepository.findById(interchange.getFromStudentId());
+            if (sender == null || sender.getEmail() == null || sender.getEmail().trim().isEmpty()) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                result.put("success", false);
+                result.put("message", "Sender institutional email could not be resolved.");
+                resp.getWriter().write(gson.toJson(result));
+                return;
+            }
 
-            MailService mailService = MailServiceFactory.getMailService();
-            mailService.send(currentUser.getEmail(), "PSG iTech Library - Handover Verification Code",
-                    "Dear " + currentUser.getName() + ",\n\n" +
+            String rawOtp = otpService.generateAndSaveOtp(OtpPurpose.INTERCHANGE_HANDOVER, interchangeId, sender.getEmail());
+
+            EmailService emailService = EmailService.getInstance();
+            emailService.sendEmail(sender.getEmail(), "PSG iTech Library - Handover Verification Code",
+                    "Dear " + sender.getName() + ",\n\n" +
                     "Your physical book handover verification code for transfer #" + interchangeId + " is: " + rawOtp + "\n\n" +
-                    "Please share this 6-digit code with the recipient student when handing over the book.\n" +
+                    "Please provide this 6-digit code to the recipient student (" + (interchange.getToStudentName() != null ? interchange.getToStudentName() : "recipient") + ") only when you physically hand over the book copy.\n" +
                     "This code will expire in 10 minutes.\n\n" +
                     "Regards,\nPSG iTech Library Administration");
 
             resp.setStatus(HttpServletResponse.SC_OK);
             result.put("success", true);
-            result.put("otp", rawOtp);
-            result.put("message", "Handover code generated successfully. Share this 6-digit code with the recipient.");
+            result.put("message", "Handover verification code has been dispatched strictly to the sender's institutional email address.");
             resp.getWriter().write(gson.toJson(result));
 
         } catch (IllegalStateException e) {

@@ -48,8 +48,8 @@ public class MonetaryCompensation extends PenaltyResolution {
 
     @Override
     protected void applyResolutionStep(Connection conn, LossDamageCase caseRecord, ResolutionContext context) throws SQLException {
-        // Idempotent creation: check if compensation fine already exists for this transaction
-        String findFineSql = "SELECT fine_id FROM fines WHERE borrow_transaction_id = ? AND fine_type = 'COMPENSATION'";
+        // Idempotent creation: check if compensation/penalty fine already exists for this transaction
+        String findFineSql = "SELECT fine_id FROM fines WHERE borrow_transaction_id = ? AND (fine_type = 'LOST_DAMAGED' OR fine_type = 'COMPENSATION')";
         try (PreparedStatement ps = conn.prepareStatement(findFineSql)) {
             ps.setInt(1, caseRecord.getBorrowTransactionId());
             try (ResultSet rs = ps.executeQuery()) {

@@ -3,9 +3,9 @@
 
 **Institution**: PSG Institute of Technology and Applied Research (PSG iTech), Neelambur, Coimbatore  
 **System**: Library Resource and Queue Management System  
-**Core Technologies**: Java 17/25, Java Servlets 4.0.1, JDBC, MySQL 8.0, Apache Tomcat 10.1, HTML5/CSS3/Vanilla JS  
-**Current Build Status**: 190 Automated Tests Passing (0 Failures, 0 Errors, 0 Skipped)  
-**Deployment Target**: Apache Tomcat 10.1.61 running on port `8081`  
+**Core Technologies**: Java 17/25, Java Servlets 4.0.1, JDBC, MySQL 8.0, Apache Tomcat 9.0, HTML5/CSS3/Vanilla JS  
+**Current Build Status**: 296 Automated Tests Passing (0 Failures, 0 Errors, 0 Skipped)  
+**Deployment Target**: Apache Tomcat 9.0 running on port `8081`  
 
 ---
 
@@ -101,7 +101,7 @@ The application is structured as a full-stack, enterprise-grade Java monolithic 
 - **Admission Limiter (Fair Semaphore)**:
   - High-traffic mutating operations are metered by [`ConcurrencyFilter`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/filter/ConcurrencyFilter.java) using a fair `java.util.concurrent.Semaphore` initialized to 12 permits.
 - **Bounded Waiting Room**:
-  - Excess mutating requests wait in a bounded FIFO queue of 24 slots. If acquisition wait time exceeds 3,000 ms, the filter rejects the request with HTTP `429 Too Many Requests` and sends a `Retry-After: 3` header.
+  - Excess mutating requests wait in a bounded FIFO queue of 24 slots. If acquisition wait time exceeds 3,000 ms or global capacity is saturated, the filter rejects the request with HTTP `503 Service Unavailable` and sends a `Retry-After: 2` header (while per-user limit violations return HTTP `429 Too Many Requests`).
 - **Per-User In-Flight Throttling**:
   - Restricts any individual student/staff user or IP address to at most 3 simultaneous in-flight mutating requests, preventing scripted denial-of-service.
 - **Deadlock Mitigation & Retry Framework**:
@@ -428,7 +428,7 @@ Opening a physical TCP connection and performing MySQL TLS handshakes takes 20â€
 
 ### Q5: How does the system handle high-traffic exam-day rushes without running out of database connections?
 **Answer**:  
-Through Feature 7's [`ConcurrencyFilter`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/filter/ConcurrencyFilter.java). It establishes an admission control perimeter governed by a fair `Semaphore` with 12 execution permits. Because Tomcat's connection pool has 20 connections, capping simultaneous mutations to 12 guarantees that the database pool is never exhausted, leaving 8 connections reserved for read operations, health checks, and metrics. Excess mutating requests wait in a bounded FIFO queue of 24 slots; if the wait exceeds 3 seconds, the request is cleanly shed with HTTP `429 Too Many Requests`.
+Through Feature 7's [`ConcurrencyFilter`](file:///Users/srisaran/Oops/Library-Management/src/main/java/com/psgitech/library/filter/ConcurrencyFilter.java). It establishes an admission control perimeter governed by a fair `Semaphore` with 12 execution permits. Because Tomcat's connection pool has 20 connections, capping simultaneous mutations to 12 guarantees that the database pool is never exhausted, leaving 8 connections reserved for read operations, health checks, and metrics. Excess mutating requests wait in a bounded FIFO queue of 24 slots; if the wait exceeds 3 seconds or global capacity is saturated, the request is cleanly shed with HTTP `503 Service Unavailable` and a `Retry-After: 2` header, whereas individual user limit violations return HTTP `429 Too Many Requests`.
 
 ### Q6: In Feature 10, how does the smart search engine eliminate the $N+1$ query antipattern when retrieving real-time copy availability?
 **Answer**:  

@@ -267,7 +267,7 @@ public class FineRecord {
     }
 
     public boolean isCompensation() {
-        return "COMPENSATION".equalsIgnoreCase(this.fineType);
+        return "COMPENSATION".equalsIgnoreCase(this.fineType) || "LOST_DAMAGED".equalsIgnoreCase(this.fineType);
     }
 
     public Timestamp getCreatedAt() {

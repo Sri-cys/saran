@@ -497,7 +497,7 @@ window.generateHandoverCode = async function (interchangeId) {
         });
         const json = await resp.json();
         if (resp.ok && json.success) {
-            alert(`Physical Handover Verification Code: ${json.otp}\n\nShare this 6-digit code with the recipient student when physically handing over the textbook.`);
+            alert('A 6-digit physical handover code has been dispatched strictly to the sender\'s institutional email. Please check your inbox and provide this code when handing over the textbook.');
         } else {
             alert('Failed to generate handover code: ' + (json.message || 'Error occurred.'));
         }

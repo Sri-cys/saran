@@ -47,9 +47,8 @@ public class NotificationOutboxRepository {
 
         String claimSql = "UPDATE notification_outbox " +
                 "SET delivery_status = 'PROCESSING', claimed_at = NOW(), claim_token = ? " +
-                "WHERE delivery_status IN ('PENDING', 'FAILED') " +
+                "WHERE (delivery_status = 'PENDING' OR (delivery_status = 'FAILED' AND next_attempt_at <= CURRENT_TIMESTAMP)) " +
                 "AND attempt_count < 5 " +
-                "AND next_attempt_at <= NOW(6) " +
                 "AND (claim_token IS NULL OR claimed_at < DATE_SUB(NOW(), INTERVAL ? SECOND)) " +
                 "ORDER BY outbox_id ASC LIMIT ?";
 

@@ -38,7 +38,7 @@ Traditional college library systems suffer from:
 |---|---|---|---|
 | **Programming Language** | Core Java | 17 (Target) / 25 (Runtime) | Object-oriented business logic, services, repositories, and domain models |
 | **Web Container API** | Java Servlet API | 4.0.1 (`javax.servlet-api`) | HTTP request routing, session management, and filter chains |
-| **Servlet Container** | Apache Tomcat | 10.1.61 | Web server running on HTTP port `8081` (via `jakartaee-migration` tool) |
+| **Servlet Container** | Apache Tomcat | 9.0 (`javax.servlet`) | Web server running on HTTP port `8081` |
 | **Relational Database** | MySQL Community Server | 8.0.33+ | Persistent storage with ACID transactions, foreign keys, and generated columns |
 | **Database Driver** | MySQL Connector/J | 8.0.33 | JDBC connection management and prepared statements |
 | **In-Memory Database** | H2 Database | 2.2.224 | Isolated testing and configured development fallback |
@@ -490,7 +490,7 @@ Library-Management/
 - **JDK**: Java 17 or higher (tested on Eclipse Temurin JDK 25).
 - **Build Tool**: Apache Maven 3.9+.
 - **Database**: MySQL 8.0+ running on `localhost:3306`.
-- **Application Server**: Apache Tomcat 10.1+ (configured on port `8081`).
+- **Application Server**: Apache Tomcat 9.0+ (configured on port `8081`).
 
 ### Step 1: Database Setup
 1. Open the MySQL terminal:
@@ -523,8 +523,8 @@ mvn clean package
 ```
 *Verification: Confirms 286 tests pass and generates `target/psgitech-library.war`.*
 
-### Step 3: Deploy to Apache Tomcat 10.1 / 9
-Because Tomcat 10.1 uses Jakarta EE (`jakarta.servlet.*`), migrate and deploy the WAR using Tomcat's migration tool, or deploy directly to Tomcat 9:
+### Step 3: Deploy to Apache Tomcat 9.0
+Deploy the compiled WAR package directly to Apache Tomcat 9.0 (`javax.servlet`):
 ```bash
 # For Tomcat 9:
 cp target/psgitech-library.war <TOMCAT_HOME>/webapps/
