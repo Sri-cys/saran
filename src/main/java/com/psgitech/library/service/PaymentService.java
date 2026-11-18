@@ -769,7 +769,11 @@ public class PaymentService {
 
         FineRecord fine = fineRepository.findById(payment.getFineId());
         Map<String, Object> data = new HashMap<>();
-        data.put("fineType", fine.getFineType());
+        List<Integer> fIds = paymentRepository.findFineIdsByPaymentId(paymentId);
+        data.put("paymentType", fIds.size() > 1 ? "BULK" : "INDIVIDUAL");
+        data.put("settledFineIds", fIds);
+        data.put("finesCount", fIds.isEmpty() ? 1 : fIds.size());
+        data.put("fineType", fine != null ? fine.getFineType() : "OVERDUE");
         data.put("receiptNumber", payment.getReceiptNumber());
         data.put("paymentId", payment.getPaymentId());
         data.put("paymentCode", payment.getPaymentCode());

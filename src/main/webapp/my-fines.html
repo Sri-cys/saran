@@ -3,20 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Fines &amp; UPI Payments | PSG iTech Library</title>
+    <title>Fine Management &amp; Online Payments | PSG iTech Library</title>
     <link rel="stylesheet" href="css/library-theme.css">
     <style>
+        .student-profile-bar {
+            background: linear-gradient(135deg, #002147 0%, #003366 100%);
+            color: white;
+            border-radius: 6px;
+            padding: 16px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            box-shadow: 0 4px 12px rgba(0, 33, 71, 0.15);
+        }
+        .student-profile-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .student-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #B38F4E;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        .student-details h2 {
+            margin: 0 0 4px 0;
+            color: #FFFFFF !important;
+            font-size: 1.25rem;
+        }
+        .student-meta {
+            font-size: 0.9rem;
+            color: #D6E4F0;
+        }
         .fine-summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
             gap: 16px;
             margin-bottom: 24px;
         }
         .summary-card {
-            background-color: var(--background-warm);
-            border: 1px solid var(--border);
-            border-radius: 4px;
+            background-color: var(--background-warm, #FFFFFF);
+            border: 1px solid var(--border, #E0E0E0);
+            border-radius: 6px;
             padding: 16px 20px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.06);
         }
         .summary-card.alert {
             background-color: #FDEDEC;
@@ -27,25 +72,92 @@
             border-color: #A9DFBF;
         }
         .summary-label {
-            font-size: 0.88rem;
-            color: var(--text-secondary);
+            font-size: 0.82rem;
+            color: var(--text-secondary, #666);
             margin-bottom: 6px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            font-weight: 600;
         }
         .summary-val {
             font-size: 1.85rem;
             font-weight: bold;
-            color: var(--primary);
+            color: var(--primary, #002147);
         }
         .summary-sub {
             font-size: 0.85rem;
             margin-top: 4px;
         }
+
+        /* Bulk Pay Section */
+        .bulk-pay-card {
+            background: linear-gradient(135deg, #FFFDF8 0%, #FEF9E7 100%);
+            border: 2px solid #D4AC0D;
+            border-radius: 8px;
+            padding: 20px 24px;
+            margin-bottom: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            box-shadow: 0 4px 14px rgba(212, 172, 13, 0.15);
+        }
+        .bulk-pay-left {
+            max-width: 600px;
+        }
+        .bulk-pay-tag {
+            display: inline-block;
+            background: #B7950B;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: bold;
+            padding: 3px 10px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        .bulk-pay-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #7D6608;
+            margin: 0 0 4px 0;
+        }
+        .bulk-pay-desc {
+            font-size: 0.92rem;
+            color: #5D6D7E;
+            margin: 0;
+        }
+        .btn-pay-all {
+            background: linear-gradient(135deg, #002147 0%, #0A3D78 100%);
+            color: #FFFFFF !important;
+            font-size: 1.1rem;
+            font-weight: bold;
+            padding: 14px 28px;
+            border: 2px solid #B38F4E;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 33, 71, 0.25);
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-pay-all:hover:not(:disabled) {
+            background: linear-gradient(135deg, #0A3D78 0%, #002147 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 33, 71, 0.35);
+        }
+        .btn-pay-all:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
         .projected-card {
             background: #FEF9E7;
-            border: 1px dashed var(--warning);
-            border-radius: 4px;
+            border: 1px dashed var(--warning, #B7950B);
+            border-radius: 6px;
             padding: 16px 20px;
             margin-bottom: 24px;
         }
@@ -53,7 +165,7 @@
             text-align: center;
             padding: 12px;
             background: #fff;
-            border: 1px solid var(--border);
+            border: 1px solid var(--border, #E0E0E0);
             display: inline-block;
             margin: 12px auto;
         }
@@ -63,9 +175,85 @@
         .badge-waived { background-color: #EAECEE; color: #5D6D7E; border: 1px solid #D5D8DC; }
         .badge-initiated { background-color: #EBF5FB; color: #2874A6; border: 1px solid #AED6F1; }
         .badge-pending_verification { background-color: #FEF9E7; color: #B7950B; border: 1px solid #F9E79F; }
+        .badge-payment_processing { background-color: #EBF5FB; color: #2874A6; border: 1px solid #AED6F1; }
         .badge-success { background-color: #EAFAF1; color: #1E8449; border: 1px solid #A9DFBF; }
-        .badge-rejected { background-color: #FDEDEC; color: #C0392B; border: 1px solid #E6B0AA; }
+        .badge-rejected, .badge-failed, .badge-payment_failed { background-color: #FDEDEC; color: #C0392B; border: 1px solid #E6B0AA; }
         .badge-refunded { background-color: #EAECEE; color: #5D6D7E; border: 1px solid #D5D8DC; text-decoration: line-through; }
+
+        .btn-rzp-pay {
+            background: #002147;
+            color: #FFFFFF !important;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 4px;
+            border: 1px solid #002147;
+            font-size: 0.88rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-rzp-pay:hover:not(:disabled) {
+            background: #003366;
+            border-color: #B38F4E;
+            box-shadow: 0 2px 6px rgba(0,33,71,0.2);
+        }
+        .btn-rzp-pay:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-upi-manual {
+            background: transparent;
+            color: var(--primary, #002147);
+            border: 1px solid var(--border, #CCC);
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            margin-top: 4px;
+            cursor: pointer;
+            display: inline-block;
+        }
+        .btn-upi-manual:hover {
+            background: #F0F4F8;
+        }
+
+        /* Success Confirmation Modal */
+        .confirmation-box {
+            text-align: center;
+            padding: 20px 10px;
+        }
+        .success-icon-circle {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: #EAFAF1;
+            border: 3px solid #2ECC71;
+            color: #27AE60;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            margin: 0 auto 16px auto;
+        }
+        .confirmation-receipt-card {
+            background: #F8F9FA;
+            border: 1px solid #E0E0E0;
+            border-radius: 6px;
+            padding: 16px;
+            text-align: left;
+            margin: 20px 0;
+            font-size: 0.92rem;
+        }
+        .confirmation-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px dashed #E0E0E0;
+        }
+        .confirmation-row:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
@@ -129,26 +317,37 @@
     </header>
 
     <main class="main-content">
-        <div class="container" style="margin-top: 32px;">
+        <div class="container" style="margin-top: 24px;">
 
-            <!-- Header Section -->
-            <div style="border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px;">
-                <div>
-                    <h1 style="margin-bottom: 4px;">My Library Fines &amp; UPI Payments</h1>
-                    <p class="text-secondary">Official student account ledger &bull; Overdue fine calculations &bull; Direct UPI fee settlement</p>
+            <!-- Student Profile Bar -->
+            <div class="student-profile-bar">
+                <div class="student-profile-info">
+                    <div class="student-avatar" id="hdrStudentAvatar">S</div>
+                    <div class="student-details">
+                        <h2 id="hdrStudentName">Student Account</h2>
+                        <div class="student-meta">
+                            <span>Register No: <strong id="hdrStudentRegNo">--</strong></span>
+                            <span style="margin: 0 8px;">&bull;</span>
+                            <span id="hdrStudentDept">Student Member</span>
+                        </div>
+                    </div>
                 </div>
                 <div style="display: flex; gap: 12px; align-items: center;">
-                    <span id="borrowingEligibilityBadge" class="badge" style="font-size: 0.92rem; padding: 6px 14px; border: 1px solid var(--border);">
+                    <span id="borrowingEligibilityBadge" class="badge" style="font-size: 0.92rem; padding: 8px 16px; border: 1px solid var(--border);">
                         Checking Account Standing...
                     </span>
-                    <button class="btn btn-secondary btn-sm" onclick="loadMyFines()">Refresh Records</button>
+                    <button class="btn btn-secondary btn-sm" onclick="loadMyFines()" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">
+                        &#8635; Refresh Records
+                    </button>
                 </div>
             </div>
 
             <!-- Block Alert Banner (Hidden by default) -->
-            <div id="blockedAlertBanner" style="display: none; background-color: #FDEDEC; border: 1px solid #E6B0AA; color: #78281F; padding: 14px 18px; border-radius: 4px; margin-bottom: 20px;">
-                <h4 style="color: #922B21 !important; margin-bottom: 4px;">Borrowing Privileges Blocked</h4>
-                <p style="font-size: 0.92rem;">Your account currently has an outstanding fine balance exceeding &inr;0.00. Per library regulations, new book borrowing and reserved book collections are paused until outstanding dues are settled.</p>
+            <div id="blockedAlertBanner" style="display: none; background-color: #FDEDEC; border: 1px solid #E6B0AA; color: #78281F; padding: 16px 20px; border-radius: 6px; margin-bottom: 24px;">
+                <h4 style="color: #922B21 !important; margin: 0 0 6px 0; font-size: 1.1rem;">&#9888; Library Borrowing Privileges Paused</h4>
+                <p style="font-size: 0.92rem; margin: 0;">
+                    Your account has an outstanding fine balance exceeding &inr;0.00. Per institutional regulations, issuing new books and picking up reserved allocations are paused until all outstanding dues are settled.
+                </p>
             </div>
 
             <!-- Summary Cards Grid -->
@@ -159,14 +358,42 @@
                     <div class="summary-sub text-secondary" id="sumUnpaidCount">0 open fines</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-label">Total Paid via UPI</div>
+                    <div class="summary-label">Total Amount Paid</div>
                     <div class="summary-val" id="sumPaid" style="color: var(--success);">&inr; 0.00</div>
                     <div class="summary-sub text-secondary">Verified receipts issued</div>
                 </div>
                 <div class="summary-card">
                     <div class="summary-label">Administrative Waivers</div>
                     <div class="summary-val" id="sumWaived" style="color: var(--text-secondary);">&inr; 0.00</div>
-                    <div class="summary-sub text-secondary">Granted by Administration</div>
+                    <div class="summary-sub text-secondary">Approved by Administration</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Payment Gateway</div>
+                    <div class="summary-val" style="font-size: 1.35rem; color: #002147; display: flex; align-items: center; gap: 8px;">
+                        <span>Razorpay</span>
+                        <span class="badge badge-success" style="font-size: 0.75rem;">LIVE SECURE</span>
+                    </div>
+                    <div class="summary-sub text-secondary">UPI, Cards &amp; NetBanking</div>
+                </div>
+            </div>
+
+            <!-- Bulk "PAY ALL" Section -->
+            <div id="bulkPaySection" class="bulk-pay-card" style="display: none;">
+                <div class="bulk-pay-left">
+                    <span class="bulk-pay-tag">Multiple Dues Detected</span>
+                    <h3 class="bulk-pay-title" id="bulkPayTitle">Pay All Outstanding Fines</h3>
+                    <p class="bulk-pay-desc" id="bulkPaySubtitle">
+                        Settle all your open library fines in one seamless transaction with instant receipt generation.
+                    </p>
+                </div>
+                <div>
+                    <button type="button" class="btn-pay-all" id="btnPayAllFines" onclick="payAllRazorpay()">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                            <line x1="2" y1="10" x2="22" y2="10"></line>
+                        </svg>
+                        <span id="btnPayAllText">PAY ALL &ndash; &inr; 0.00</span>
+                    </button>
                 </div>
             </div>
 
@@ -177,7 +404,7 @@
                     <span class="badge" style="background: #FEF9E7; color: #B7950B; border: 1px solid #F9E79F;">Estimates Only</span>
                 </div>
                 <p style="font-size: 0.9rem; margin-bottom: 12px; color: var(--text-secondary);">
-                    Charges accrue daily at <strong>&inr; 2.00 / day</strong> for books kept past the due date. These are estimated projections; the official fine is calculated atomically on the date the physical copy is checked in at the library desk.
+                    Charges accrue daily at <strong>&inr; 2.00 / day</strong> for books kept past the due date. The official fine is calculated atomically upon physical return check-in at the circulation desk.
                 </p>
                 <div class="table-responsive">
                     <table class="library-table" style="background: white;">
@@ -198,10 +425,13 @@
 
             <!-- Section: Incurred Fines Table -->
             <section style="margin-bottom: 36px;">
-                <div class="section-header" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                <div class="section-header" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                     <div>
-                        <h2 style="font-size: 1.35rem; color: var(--primary);">Official Incurred Fines</h2>
-                        <span class="text-secondary" style="font-size: 0.9rem;">Atomic calculations recorded upon book return</span>
+                        <h2 style="font-size: 1.35rem; color: var(--primary); margin: 0 0 4px 0;">Official Incurred Fines</h2>
+                        <span class="text-secondary" style="font-size: 0.9rem;">Atomic ledger records with individual and bulk payment actions</span>
+                    </div>
+                    <div id="noOutstandingFinesNotice" style="display: none;">
+                        <span class="badge badge-paid" style="font-size: 0.9rem; padding: 6px 12px;">&#10003; No Outstanding Fines</span>
                     </div>
                 </div>
 
@@ -210,21 +440,20 @@
                         <thead>
                             <tr>
                                 <th>Fine ID</th>
-                                <th>Book Title</th>
+                                <th>Book Title &amp; Reason</th>
                                 <th>Copy Code</th>
-                                <th>Return Date</th>
-                                <th>Overdue Days</th>
+                                <th>Fine Date</th>
+                                <th>Due Date</th>
                                 <th>Original Fine</th>
                                 <th>Paid</th>
-                                <th>Waived</th>
                                 <th>Outstanding</th>
-                                <th>Status</th>
-                                <th style="text-align: right;">Action</th>
+                                <th>Payment Status</th>
+                                <th style="text-align: right; min-width: 160px;">Payment Action</th>
                             </tr>
                         </thead>
                         <tbody id="finesTableBody">
                             <tr>
-                                <td colspan="11" style="text-align: center; padding: 32px;" class="text-secondary">
+                                <td colspan="10" style="text-align: center; padding: 32px;" class="text-secondary">
                                     Loading your fine records...
                                 </td>
                             </tr>
@@ -236,26 +465,27 @@
             <!-- Section: Payment History Table -->
             <section style="margin-bottom: 48px;">
                 <div class="section-header" style="margin-bottom: 16px;">
-                    <h2 style="font-size: 1.35rem; color: var(--primary);">UPI Payment History &amp; Receipts</h2>
-                    <span class="text-secondary" style="font-size: 0.9rem;">All UPI transactions submitted for staff verification</span>
+                    <h2 style="font-size: 1.35rem; color: var(--primary); margin: 0 0 4px 0;">Payment History &amp; Official Receipts</h2>
+                    <span class="text-secondary" style="font-size: 0.9rem;">Online Razorpay captures and manual UPI submissions</span>
                 </div>
 
                 <div class="table-responsive">
                     <table class="library-table">
                         <thead>
                             <tr>
-                                <th>Payment Code</th>
-                                <th>Date Initiated</th>
-                                <th>Amount</th>
+                                <th>Receipt / Payment ID</th>
+                                <th>Date &amp; Time</th>
+                                <th>Amount Paid</th>
+                                <th>Type</th>
+                                <th>Settled Fines</th>
                                 <th>Method</th>
-                                <th>UPI Reference (UTR)</th>
                                 <th>Status</th>
-                                <th style="text-align: right;">Receipt / Actions</th>
+                                <th style="text-align: right;">Official Receipt</th>
                             </tr>
                         </thead>
                         <tbody id="paymentsTableBody">
                             <tr>
-                                <td colspan="7" style="text-align: center; padding: 24px;" class="text-secondary">
+                                <td colspan="8" style="text-align: center; padding: 24px;" class="text-secondary">
                                     Loading payment records...
                                 </td>
                             </tr>
@@ -267,11 +497,65 @@
         </div>
     </main>
 
-    <!-- Modal: Initiate / Pay Fine via UPI -->
+    <!-- Modal: Razorpay Payment Success Confirmation -->
+    <div class="modal-overlay" id="razorpaySuccessModal">
+        <div class="modal-container" style="max-width: 520px;">
+            <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+                <button type="button" class="modal-close" onclick="closeConfirmationModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="confirmation-box">
+                    <div class="success-icon-circle">&#10003;</div>
+                    <h3 style="color: #1E8449; margin: 0 0 6px 0; font-size: 1.4rem;">Payment Successful!</h3>
+                    <p class="text-secondary" style="margin: 0; font-size: 0.95rem;">
+                        Your library fine has been verified and settled securely via Razorpay.
+                    </p>
+
+                    <div class="confirmation-receipt-card">
+                        <div class="confirmation-row">
+                            <span class="text-secondary">Receipt Number:</span>
+                            <strong id="confReceiptNumber">RCPT-2026-XXXXX</strong>
+                        </div>
+                        <div class="confirmation-row">
+                            <span class="text-secondary">Razorpay Payment ID:</span>
+                            <code id="confPaymentId">pay_XXXXXXXXXXXXXX</code>
+                        </div>
+                        <div class="confirmation-row">
+                            <span class="text-secondary">Amount Paid:</span>
+                            <strong style="color: #1E8449; font-size: 1.1rem;" id="confAmountPaid">&inr; 0.00</strong>
+                        </div>
+                        <div class="confirmation-row">
+                            <span class="text-secondary">Payment Type:</span>
+                            <span id="confPaymentType">Individual Fine</span>
+                        </div>
+                        <div class="confirmation-row">
+                            <span class="text-secondary">Settled Fines:</span>
+                            <span id="confSettledFines" style="font-weight: 600;">Fine #--</span>
+                        </div>
+                        <div class="confirmation-row">
+                            <span class="text-secondary">Account Status:</span>
+                            <span class="badge badge-paid">PAID &amp; VERIFIED</span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <a id="confReceiptLink" href="#" target="_blank" class="btn btn-secondary">
+                            &#128438; View Official Receipt
+                        </a>
+                        <button type="button" class="btn btn-primary" onclick="closeConfirmationModal()">
+                            Done
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Initiate / Pay Fine via UPI (Legacy Manual UTR Entry) -->
     <div class="modal-overlay" id="upiPaymentModal">
         <div class="modal-container" style="max-width: 500px;">
             <div class="modal-header">
-                <h3 class="modal-title">Pay Library Fine via UPI</h3>
+                <h3 class="modal-title">Pay Library Fine via UPI (Manual)</h3>
                 <button type="button" class="modal-close" onclick="closeModal('upiPaymentModal')">&times;</button>
             </div>
             <div class="modal-body">
@@ -298,7 +582,7 @@
                     </div>
 
                     <button type="button" class="btn btn-primary" id="btnInitiatePayment" style="width: 100%;" onclick="initiatePayment()">
-                        Proceed to UPI Payment &rarr;
+                        Proceed to UPI QR &rarr;
                     </button>
                 </div>
 
@@ -315,7 +599,6 @@
                     <div style="background: #FAFAFA; border: 1px solid var(--border); padding: 12px; border-radius: 4px; text-align: center; margin-bottom: 14px;">
                         <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Scan QR with any UPI App (GPay, PhonePe, Paytm, BHIM):</div>
                         <div class="qr-box" id="qrContainer">
-                            <!-- Dynamic QR Code Image -->
                             <img id="upiQrImg" src="" alt="UPI QR Code" style="width: 160px; height: 160px; display: block;">
                         </div>
                         <div style="font-size: 0.9rem; font-weight: bold; margin-top: 6px;">
@@ -371,6 +654,9 @@
         </div>
     </div>
 
+    <!-- Razorpay Standard Checkout SDK -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
     <script src="js/main.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/fines.js"></script>
@@ -382,4 +668,3 @@
     </script>
 </body>
 </html>
-

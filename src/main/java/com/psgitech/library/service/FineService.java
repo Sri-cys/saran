@@ -144,6 +144,13 @@ public class FineService {
         summary.put("unpaidCount", unpaidCount);
         summary.put("borrowingBlocked", borrowingBlocked);
         summary.put("blockThreshold", FineConfig.getBorrowBlockThreshold().toPlainString());
+
+        com.psgitech.library.repository.UserRepository userRepo = new com.psgitech.library.repository.UserRepository();
+        com.psgitech.library.model.User studentUser = userRepo.findById(studentId);
+        if (studentUser != null) {
+            summary.put("studentName", studentUser.getName());
+            summary.put("studentId", studentUser.getIdentifier());
+        }
         return summary;
     }
 

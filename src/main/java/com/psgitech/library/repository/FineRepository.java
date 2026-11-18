@@ -183,6 +183,32 @@ public class FineRepository {
     }
 
     /**
+     * Retrieves only unpaid and partially paid fines with positive balance for student.
+     */
+    public List<FineRecord> findOutstandingFinesByStudent(Connection conn, int studentId) throws SQLException {
+        List<FineRecord> list = new ArrayList<>();
+        String sql = BASE_JOINED_SELECT + " WHERE f.student_id = ? AND f.status IN ('UNPAID', 'PARTIALLY_PAID') AND f.outstanding_amount > 0 ORDER BY f.fine_id ASC";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, studentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        }
+        return list;
+    }
+
+    public List<FineRecord> findOutstandingFinesByStudent(int studentId) {
+        try (Connection conn = DBConnection.getConnection()) {
+            return findOutstandingFinesByStudent(conn, studentId);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error finding outstanding fines for student #" + studentId, e);
+            throw new RuntimeException("Database error retrieving student outstanding fines: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Updates fine amounts and status inside a transaction with conditional status guard.
      */
     public int updateFineAmountsAndStatus(Connection conn, int fineId, BigDecimal paid,

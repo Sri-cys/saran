@@ -5,7 +5,8 @@ package com.psgitech.library.enums;
  * Currently supports UPI_MANUAL per decision D5.
  */
 public enum PaymentMethodType {
-    UPI_MANUAL;
+    UPI_MANUAL,
+    RAZORPAY;
 
     public static PaymentMethodType fromString(String value) {
         if (value == null) return UPI_MANUAL;

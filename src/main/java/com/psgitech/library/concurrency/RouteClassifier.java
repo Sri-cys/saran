@@ -41,6 +41,8 @@ public class RouteClassifier {
         // Fines & Payments
         routes.put("/payments", ConcurrencyOperation.PAYMENT_MUTATION);
         routes.put("/payments/verify", ConcurrencyOperation.PAYMENT_VERIFICATION);
+        routes.put("/payments/razorpay", ConcurrencyOperation.PAYMENT_MUTATION);
+        routes.put("/payments/razorpay/*", ConcurrencyOperation.PAYMENT_MUTATION);
         routes.put("/fines", ConcurrencyOperation.FINE_WAIVER);
 
         // Books & Copies

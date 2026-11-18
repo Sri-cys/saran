@@ -9,7 +9,8 @@ public enum PaymentStatus {
     SUCCESS,
     REJECTED,
     CANCELLED,
-    REFUNDED;
+    REFUNDED,
+    FAILED;
 
     public static PaymentStatus fromString(String value) {
         if (value == null) return INITIATED;

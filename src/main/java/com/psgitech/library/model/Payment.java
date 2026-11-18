@@ -38,6 +38,9 @@ public class Payment {
     private String studentName;
     private String registerNumber;
     private String bookTitle;
+    private String paymentType = "INDIVIDUAL";
+    private int finesSettledCount = 1;
+    private java.util.List<Integer> settledFineIds = new java.util.ArrayList<>();
 
     public Payment() {
         this.method = PaymentMethodType.UPI_MANUAL;
@@ -113,6 +116,38 @@ public class Payment {
             throw new InvalidPaymentException("Only INITIATED payments can be cancelled. Current: " + this.status);
         }
         this.status = PaymentStatus.CANCELLED;
+    }
+
+    /**
+     * Domain Transition: Automatic settlement upon authentic Razorpay signature verification.
+     */
+    public void markRazorpaySuccess(String razorpayPaymentId, String receiptNumber) {
+        if (this.status != PaymentStatus.INITIATED && this.status != PaymentStatus.PENDING_VERIFICATION) {
+            throw new InvalidPaymentException("Payment cannot transition to SUCCESS from status: " + this.status);
+        }
+        if (razorpayPaymentId == null || razorpayPaymentId.trim().isEmpty()) {
+            throw new InvalidPaymentException("Razorpay payment reference ID is required.");
+        }
+        if (receiptNumber == null || receiptNumber.trim().isEmpty()) {
+            throw new InvalidPaymentException("Receipt number is required.");
+        }
+        this.referenceId = razorpayPaymentId.trim();
+        this.receiptNumber = receiptNumber.trim();
+        this.submittedAt = new Timestamp(System.currentTimeMillis());
+        this.verifiedAt = new Timestamp(System.currentTimeMillis());
+        this.status = PaymentStatus.SUCCESS;
+    }
+
+    /**
+     * Domain Transition: Mark payment attempt as failed (e.g. gateway error, signature mismatch).
+     */
+    public void markFailed(String reason) {
+        if (this.status == PaymentStatus.SUCCESS) {
+            throw new InvalidPaymentException("A successful payment cannot be marked failed.");
+        }
+        this.status = PaymentStatus.FAILED;
+        this.rejectionReason = reason;
+        this.updatedAt = new Timestamp(System.currentTimeMillis());
     }
 
     /**
@@ -336,6 +371,30 @@ public class Payment {
 
     public void setBookTitle(String bookTitle) {
         this.bookTitle = bookTitle;
+    }
+
+    public String getPaymentType() {
+        return paymentType;
+    }
+
+    public void setPaymentType(String paymentType) {
+        this.paymentType = paymentType;
+    }
+
+    public int getFinesSettledCount() {
+        return finesSettledCount;
+    }
+
+    public void setFinesSettledCount(int finesSettledCount) {
+        this.finesSettledCount = finesSettledCount;
+    }
+
+    public java.util.List<Integer> getSettledFineIds() {
+        return settledFineIds;
+    }
+
+    public void setSettledFineIds(java.util.List<Integer> settledFineIds) {
+        this.settledFineIds = settledFineIds != null ? settledFineIds : new java.util.ArrayList<>();
     }
 }
 

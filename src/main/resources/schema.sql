@@ -185,6 +185,16 @@ CREATE TABLE IF NOT EXISTS payments (
     FOREIGN KEY (refunded_by) REFERENCES users (user_id) ON DELETE RESTRICT
 );
 
+CREATE TABLE IF NOT EXISTS payment_fines (
+    payment_id INT NOT NULL,
+    fine_id INT NOT NULL,
+    amount_applied DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (payment_id, fine_id),
+    FOREIGN KEY (payment_id) REFERENCES payments (payment_id) ON DELETE CASCADE,
+    FOREIGN KEY (fine_id) REFERENCES fines (fine_id) ON DELETE RESTRICT
+);
+
 CREATE TABLE IF NOT EXISTS fine_adjustments (
     adjustment_id INT AUTO_INCREMENT PRIMARY KEY,
     fine_id INT NOT NULL,

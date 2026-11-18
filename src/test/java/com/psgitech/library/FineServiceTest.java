@@ -83,6 +83,7 @@ public class FineServiceTest {
         try (Connection conn = DBConnection.getConnection();
              Statement stmt = conn.createStatement()) {
             stmt.executeUpdate("DELETE FROM book_interchanges");
+            stmt.executeUpdate("DELETE FROM payment_fines");
             stmt.executeUpdate("DELETE FROM payment_audit_log");
             stmt.executeUpdate("DELETE FROM fine_adjustments");
             stmt.executeUpdate("DELETE FROM payments");

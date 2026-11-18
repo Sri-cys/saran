@@ -76,6 +76,19 @@ public class PaymentRepository {
         return null;
     }
 
+    public Payment lockPaymentByCode(Connection conn, String code) throws SQLException {
+        String sql = BASE_JOINED_SELECT + " WHERE p.payment_code = ? FOR UPDATE";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, code);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+            }
+        }
+        return null;
+    }
+
     public Payment findById(Connection conn, int paymentId) throws SQLException {
         String sql = BASE_JOINED_SELECT + " WHERE p.payment_id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -172,7 +185,20 @@ public class PaymentRepository {
             ps.setInt(1, studentId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapRow(rs));
+                    Payment p = mapRow(rs);
+                    List<Integer> fIds = findFineIdsByPaymentId(conn, p.getPaymentId());
+                    if (!fIds.isEmpty()) {
+                        p.setSettledFineIds(fIds);
+                        p.setFinesSettledCount(fIds.size());
+                        p.setPaymentType(fIds.size() > 1 ? "BULK" : "INDIVIDUAL");
+                    } else {
+                        List<Integer> single = new ArrayList<>();
+                        if (p.getFineId() > 0) single.add(p.getFineId());
+                        p.setSettledFineIds(single);
+                        p.setFinesSettledCount(1);
+                        p.setPaymentType("INDIVIDUAL");
+                    }
+                    list.add(p);
                 }
             }
         } catch (SQLException e) {
@@ -180,6 +206,60 @@ public class PaymentRepository {
             throw new RuntimeException("Database error retrieving student payments: " + e.getMessage(), e);
         }
         return list;
+    }
+
+    public void linkPaymentFines(Connection conn, int paymentId, List<com.psgitech.library.model.FineRecord> fines) throws SQLException {
+        String sql = "INSERT INTO payment_fines (payment_id, fine_id, amount_applied) VALUES (?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (com.psgitech.library.model.FineRecord fine : fines) {
+                ps.setInt(1, paymentId);
+                ps.setInt(2, fine.getFineId());
+                ps.setBigDecimal(3, fine.getOutstandingAmount());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    public List<Integer> findFineIdsByPaymentId(Connection conn, int paymentId) {
+        List<Integer> list = new ArrayList<>();
+        String sql = "SELECT fine_id FROM payment_fines WHERE payment_id = ? ORDER BY fine_id ASC";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, paymentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(rs.getInt(1));
+                }
+            }
+        } catch (SQLException ignored) {}
+        return list;
+    }
+
+    public List<Integer> findFineIdsByPaymentId(int paymentId) {
+        try (Connection conn = DBConnection.getConnection()) {
+            return findFineIdsByPaymentId(conn, paymentId);
+        } catch (SQLException e) {
+            return new ArrayList<>();
+        }
+    }
+
+    public boolean isFineInActivePayment(int fineId) {
+        String sql = "SELECT COUNT(*) FROM payments p " +
+                     "LEFT JOIN payment_fines pf ON p.payment_id = pf.payment_id " +
+                     "WHERE (p.fine_id = ? OR pf.fine_id = ?) AND p.status IN ('INITIATED', 'PENDING_VERIFICATION')";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, fineId);
+            ps.setInt(2, fineId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "Error checking active payment for fine #" + fineId, e);
+        }
+        return false;
     }
 
     public List<Payment> findPendingVerifications() {
