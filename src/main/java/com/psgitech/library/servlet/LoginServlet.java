@@ -64,8 +64,24 @@ public class LoginServlet extends HttpServlet {
 
         Map<String, Object> result = new HashMap<>();
 
+        if (com.psgitech.library.util.LoginThrottler.isLocked(loginKey, req.getRemoteAddr())) {
+            result.put("success", false);
+            result.put("message", "Account or IP temporarily locked due to repeated failed login attempts. Please try again after 15 minutes.");
+            if (isAjax) {
+                resp.setStatus(429);
+                resp.setContentType("application/json");
+                resp.setCharacterEncoding("UTF-8");
+                resp.getWriter().write(gson.toJson(result));
+            } else {
+                req.setAttribute("errorMessage", "Account temporarily locked due to repeated failed attempts. Please try again later.");
+                req.getRequestDispatcher("/login.html").forward(req, resp);
+            }
+            return;
+        }
+
         try {
             User user = authService.login(loginKey, password);
+            com.psgitech.library.util.LoginThrottler.recordSuccess(loginKey, req.getRemoteAddr());
 
             // Establish secure session with session fixation protection (Decision D1)
             HttpSession session = req.getSession(true);
@@ -109,6 +125,7 @@ public class LoginServlet extends HttpServlet {
             }
 
         } catch (InvalidCredentialsException e) {
+            com.psgitech.library.util.LoginThrottler.recordFailure(loginKey, req.getRemoteAddr());
             result.put("success", false);
             result.put("message", e.getMessage());
 

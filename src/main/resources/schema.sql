@@ -487,6 +487,92 @@ CREATE TABLE IF NOT EXISTS students (
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
+-- ============================================================================
+-- Feature: Librarian Portal Tables
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS book_locations (
+    location_id INT AUTO_INCREMENT PRIMARY KEY,
+    book_id INT NOT NULL,
+    copy_id INT NULL,
+    floor VARCHAR(20) NOT NULL,
+    block VARCHAR(50) NOT NULL,
+    section VARCHAR(50) NOT NULL,
+    rack VARCHAR(50) NOT NULL,
+    shelf VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE,
+    FOREIGN KEY (copy_id) REFERENCES book_copies(copy_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS acquisition_requests (
+    request_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    author VARCHAR(255) NOT NULL,
+    isbn VARCHAR(20) NULL,
+    publisher VARCHAR(255) NULL,
+    edition VARCHAR(50) NULL,
+    department VARCHAR(50) NULL,
+    requester_id INT NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'REQUESTED',
+    demand_count INT NOT NULL DEFAULT 1,
+    remarks TEXT NULL,
+    estimated_price DECIMAL(10,2) NULL,
+    approved_by INT NULL,
+    approved_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (requester_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (approved_by) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS library_queries (
+    query_id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'OPEN',
+    response_text TEXT NULL,
+    resolved_by INT NULL,
+    resolved_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (resolved_by) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS book_purchases (
+    purchase_id INT AUTO_INCREMENT PRIMARY KEY,
+    supplier_name VARCHAR(255) NOT NULL,
+    invoice_no VARCHAR(100) NOT NULL,
+    purchase_date DATE NOT NULL,
+    unit_price DECIMAL(10,2) NOT NULL,
+    quantity INT NOT NULL,
+    total_amount DECIMAL(10,2) NOT NULL,
+    request_id INT NULL,
+    created_by INT NOT NULL,
+    remarks TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (request_id) REFERENCES acquisition_requests(request_id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(user_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS library_activity_logs (
+    log_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    event_type VARCHAR(50) NOT NULL,
+    actor_id INT NOT NULL,
+    actor_role VARCHAR(20) NOT NULL,
+    target_entity VARCHAR(50) NOT NULL,
+    target_id VARCHAR(50) NOT NULL,
+    action_details TEXT NULL,
+    ip_address VARCHAR(45) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
 
 
 

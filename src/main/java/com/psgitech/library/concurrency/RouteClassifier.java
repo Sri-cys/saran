@@ -84,6 +84,22 @@ public class RouteClassifier {
         routes.put("/cases/cancel", ConcurrencyOperation.PENALTY_CASE);
         routes.put("/cases/override", ConcurrencyOperation.PENALTY_CASE);
 
+        // Librarian Portal
+        routes.put("/api/librarian/inventory/*", ConcurrencyOperation.BOOK_CATALOG_MUTATION);
+        routes.put("/api/librarian/inventory/book", ConcurrencyOperation.BOOK_CATALOG_MUTATION);
+        routes.put("/api/librarian/inventory/copies", ConcurrencyOperation.BOOK_COPY_MUTATION);
+        routes.put("/api/librarian/inventory/retire", ConcurrencyOperation.BOOK_CATALOG_MUTATION);
+        routes.put("/api/librarian/inventory/shelf-location", ConcurrencyOperation.BOOK_CATALOG_MUTATION);
+        routes.put("/api/librarian/circulation/*", ConcurrencyOperation.BOOK_ISSUE);
+        routes.put("/api/librarian/circulation/issue", ConcurrencyOperation.BOOK_ISSUE);
+        routes.put("/api/librarian/circulation/return", ConcurrencyOperation.BOOK_RETURN);
+        routes.put("/api/librarian/circulation/renew", ConcurrencyOperation.BOOK_RENEWAL);
+        routes.put("/api/librarian/circulation/confirm-pickup", ConcurrencyOperation.BOOK_ISSUE);
+        routes.put("/api/librarian/circulation/overdue-reminder", ConcurrencyOperation.NOTIFICATION);
+        routes.put("/api/librarian/students/*", ConcurrencyOperation.USER_ADMIN_MUTATION);
+        routes.put("/api/librarian/students/toggle-status", ConcurrencyOperation.USER_ADMIN_MUTATION);
+        routes.put("/api/librarian/fines/*", ConcurrencyOperation.FINE_WAIVER);
+
         POST_ROUTES = Collections.unmodifiableMap(routes);
     }
 
@@ -130,7 +146,22 @@ public class RouteClassifier {
             return null;
         }
 
-        return POST_ROUTES.get(path);
+        ConcurrencyOperation op = POST_ROUTES.get(path);
+        if (op != null) {
+            return op;
+        }
+
+        for (Map.Entry<String, ConcurrencyOperation> entry : POST_ROUTES.entrySet()) {
+            String route = entry.getKey();
+            if (route.endsWith("/*")) {
+                String prefix = route.substring(0, route.length() - 2);
+                if (path.startsWith(prefix)) {
+                    return entry.getValue();
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

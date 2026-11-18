@@ -3,193 +3,773 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Librarian Dashboard | PSG iTech Library</title>
+    <title>Librarian Portal | PSG iTech Central Library</title>
     <link rel="stylesheet" href="css/library-theme.css">
+    <link rel="stylesheet" href="css/librarian-portal.css">
+    <!-- Chart.js via CDN for department analytics and report graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
-    <!-- Global Navigation -->
-    <header class="navbar">
-        <div class="nav-container">
-            <a href="librarian-dashboard.html" class="nav-left">
-                <img src="images/psgitech-logo.png" alt="PSG iTech Logo" class="logo-icon">
-                <span class="brand-text">PSG iTECH LIBRARY &bull; LIBRARIAN</span>
+    <!-- ======================================================================
+         1. TOP HORIZONTAL NAVIGATION (Single Row, No Sidebar)
+         ====================================================================== -->
+    <header class="lib-navbar">
+        <div class="lib-nav-container">
+            <!-- Left: Brand Crest & Role Badge -->
+            <a href="#home" class="nav-cluster-left">
+                <img src="images/psgitech-logo.png" alt="PSG iTech Crest" class="nav-crest">
+                <span class="brand-text">PSG iTECH LIBRARY</span>
+                <span class="librarian-badge">LIBRARIAN</span>
             </a>
 
-            <!-- Navigation Links -->
-            <div class="nav-middle">
-                <ul class="nav-menu">
-                    <li><a href="librarian-dashboard.html" class="active">Dashboard</a></li>
-                    <li><a href="manage-books.html">Manage Books</a></li>
-                    <li><a href="borrowing-management.html">Borrowing Management</a></li>
-                    <li><a href="loan-policy.html">Loan Policy</a></li>
-                    <li><a href="student-directory.html">Student Directory</a></li>
-                    <li><a href="admin-users.html">Student Records</a></li>
-                    <li><a href="profile.html">My Profile</a></li>
-                </ul>
-            </div>
+            <!-- Mobile Hamburger Toggle -->
+            <button id="hamburgerBtn" class="btn-quick" style="display: none; padding: 6px 10px;" aria-label="Toggle navigation menu">
+                ☰
+            </button>
 
-            <div class="nav-right">
-                <span class="badge badge-available" style="font-weight: bold;">LIBRARIAN DESK</span>
-                <div class="profile-dropdown">
-                    <button class="profile-trigger" id="profileTrigger">
-                        <span class="avatar-icon">L</span>
-                        <span id="libNavName">Dr. K. Ramanathan</span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <!-- Center: Core Navigation Links & Dropdowns -->
+            <nav class="nav-cluster-center" aria-label="Librarian portal navigation">
+                <a href="#home" class="nav-pill active">Home</a>
+                <a href="#inventory" class="nav-pill">Inventory</a>
+                <a href="#circulation" class="nav-pill">Circulation</a>
+                <a href="#students" class="nav-pill">Students</a>
+                <a href="#queues" class="nav-pill">Queues &amp; Transfers</a>
+                <a href="#fines" class="nav-pill">Fines</a>
+
+                <!-- Operations Dropdown -->
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-trigger" aria-haspopup="true" aria-expanded="false">
+                        Operations ▾
+                    </button>
+                    <div class="dropdown-popover">
+                        <a href="#inventory" class="dropdown-item" onclick="window.librarianInventory.openShelfModal(1, 'Smart Shelf Locator')">Smart Shelf Locator</a>
+                        <a href="#operations/acquisitions" class="dropdown-item">Acquisition Requests</a>
+                        <a href="#operations/import-csv" class="dropdown-item">Bulk CSV Import</a>
+                        <a href="#operations/barcode" class="dropdown-item">QR / Barcode Scanner</a>
+                        <a href="#operations/due-calendar" class="dropdown-item">Due-Date Calendar</a>
+                        <a href="#operations/queries" class="dropdown-item">Student Queries</a>
+                        <a href="#operations/purchases" class="dropdown-item">Purchase Records</a>
+                    </div>
+                </div>
+
+                <!-- Reports & Logs Dropdown -->
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-trigger" aria-haspopup="true" aria-expanded="false">
+                        Reports &amp; Logs ▾
+                    </button>
+                    <div class="dropdown-popover">
+                        <a href="#reports/activity-logs" class="dropdown-item">Activity Logs</a>
+                        <a href="#reports/analytics" class="dropdown-item">Reports &amp; Analytics</a>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Right: Search, Notification Bell, Staff Profile -->
+            <div class="nav-cluster-right">
+                <!-- Global Search -->
+                <div class="global-search-container">
+                    <svg class="search-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="globalSearchInput" class="global-search-input" placeholder="Search books, students, loans..." autocomplete="off">
+                    <div id="globalSearchResults" class="search-results-dropdown"></div>
+                </div>
+
+                <!-- Notification Bell -->
+                <div style="position: relative;">
+                    <button id="notifBellBtn" class="notif-bell-btn" title="Staff Notifications" aria-label="Staff Notifications">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                    </button>
+                    <div id="notificationPopover" class="notif-popover"></div>
+                </div>
+
+                <!-- Profile Pill -->
+                <div style="position: relative;">
+                    <button id="profilePillBtn" class="profile-pill-btn">
+                        <span class="avatar-initial" id="libAvatarInit">L</span>
+                        <span id="libStaffName">Chief Librarian</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="6 9 12 15 18 9"></polyline>
                         </svg>
                     </button>
-                    <div class="dropdown-menu" id="profileDropdownMenu">
-                        <div class="dropdown-header">Staff Portal</div>
+                    <div id="profilePopoverMenu" class="dropdown-popover" style="right: 0; left: auto;">
                         <a href="profile.html" class="dropdown-item">My Profile</a>
                         <a href="profile.html#change-password" class="dropdown-item">Change Password</a>
-                        <a href="admin-users.html" class="dropdown-item">User Directory</a>
-                        <a href="loan-policy.html" class="dropdown-item">Loan Policy</a>
-                        <div class="dropdown-divider"></div>
-                        <a href="logout" class="dropdown-item" data-action="logout" style="color: var(--danger);">Log Out</a>
+                        <a href="admin-users.html" class="dropdown-item">Student Master Directory</a>
+                        <a href="loan-policy.html" class="dropdown-item">Loan Policy Settings</a>
+                        <div style="height: 1px; background: #E2DDD5; margin: 4px 0;"></div>
+                        <a href="logout" class="dropdown-item" style="color: var(--red-alert);">Log Out</a>
                     </div>
                 </div>
             </div>
         </div>
     </header>
 
-    <main class="main-content">
-        <div class="container" style="margin-top: 32px;">
+    <!-- ======================================================================
+         2. MAIN WORKSPACE
+         ====================================================================== -->
+    <main class="lib-main">
 
-            <!-- Header Banner -->
-            <div style="border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px;">
-                <h1 style="margin-bottom: 4px;">Library Operations &amp; Resource Management</h1>
-                <p class="text-secondary">Central Desk &bull; PSG iTech Campus &bull; Working with Feature 1: User Management</p>
-            </div>
-
-            <!-- Functional Summary Badges -->
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 32px;">
-                <div class="info-card">
-                    <h4 style="margin-bottom: 6px;">Student Registrations</h4>
-                    <div style="font-size: 1.8rem; font-weight: bold; color: var(--primary);">Verified Active</div>
-                    <p class="text-secondary" style="font-size: 0.9rem; margin-top: 4px;">User management &amp; student onboarding operational.</p>
-                    <a href="admin-users.html" class="btn btn-secondary btn-sm" style="margin-top: 12px;">View Student Records</a>
+        <!-- ==================================================================
+             SECTION A: HOME (#home)
+             ================================================================== -->
+        <section id="section-home" class="view-section active">
+            <!-- 4.1 Greeting & Quick Actions -->
+            <div class="home-greeting-bar">
+                <div>
+                    <h1 class="greeting-headline" id="homeGreetingTitle">Welcome back, Librarian</h1>
+                    <div class="greeting-submeta">
+                        PSG iTech Central Library • Terminal: Desk-01 • Last synced: <span id="homeLastUpdated">--:--:--</span>
+                    </div>
                 </div>
-
-                <div class="info-card">
-                    <h4 style="margin-bottom: 6px;">Staff Credentials</h4>
-                    <div style="font-size: 1.8rem; font-weight: bold; color: var(--primary);">Secure BCrypt</div>
-                    <p class="text-secondary" style="font-size: 0.9rem; margin-top: 4px;">Mandatory first-login password enforcement active.</p>
-                    <a href="profile.html" class="btn btn-secondary btn-sm" style="margin-top: 12px;">Manage My Profile</a>
-                </div>
-
-                <div class="info-card">
-                    <h4 style="margin-bottom: 6px;">Catalog Status</h4>
-                    <div style="font-size: 1.8rem; font-weight: bold; color: var(--success, #1B4D3E);">Operational</div>
-                    <p class="text-secondary" style="font-size: 0.9rem; margin-top: 4px;">Book accession, copy management, and catalog search are active.</p>
-                    <a href="manage-books.html" class="btn btn-primary btn-sm" style="margin-top: 12px;">Manage Books</a>
+                <div class="quick-action-cluster">
+                    <button class="btn-quick btn-quick-primary" onclick="window.librarianCirculation.openIssueModal()">+ Issue Book</button>
+                    <button class="btn-quick" onclick="window.location.hash='#circulation'">Accept Return</button>
+                    <button class="btn-quick" onclick="window.librarianCirculation.openPickupModal()">Confirm Pickup</button>
+                    <button class="btn-quick" onclick="document.getElementById('addBookModal').classList.add('show')">+ Add Book</button>
+                    <button class="btn-quick" onclick="window.location.hash='#circulation'; document.querySelector('[data-tab=\'overdue\']').click();">View Overdue</button>
                 </div>
             </div>
 
-            <!-- Management Sections (Operational vs Coming Soon) -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                <!-- Operational: User Directory Quick Search -->
-                <div class="info-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                        <h3>Active User Directory</h3>
-                        <span class="badge badge-active">Operational</span>
-                    </div>
-                    <p class="text-secondary" style="margin-bottom: 16px;">Search students and staff members by register number, employee ID, or name.</p>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="quickUserSearch" class="form-control" placeholder="Enter Reg No or Name...">
-                        <button class="btn btn-primary btn-sm" onclick="handleQuickSearch()">Search</button>
-                    </div>
-                    <div style="margin-top: 16px;">
-                        <a href="admin-users.html" style="font-weight: bold; text-decoration: underline;">Open Full User Management Table &rarr;</a>
-                    </div>
-                </div>
+            <!-- Inconsistency Notice Banner -->
+            <div id="inconsistencyBanner" class="inconsistency-banner" style="display: none;"></div>
 
-                <!-- Operational: Book Management -->
-                <div class="info-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                        <h3>Manage Books &amp; Accession</h3>
-                        <span class="badge badge-active">Operational</span>
+            <!-- 4.2 Overview: Exactly 5 Metrics in #F6F3EC Panel -->
+            <div class="kpi-master-panel">
+                <div class="kpi-grid-5">
+                    <div class="kpi-card-box">
+                        <div class="kpi-label">Total Book Copies</div>
+                        <div class="kpi-number" id="kpiTotalCopies">0</div>
+                        <div class="kpi-subtext">Active Catalog Inventory</div>
                     </div>
-                    <p class="text-secondary" style="line-height: 1.6;">Accession new titles, generate standard copy codes (e.g. PSG-BK1-C01), manage physical copies, and view catalog inventory.</p>
-                    <div style="margin-top: 20px;">
-                        <a href="manage-books.html" class="btn btn-primary btn-sm">Launch Accession Workspace &rarr;</a>
+                    <div class="kpi-card-box">
+                        <div class="kpi-label">Available on Shelf</div>
+                        <div class="kpi-number" id="kpiAvailable" style="color: var(--green-accent);">0</div>
+                        <div class="kpi-subtext">Ready for Immediate Issue</div>
                     </div>
-                </div>
-
-                <!-- Operational: Borrowing Management -->
-                <div class="info-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                        <h3>Borrowing &amp; Lending Desk</h3>
-                        <span class="badge badge-active">Operational</span>
+                    <div class="kpi-card-box">
+                        <div class="kpi-label">Currently Borrowed</div>
+                        <div class="kpi-number" id="kpiBorrowed">0</div>
+                        <div class="kpi-subtext">Active Student Loans</div>
                     </div>
-                    <p class="text-secondary" style="line-height: 1.6;">Issue physical copies, verify student eligibility and quotas, check same-book restrictions, and process returns.</p>
-                    <div style="margin-top: 20px;">
-                        <a href="borrowing-management.html" class="btn btn-primary btn-sm">Open Circulation Desk &rarr;</a>
+                    <div class="kpi-card-box">
+                        <div class="kpi-label">Overdue Loans</div>
+                        <div class="kpi-number" id="kpiOverdue" style="color: var(--red-alert);">0</div>
+                        <div class="kpi-subtext">Accumulating Daily Fines</div>
                     </div>
-                </div>
-
-                <!-- Operational: Queue & Fines Management -->
-                <div class="info-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                        <h3>Queues, Allocations &amp; Fines</h3>
-                        <span class="badge badge-active">Operational</span>
-                    </div>
-                    <p class="text-secondary" style="line-height: 1.6;">Automated FIFO reservation waitlists, hold shelf allocations, atomic return fine assessment, and manual UPI payment verifications.</p>
-                    <div style="margin-top: 20px; display: flex; gap: 8px; flex-wrap: wrap;">
-                        <a href="borrowing-management.html" class="btn btn-primary btn-sm">Queue &amp; Allocations &rarr;</a>
-                        <a href="borrowing-management.html" class="btn btn-secondary btn-sm" onclick="sessionStorage.setItem('openDeskTab', 'tabVerif')">Verify UPI Fines &rarr;</a>
-                        <a href="borrowing-management.html" class="btn btn-secondary btn-sm" onclick="sessionStorage.setItem('openDeskTab', 'tabCases')">Lost &amp; Damaged &rarr;</a>
-                    </div>
-                </div>
-
-                <!-- Operational: Concurrency & Performance Monitor (Admin) -->
-                <div class="info-card" id="adminConcurrencyCard">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                        <h3>Concurrent Activity Monitor</h3>
-                        <span class="badge badge-active">Governor Active</span>
-                    </div>
-                    <p class="text-secondary" style="line-height: 1.6;">Live JVM request admission controller, fair semaphore queuing, connection pool budget, and deadlock telemetry.</p>
-                    <div style="margin-top: 20px;">
-                        <a href="concurrency-monitor.html" class="btn btn-primary btn-sm">Open Live Concurrency Monitor &rarr;</a>
+                    <div class="kpi-card-box">
+                        <div class="kpi-label">Pending Reservations</div>
+                        <div class="kpi-number" id="kpiPendingReservations" style="color: var(--amber-warn);">0</div>
+                        <div class="kpi-subtext">Waiting in FIFO Queues</div>
                     </div>
                 </div>
             </div>
 
-        </div>
+            <!-- 4.3 Department Analytics -->
+            <div class="analytics-grid">
+                <div class="chart-card-container">
+                    <div class="chart-card-header">
+                        <h2 class="chart-title">Borrowing by Catalog Department</h2>
+                        <div class="window-selector-btn-group">
+                            <button class="window-btn" data-window="7">7d</button>
+                            <button class="window-btn active" data-window="30">30d</button>
+                            <button class="window-btn" data-window="90">90d</button>
+                            <button class="window-btn" data-window="all">All</button>
+                        </div>
+                    </div>
+                    <div class="chart-canvas-box">
+                        <canvas id="chartBookDept"></canvas>
+                    </div>
+                    <table class="accessible-fallback-table" aria-label="Borrowing by catalog department table">
+                        <thead><tr><th>Department</th><th>Loans Issued</th></tr></thead>
+                        <tbody id="chart1TableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="chart-card-container">
+                    <div class="chart-card-header">
+                        <h2 class="chart-title">Student Department Participation</h2>
+                    </div>
+                    <div class="chart-canvas-box">
+                        <canvas id="chartStudentDept"></canvas>
+                    </div>
+                    <table class="accessible-fallback-table" aria-label="Student department borrowing table">
+                        <thead><tr><th>Department</th><th>Unique Students</th><th>Total Loans</th></tr></thead>
+                        <tbody id="chart2TableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 4.4 Browse Collections (Category Scroller) -->
+            <div class="category-scroller-section">
+                <div class="scroller-header">
+                    <h2 style="font-size: 18px; color: var(--navy-primary); font-weight: bold;">Browse Academic Collections</h2>
+                </div>
+                <div id="categoryScrollerTrack" class="scroller-track"></div>
+            </div>
+
+            <!-- 4.5 Three Collections -->
+            <div class="three-collections-grid">
+                <div class="collection-column">
+                    <div class="collection-col-header">
+                        <h3 class="collection-col-title">Recently Added</h3>
+                        <a href="#inventory" class="collection-see-all">See All →</a>
+                    </div>
+                    <div id="recentBooksContainer"></div>
+                </div>
+
+                <div class="collection-column">
+                    <div class="collection-col-header">
+                        <h3 class="collection-col-title">Most Borrowed</h3>
+                        <a href="#inventory" class="collection-see-all">See All →</a>
+                    </div>
+                    <div id="popularBooksContainer"></div>
+                </div>
+
+                <div class="collection-column">
+                    <div class="collection-col-header">
+                        <h3 class="collection-col-title">High-Demand</h3>
+                        <a href="#queues" class="collection-see-all">See All →</a>
+                    </div>
+                    <div id="highDemandBooksContainer"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION B: INVENTORY (#inventory)
+             ================================================================== -->
+        <section id="section-inventory" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Catalog Inventory &amp; Shelf Locator</h1>
+                <button class="btn-quick btn-quick-primary" onclick="document.getElementById('addBookModal').classList.add('show')">+ Add New Book</button>
+            </div>
+
+            <!-- Table Filters -->
+            <div class="table-filter-bar">
+                <input type="text" id="invSearchInput" class="filter-input" style="flex: 1; min-width: 220px;" placeholder="Search title, author, ISBN...">
+                <select id="invDeptSelect" class="filter-select">
+                    <option value="">All Departments</option>
+                    <option value="CSE">Computer Science (CSE)</option>
+                    <option value="ECE">Electronics (ECE)</option>
+                    <option value="EEE">Electrical (EEE)</option>
+                    <option value="MECH">Mechanical (MECH)</option>
+                    <option value="CIVIL">Civil Engineering</option>
+                    <option value="GENERAL">General / Library</option>
+                </select>
+                <select id="invStockSelect" class="filter-select">
+                    <option value="">All Stock Levels</option>
+                    <option value="IN_STOCK">In Stock</option>
+                    <option value="LOW_STOCK">Low Stock (≤ 2)</option>
+                    <option value="OUT_OF_STOCK">Out of Stock (0)</option>
+                </select>
+            </div>
+
+            <!-- Inventory Data Table -->
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Book ID</th>
+                            <th>Title &amp; ISBN</th>
+                            <th>Author</th>
+                            <th>Category</th>
+                            <th>Department</th>
+                            <th>Stock Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody"></tbody>
+                </table>
+                <div class="pagination-bar">
+                    <span id="invPaginationInfo">Showing 0-0 of 0 titles</span>
+                    <div>
+                        <button id="invPrevBtn" class="btn-quick" disabled>Previous</button>
+                        <button id="invNextBtn" class="btn-quick" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION C: CIRCULATION (#circulation)
+             ================================================================== -->
+        <section id="section-circulation" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Circulation Desk Operations</h1>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-quick btn-quick-primary" onclick="window.librarianCirculation.openIssueModal()">Issue Book</button>
+                    <button class="btn-quick" onclick="window.librarianCirculation.openPickupModal()">Allocation Pickup</button>
+                </div>
+            </div>
+
+            <!-- Circulation Sub-Tabs -->
+            <div class="table-filter-bar" style="padding: 6px 12px;">
+                <button class="btn-quick circ-tab-btn active" data-tab="active">Currently Borrowed</button>
+                <button class="btn-quick circ-tab-btn" data-tab="due-soon">Due Soon (3 Days)</button>
+                <button class="btn-quick circ-tab-btn" data-tab="overdue">Overdue Loans</button>
+                <button class="btn-quick circ-tab-btn" data-tab="recent-issued">Recently Issued</button>
+                <button class="btn-quick circ-tab-btn" data-tab="recent-returned">Recently Returned</button>
+            </div>
+
+            <!-- Circulation Table -->
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Tx ID</th>
+                            <th>Book &amp; Copy Code</th>
+                            <th>Borrowing Student</th>
+                            <th>Issue Date</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="circTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION D: STUDENTS (#students)
+             ================================================================== -->
+        <section id="section-students" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Student Directory &amp; No-Dues Clearance</h1>
+            </div>
+
+            <!-- Student Search & Filters -->
+            <div class="table-filter-bar">
+                <input type="text" id="studentSearchInput" class="filter-input" style="flex: 1;" placeholder="Search by name, roll number, or institutional email...">
+                <select id="studentFilterSelect" class="filter-select">
+                    <option value="">All Students</option>
+                    <option value="ACTIVE">Active Accounts</option>
+                    <option value="INACTIVE">Inactive Accounts</option>
+                    <option value="HAS_OVERDUE">Has Overdue Loans</option>
+                    <option value="HAS_UNPAID_FINES">Has Unpaid Fines</option>
+                </select>
+            </div>
+
+            <!-- Students Data Table -->
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Roll Number</th>
+                            <th>Student Name &amp; Email</th>
+                            <th>Dept &amp; Year</th>
+                            <th>Account Status</th>
+                            <th>Library Dues Status</th>
+                            <th>Clearance &amp; Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody"></tbody>
+                </table>
+                <div class="pagination-bar">
+                    <span id="studentPaginationInfo">Showing 0-0 of 0 students</span>
+                    <div>
+                        <button id="studentPrevBtn" class="btn-quick" disabled>Previous</button>
+                        <button id="studentNextBtn" class="btn-quick" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION E: QUEUES & TRANSFERS (#queues)
+             ================================================================== -->
+        <section id="section-queues" class="view-section">
+            <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold; margin-bottom: 16px;">Reservation Queues &amp; Student Transfers</h1>
+
+            <div class="table-filter-bar" style="padding: 6px 12px;">
+                <button class="btn-quick queue-subtab-btn active" data-subtab="reservations">FIFO Reservation Queues</button>
+                <button class="btn-quick queue-subtab-btn" data-subtab="allocations">Held Copies (24h Countdown)</button>
+                <button class="btn-quick queue-subtab-btn" data-subtab="transfers">Peer-to-Peer Transfers</button>
+            </div>
+
+            <!-- Panel 1: Reservations -->
+            <div id="queuesReservationsPanel">
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Queue Pos</th>
+                                <th>Book Title</th>
+                                <th>Waiting Student</th>
+                                <th>Reservation Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reservationsQueueTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Panel 2: Allocations Grid -->
+            <div id="queuesAllocationsPanel" style="display: none;">
+                <div id="allocationsCardGrid"></div>
+            </div>
+
+            <!-- Panel 3: Transfers Table -->
+            <div id="queuesTransfersPanel" style="display: none;">
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Transfer ID</th>
+                                <th>Book &amp; Copy Code</th>
+                                <th>Sender (Student A)</th>
+                                <th>Recipient (Student B)</th>
+                                <th>Requested At</th>
+                                <th>Status</th>
+                                <th>Handover OTP</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transfersTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION F: FINES AUDIT (#fines)
+             ================================================================== -->
+        <section id="section-fines" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div>
+                    <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Fine Management &amp; Payment Audit</h1>
+                    <p style="font-size: 12px; color: var(--text-muted);">Read-only audit view. Fine waivers and manual ledger adjustments require Administrator authorization.</p>
+                </div>
+            </div>
+
+            <div class="table-filter-bar">
+                <input type="text" id="finesSearchInput" class="filter-input" style="flex: 1;" placeholder="Search by student, book, or transaction...">
+                <select id="finesStatusSelect" class="filter-select">
+                    <option value="">All Statuses</option>
+                    <option value="UNPAID">Unpaid Fines</option>
+                    <option value="PARTIALLY_PAID">Partially Paid</option>
+                    <option value="PAID">Paid / Settled</option>
+                    <option value="WAIVED">Waived (Admin)</option>
+                </select>
+            </div>
+
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Fine ID</th>
+                            <th>Book Title &amp; Loan</th>
+                            <th>Student</th>
+                            <th>Overdue Days</th>
+                            <th>Fine Amount</th>
+                            <th>Status</th>
+                            <th>Razorpay / UPI Reference</th>
+                        </tr>
+                    </thead>
+                    <tbody id="finesTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
     </main>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container text-secondary" style="text-align: center; font-size: 0.9rem;">
-            <p>&copy; 2026 PSG Institute of Technology and Applied Research &bull; Librarian Administration System</p>
+    <!-- ======================================================================
+         3. MODALS (Add Book, Shelf Locator, Issue, Return, No-Dues Slip)
+         ====================================================================== -->
+
+    <!-- Modal: Add New Book -->
+    <div id="addBookModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New Book to Central Catalog</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('addBookModal').classList.remove('show')">✕</button>
+            </div>
+            <form id="addBookForm">
+                <div class="modal-body">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label class="form-label">Book Title *</label>
+                            <input type="text" name="title" class="form-input" required placeholder="e.g. Modern Operating Systems">
+                        </div>
+                        <div>
+                            <label class="form-label">Primary Author *</label>
+                            <input type="text" name="author" class="form-input" required placeholder="e.g. Andrew S. Tanenbaum">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label class="form-label">ISBN-10 or ISBN-13 *</label>
+                            <input type="text" name="isbn" class="form-input" required placeholder="e.g. 9780133591620">
+                        </div>
+                        <div>
+                            <label class="form-label">Publisher *</label>
+                            <input type="text" name="publisher" class="form-input" required placeholder="e.g. Pearson">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label class="form-label">Department *</label>
+                            <select name="department" class="form-input" required>
+                                <option value="CSE">CSE</option>
+                                <option value="ECE">ECE</option>
+                                <option value="EEE">EEE</option>
+                                <option value="MECH">MECH</option>
+                                <option value="CIVIL">CIVIL</option>
+                                <option value="GENERAL">GENERAL</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label">Category *</label>
+                            <input type="text" name="category" class="form-input" required placeholder="e.g. Operating Systems">
+                        </div>
+                        <div>
+                            <label class="form-label">Initial Copies *</label>
+                            <input type="number" name="copies" class="form-input" value="3" min="1" max="50" required>
+                        </div>
+                    </div>
+                    <div style="border-top: 1px solid var(--border-panel); padding-top: 12px; margin-top: 12px;">
+                        <div style="font-weight: 600; font-size: 13px; color: var(--navy-primary); margin-bottom: 8px;">Initial Shelf Location</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                            <input type="text" name="shelfFloor" class="form-input" value="Ground Floor" placeholder="Floor">
+                            <input type="text" name="shelfBlock" class="form-input" value="Main Block" placeholder="Block">
+                            <input type="text" name="shelfSection" class="form-input" value="Computer Science" placeholder="Section">
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+                            <input type="text" name="shelfRack" class="form-input" value="R-01" placeholder="Rack">
+                            <input type="text" name="shelfShelf" class="form-input" value="S-1" placeholder="Shelf">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-quick" onclick="document.getElementById('addBookModal').classList.remove('show')">Cancel</button>
+                    <button type="submit" class="btn-quick btn-quick-primary">Create Book &amp; Copies</button>
+                </div>
+            </form>
         </div>
-    </footer>
+    </div>
 
-    <script src="js/main.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/books.js"></script>
-    <script>
-        function showComingSoon(featureName) {
-            alert(`"${featureName}" is planned for upcoming milestones. Feature 1: User Management is currently active and fully operational.`);
-        }
+    <!-- Modal: Shelf Locator -->
+    <div id="shelfModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title" id="shelfModalTitle">Smart Shelf Locator</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('shelfModal').classList.remove('show')">✕</button>
+            </div>
+            <form id="shelfLocationForm">
+                <input type="hidden" id="shelfBookId">
+                <div class="modal-body">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label class="form-label">Floor</label>
+                            <input type="text" id="shelfFloor" class="form-input" required placeholder="e.g. Ground Floor">
+                        </div>
+                        <div>
+                            <label class="form-label">Block / Wing</label>
+                            <input type="text" id="shelfBlock" class="form-input" required placeholder="e.g. Main Library Wing">
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label class="form-label">Section</label>
+                        <input type="text" id="shelfSection" class="form-input" required placeholder="e.g. Computer Science &amp; Engineering">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div>
+                            <label class="form-label">Rack Identifier</label>
+                            <input type="text" id="shelfRack" class="form-input" required placeholder="e.g. R-04">
+                        </div>
+                        <div>
+                            <label class="form-label">Shelf Number</label>
+                            <input type="text" id="shelfShelf" class="form-input" required placeholder="e.g. S-2">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-quick" onclick="document.getElementById('shelfModal').classList.remove('show')">Cancel</button>
+                    <button type="submit" class="btn-quick btn-quick-primary">Save Shelf Location</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-        function handleQuickSearch() {
-            const val = document.getElementById('quickUserSearch').value.trim();
-            window.location.href = `admin-users.html?q=${encodeURIComponent(val)}`;
-        }
+    <!-- Modal: Book Details & Copies -->
+    <div id="bookDetailModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title" id="detailBookTitle">Book Details</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('bookDetailModal').classList.remove('show')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 16px; font-size: 13px; line-height: 1.6;">
+                    <div><strong>Author:</strong> <span id="detailAuthor"></span></div>
+                    <div><strong>ISBN:</strong> <span id="detailIsbn"></span></div>
+                    <div><strong>Category:</strong> <span id="detailCategory"></span></div>
+                    <div><strong>Department:</strong> <span id="detailDepartment"></span></div>
+                    <div><strong>Location:</strong> <span id="detailLocation" style="color: #203B60; font-weight: 600;"></span></div>
+                </div>
+                <h4 style="font-size: 14px; font-weight: bold; color: var(--navy-primary); margin-bottom: 8px;">Accessioned Physical Copies</h4>
+                <div id="detailCopiesList"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-quick" onclick="document.getElementById('bookDetailModal').classList.remove('show')">Close</button>
+            </div>
+        </div>
+    </div>
 
-        document.addEventListener('DOMContentLoaded', function () {
-            const cached = sessionStorage.getItem('psgitech_user');
-            if (cached) {
-                try {
-                    const u = JSON.parse(cached);
-                    if (u && u.name) {
-                        document.getElementById('libNavName').textContent = u.name;
-                    }
-                } catch (e) {}
-            }
-        });
-    </script>
-    <script src="js/notification-bell.js"></script>
+    <!-- Modal: Issue Book -->
+    <div id="issueBookModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Circulation: Issue Book Copy</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('issueBookModal').classList.remove('show')">✕</button>
+            </div>
+            <form id="issueBookForm">
+                <div class="modal-body">
+                    <div style="margin-bottom: 12px;">
+                        <label class="form-label">Student Roll Number / Register No *</label>
+                        <input type="text" name="registerNumber" class="form-input" required placeholder="e.g. 715521104001">
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label class="form-label">Physical Copy ID (Integer Key) *</label>
+                        <input type="number" name="copyId" class="form-input" required placeholder="e.g. 1">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-quick" onclick="document.getElementById('issueBookModal').classList.remove('show')">Cancel</button>
+                    <button type="submit" class="btn-quick btn-quick-primary">Issue Book</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Return Book -->
+    <div id="returnBookModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title" id="returnModalTitle">Circulation: Check In Return</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('returnBookModal').classList.remove('show')">✕</button>
+            </div>
+            <form id="returnBookForm">
+                <input type="hidden" id="returnTransactionId" name="transactionId">
+                <div class="modal-body">
+                    <div style="margin-bottom: 12px;">
+                        <label class="form-label">Return Physical Condition</label>
+                        <select name="condition" class="form-input">
+                            <option value="GOOD">Good / Undamaged</option>
+                            <option value="MINOR">Minor Wear (Cover/Edge)</option>
+                            <option value="MODERATE">Moderate Damage</option>
+                            <option value="SEVERE">Severe Damage / Missing Pages</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label class="form-label">Physical Disposition</label>
+                        <select name="disposition" class="form-input">
+                            <option value="RETURNED_TO_CIRCULATION">Return to Circulation (Shelf)</option>
+                            <option value="WITHDRAWN">Withdraw from Circulation (Repair/Archive)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-quick" onclick="document.getElementById('returnBookModal').classList.remove('show')">Cancel</button>
+                    <button type="submit" class="btn-quick btn-quick-primary">Confirm Return</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Confirm Allocation Pickup -->
+    <div id="confirmPickupModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Confirm Allocation Pickup</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('confirmPickupModal').classList.remove('show')">✕</button>
+            </div>
+            <form id="confirmPickupForm">
+                <div class="modal-body">
+                    <div style="margin-bottom: 12px;">
+                        <label class="form-label">Allocated Copy ID *</label>
+                        <input type="number" name="copyId" class="form-input" required placeholder="e.g. 2">
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label class="form-label">Recipient Student Roll Number *</label>
+                        <input type="text" name="registerNumber" class="form-input" required placeholder="e.g. 715521104001">
+                    </div>
+                    <p style="font-size: 12px; color: var(--text-muted);">
+                        The student must collect the book in person within the 24-hour allocation window.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-quick" onclick="document.getElementById('confirmPickupModal').classList.remove('show')">Cancel</button>
+                    <button type="submit" class="btn-quick btn-quick-primary">Verify &amp; Issue Copy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Student Profile Audit -->
+    <div id="studentProfileModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Student Library Profile &amp; Audit</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('studentProfileModal').classList.remove('show')">✕</button>
+            </div>
+            <div class="modal-body" id="studentProfileModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn-quick" onclick="document.getElementById('studentProfileModal').classList.remove('show')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: No-Dues Clearance Slip (Printable) -->
+    <div id="noDuesModal" class="modal-backdrop">
+        <div class="modal-dialog" style="max-width: 720px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Library Clearance Certificate</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('noDuesModal').classList.remove('show')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="noDuesSlipArea" class="print-slip-area"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-quick" onclick="document.getElementById('noDuesModal').classList.remove('show')">Close</button>
+                <button type="button" class="btn-quick btn-quick-primary" onclick="window.print()">🖨 Print Clearance Slip</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Toggle Student Account Status -->
+    <div id="toggleStatusModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title"><span id="toggleActionText"></span> Student Account</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('toggleStatusModal').classList.remove('show')">✕</button>
+            </div>
+            <form id="toggleStatusForm">
+                <input type="hidden" id="toggleStudentId" name="studentId">
+                <input type="hidden" id="toggleTargetActive" name="targetActive">
+                <div class="modal-body">
+                    <p style="margin-bottom: 12px; font-size: 13px;">
+                        Are you sure you want to change account status for <strong id="toggleStudentName"></strong>?
+                    </p>
+                    <div>
+                        <label class="form-label">Mandatory Administrative Reason *</label>
+                        <textarea id="toggleReasonInput" name="reason" class="form-input" rows="3" required placeholder="State exact reason (e.g. Conduct violation, Lost card, Account reinstated)..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-quick" onclick="document.getElementById('toggleStatusModal').classList.remove('show')">Cancel</button>
+                    <button type="submit" class="btn-quick btn-quick-primary">Confirm Status Change</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main ES6 Coordinator Script -->
+    <script type="module" src="js/librarian/librarian-portal.js"></script>
 </body>
 </html>

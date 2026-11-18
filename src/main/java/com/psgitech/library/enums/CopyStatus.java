@@ -14,6 +14,9 @@ public enum CopyStatus {
     BORROWED,
     ALLOCATED,
     TRANSFER_PENDING,
+    LOST,
+    DAMAGED,
+    RETIRED,
     ARCHIVED;
 
     /**

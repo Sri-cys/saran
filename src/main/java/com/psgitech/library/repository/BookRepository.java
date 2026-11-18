@@ -363,6 +363,19 @@ public class BookRepository {
         }
     }
 
+    public boolean updateCopyStatus(int copyId, String status) {
+        String sql = "UPDATE book_copies SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE copy_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, status);
+            ps.setInt(2, copyId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Failed to update status for copy #" + copyId, e);
+            return false;
+        }
+    }
+
     /**
      * Archives an entire book and all its AVAILABLE copies in an atomic transaction.
      * Guardrail: The book may be archived ONLY if none of its copies are BORROWED, ALLOCATED, or TRANSFER_PENDING.
@@ -692,6 +705,123 @@ public class BookRepository {
             LOGGER.log(Level.SEVERE, "Error searching books", e);
             throw new RuntimeException("Database error searching catalog.", e);
         }
+    }
+
+    public List<Book> findBooksWithFilters(String keyword, String category, String department,
+                                           String stockFilter, int offset, int limit) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT b.*, " +
+                "COUNT(CASE WHEN c.status != 'ARCHIVED' AND c.status != 'RETIRED' THEN 1 END) AS total_active_copies, " +
+                "COUNT(CASE WHEN c.status = 'AVAILABLE' THEN 1 END) AS available_copies, " +
+                "COUNT(CASE WHEN c.status = 'BORROWED' THEN 1 END) AS borrowed_copies, " +
+                "COUNT(CASE WHEN c.status = 'ALLOCATED' THEN 1 END) AS allocated_copies, " +
+                "COUNT(CASE WHEN c.status = 'TRANSFER_PENDING' THEN 1 END) AS transfer_pending_copies, " +
+                "COUNT(CASE WHEN c.status = 'ARCHIVED' OR c.status = 'RETIRED' THEN 1 END) AS archived_copies " +
+                "FROM books b " +
+                "LEFT JOIN book_copies c ON b.book_id = c.book_id " +
+                "WHERE b.is_archived = FALSE "
+        );
+
+        List<Object> params = new ArrayList<>();
+
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String kw = "%" + keyword.trim().toLowerCase() + "%";
+            sql.append("AND (LOWER(b.title) LIKE ? OR LOWER(b.author) LIKE ? OR LOWER(b.isbn) LIKE ?) ");
+            params.add(kw); params.add(kw); params.add(kw);
+        }
+
+        if (category != null && !category.trim().isEmpty() && !"ALL".equalsIgnoreCase(category.trim())) {
+            sql.append("AND LOWER(b.category) = LOWER(?) ");
+            params.add(category.trim());
+        }
+
+        if (department != null && !department.trim().isEmpty() && !"ALL".equalsIgnoreCase(department.trim())) {
+            sql.append("AND LOWER(b.department) = LOWER(?) ");
+            params.add(department.trim());
+        }
+
+        sql.append("GROUP BY b.book_id ");
+
+        if ("IN_STOCK".equalsIgnoreCase(stockFilter)) {
+            sql.append("HAVING available_copies > 0 ");
+        } else if ("LOW_STOCK".equalsIgnoreCase(stockFilter)) {
+            sql.append("HAVING available_copies > 0 AND available_copies <= 2 ");
+        } else if ("OUT_OF_STOCK".equalsIgnoreCase(stockFilter)) {
+            sql.append("HAVING available_copies = 0 ");
+        }
+
+        sql.append("ORDER BY b.title ASC LIMIT ? OFFSET ?");
+        params.add(limit);
+        params.add(offset);
+
+        List<Book> results = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    results.add(mapBookFromResultSet(rs));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error in findBooksWithFilters", e);
+        }
+        return results;
+    }
+
+    public int countBooksWithFilters(String keyword, String category, String department, String stockFilter) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT COUNT(*) FROM (" +
+                "SELECT b.book_id, COUNT(CASE WHEN c.status = 'AVAILABLE' THEN 1 END) AS available_copies " +
+                "FROM books b " +
+                "LEFT JOIN book_copies c ON b.book_id = c.book_id " +
+                "WHERE b.is_archived = FALSE "
+        );
+
+        List<Object> params = new ArrayList<>();
+
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String kw = "%" + keyword.trim().toLowerCase() + "%";
+            sql.append("AND (LOWER(b.title) LIKE ? OR LOWER(b.author) LIKE ? OR LOWER(b.isbn) LIKE ?) ");
+            params.add(kw); params.add(kw); params.add(kw);
+        }
+
+        if (category != null && !category.trim().isEmpty() && !"ALL".equalsIgnoreCase(category.trim())) {
+            sql.append("AND LOWER(b.category) = LOWER(?) ");
+            params.add(category.trim());
+        }
+
+        if (department != null && !department.trim().isEmpty() && !"ALL".equalsIgnoreCase(department.trim())) {
+            sql.append("AND LOWER(b.department) = LOWER(?) ");
+            params.add(department.trim());
+        }
+
+        sql.append("GROUP BY b.book_id ");
+
+        if ("IN_STOCK".equalsIgnoreCase(stockFilter)) {
+            sql.append("HAVING available_copies > 0 ");
+        } else if ("LOW_STOCK".equalsIgnoreCase(stockFilter)) {
+            sql.append("HAVING available_copies > 0 AND available_copies <= 2 ");
+        } else if ("OUT_OF_STOCK".equalsIgnoreCase(stockFilter)) {
+            sql.append("HAVING available_copies = 0 ");
+        }
+
+        sql.append(") AS filtered_books");
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error in countBooksWithFilters", e);
+        }
+        return 0;
     }
 
     /**

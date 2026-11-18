@@ -46,6 +46,18 @@
         <dispatcher>REQUEST</dispatcher>
     </filter-mapping>
 
+    <!-- 3a. Librarian Portal Auth Filter -->
+    <filter>
+        <filter-name>LibrarianAuthFilter</filter-name>
+        <filter-class>com.psgitech.library.filter.LibrarianAuthFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>LibrarianAuthFilter</filter-name>
+        <url-pattern>/librarian-dashboard.html</url-pattern>
+        <url-pattern>/api/librarian/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+    </filter-mapping>
+
     <!-- 4. CSRF Protection Filter (Synchronizer Token Pattern, Decision D1) -->
     <filter>
         <filter-name>CsrfFilter</filter-name>

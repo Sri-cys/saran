@@ -882,6 +882,55 @@ public class BorrowRepository {
         return list;
     }
 
+    public List<BorrowTransaction> findDueSoonTransactions() {
+        String sql = getBaseJoinedSelect() + " WHERE bt.status = 'ACTIVE' AND bt.due_date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 3 DAY) ORDER BY bt.due_date ASC";
+        List<BorrowTransaction> list = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(mapRowToTransaction(rs));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error fetching due soon transactions", e);
+        }
+        return list;
+    }
+
+    public List<BorrowTransaction> findRecentlyIssuedTransactions(int limit) {
+        String sql = getBaseJoinedSelect() + " WHERE bt.status = 'ACTIVE' ORDER BY bt.issue_date DESC, bt.transaction_id DESC LIMIT ?";
+        List<BorrowTransaction> list = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRowToTransaction(rs));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error fetching recently issued transactions", e);
+        }
+        return list;
+    }
+
+    public List<BorrowTransaction> findRecentlyReturnedTransactions(int limit) {
+        String sql = getBaseJoinedSelect() + " WHERE bt.status = 'RETURNED' ORDER BY bt.return_date DESC, bt.transaction_id DESC LIMIT ?";
+        List<BorrowTransaction> list = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRowToTransaction(rs));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error fetching recently returned transactions", e);
+        }
+        return list;
+    }
+
     private String getBaseJoinedSelect() {
         return "SELECT bt.transaction_id, bt.student_id, bt.book_id, bt.copy_id, " +
                 "bt.issue_date, bt.due_date, bt.return_date, bt.status, bt.issued_by, bt.returned_by, " +

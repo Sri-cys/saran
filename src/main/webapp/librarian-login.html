@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Librarian Portal Sign In | PSG iTech Library</title>
+    <link rel="stylesheet" href="css/library-theme.css">
+    <style>
+        body {
+            background-color: #F8F6F0 !important;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #222222;
+        }
+        .header-bar {
+            background: #FFFFFF;
+            border-bottom: 1px solid #E2DDD5;
+            padding: 16px 24px;
+            text-align: center;
+        }
+        .header-title {
+            font-family: "Times New Roman", Times, Georgia, serif !important;
+            font-size: 22px;
+            font-weight: bold;
+            color: #203B60;
+            letter-spacing: 0.5px;
+        }
+        .login-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+        }
+        .login-card {
+            background: #FFFFFF;
+            border: 1px solid #E2DDD5;
+            border-radius: 4px;
+            width: 100%;
+            max-width: 420px;
+            padding: 36px 32px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        .card-heading {
+            font-family: "Times New Roman", Times, Georgia, serif !important;
+            font-size: 24px;
+            font-weight: bold;
+            color: #203B60;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .card-subtitle {
+            font-size: 14px;
+            color: #5F6368;
+            margin-bottom: 24px;
+            text-align: center;
+            line-height: 1.4;
+        }
+        .alert-error {
+            display: none;
+            background-color: #FDF2F2;
+            border: 1px solid #F87171;
+            color: #B91C1C;
+            padding: 10px 14px;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #222222;
+            margin-bottom: 6px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #CCCCCC;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+            background-color: #FFFFFF;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #1F3A60;
+            box-shadow: 0 0 0 2px rgba(31, 58, 96, 0.15);
+        }
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .password-toggle-btn {
+            position: absolute;
+            right: 8px;
+            background: none;
+            border: none;
+            font-size: 12px;
+            font-weight: 600;
+            color: #1F3A60;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            color: #444444;
+            cursor: pointer;
+            gap: 8px;
+            user-select: none;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: #1F3A60;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 4px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.15s ease;
+        }
+        .btn-submit:hover:not(:disabled) {
+            background-color: #162B47;
+        }
+        .btn-submit:disabled {
+            background-color: #8D99AE;
+            cursor: not-allowed;
+        }
+        .footer-link-box {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 13px;
+            border-top: 1px solid #EFECE4;
+            padding-top: 16px;
+        }
+        .footer-link-box a {
+            color: #1F3A60;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .footer-link-box a:hover {
+            text-decoration: underline;
+        }
+        .site-footer {
+            background: #FFFFFF;
+            border-top: 1px solid #E2DDD5;
+            padding: 14px 24px;
+            text-align: center;
+            font-size: 12px;
+            color: #5F6368;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header-bar">
+        <div class="header-title">PSG iTECH LIBRARY</div>
+    </header>
+
+    <main class="login-container">
+        <div class="login-card">
+            <h1 class="card-heading">Librarian Portal Sign In</h1>
+            <p class="card-subtitle">Sign in with your Employee ID or college email to manage library operations</p>
+
+            <div id="errorAlert" class="alert-error" role="alert" aria-live="polite">
+                Invalid credentials or access not permitted.
+            </div>
+
+            <form id="librarianLoginForm">
+                <div class="form-group">
+                    <label for="loginKey" class="form-label">Employee ID or College Email</label>
+                    <input type="text" id="loginKey" name="loginKey" class="form-input" required autocomplete="username" placeholder="e.g. LIB101 or librarian@psgitech.ac.in">
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="password" name="password" class="form-input" required autocomplete="current-password" placeholder="Enter your password">
+                        <button type="button" id="togglePasswordBtn" class="password-toggle-btn" aria-pressed="false" aria-label="Toggle password visibility">Show</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="rememberMe" name="rememberMe">
+                        <span>Remember me on this staff terminal</span>
+                    </label>
+                </div>
+
+                <button type="submit" id="btnSubmit" class="btn-submit">Sign In to Library</button>
+            </form>
+
+            <div class="footer-link-box">
+                <a href="login.html">Student or Faculty? Sign in at Main Portal</a>
+            </div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        PSG Institute of Technology and Applied Research • Central Library Desk
+    </footer>
+
+    <script>
+        const CTX = window.location.pathname.replace(/\/[^/]*$/, '');
+        const toggleBtn = document.getElementById('togglePasswordBtn');
+        const passInput = document.getElementById('password');
+        const form = document.getElementById('librarianLoginForm');
+        const submitBtn = document.getElementById('btnSubmit');
+        const errorAlert = document.getElementById('errorAlert');
+
+        toggleBtn.addEventListener('click', () => {
+            const isPassword = passInput.getAttribute('type') === 'password';
+            passInput.setAttribute('type', isPassword ? 'text' : 'password');
+            toggleBtn.setAttribute('aria-pressed', isPassword ? 'true' : 'false');
+            toggleBtn.innerText = isPassword ? 'Hide' : 'Show';
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorAlert.style.display = 'none';
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Signing in...';
+
+            const loginKey = document.getElementById('loginKey').value.trim();
+            const password = passInput.value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            try {
+                const params = new URLSearchParams();
+                params.append('loginKey', loginKey);
+                params.append('password', password);
+                if (rememberMe) params.append('rememberMe', 'true');
+
+                const res = await fetch(CTX + '/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: params.toString()
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    // Check if role is LIBRARIAN or ADMIN
+                    const userRole = (data.user && data.user.role) ? data.user.role : '';
+                    if (userRole !== 'LIBRARIAN' && userRole !== 'ADMIN') {
+                        errorAlert.innerText = 'Invalid credentials or access not permitted.';
+                        errorAlert.style.display = 'block';
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = 'Sign In to Library';
+                        return;
+                    }
+
+                    if (data.csrfToken) {
+                        sessionStorage.setItem('psgitech_csrf_token', data.csrfToken);
+                    }
+                    window.location.href = data.redirect || (CTX + '/librarian-dashboard.html');
+                } else {
+                    errorAlert.innerText = 'Invalid credentials or access not permitted.';
+                    errorAlert.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Sign In to Library';
+                }
+            } catch (err) {
+                errorAlert.innerText = 'Invalid credentials or access not permitted.';
+                errorAlert.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Sign In to Library';
+            }
+        });
+    </script>
+</body>
+</html>
