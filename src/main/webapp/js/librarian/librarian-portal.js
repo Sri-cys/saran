@@ -161,6 +161,13 @@ function setupDropdowns() {
         });
     }
 
+    const switchBtn = document.getElementById('btnSwitchToStudent');
+    if (switchBtn) {
+        switchBtn.addEventListener('click', (e) => {
+            window.switchToStudentPortal(e);
+        });
+    }
+
     // Close when clicking outside
     document.addEventListener('click', () => {
         document.querySelectorAll('.dropdown-popover').forEach(p => p.classList.remove('show'));
@@ -336,3 +343,15 @@ function escapeHtml(text) {
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[m]));
 }
+
+window.switchToStudentPortal = function(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    sessionStorage.removeItem('psgitech_user');
+    sessionStorage.removeItem('psgitech_csrf_token');
+    localStorage.removeItem('psgitech_user');
+    localStorage.removeItem('psgitech_remember_me');
+    const ctx = (typeof CTX !== 'undefined' ? CTX : '');
+    fetch(ctx + '/logout', { method: 'POST' }).finally(() => {
+        window.location.href = ctx + '/login.html';
+    });
+};

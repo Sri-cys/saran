@@ -17,9 +17,10 @@
             </a>
 
             <div class="nav-middle">
-                <ul class="nav-menu">
-                    <li><a href="student-directory.html" id="navStudentDirLink">Student Directory</a></li>
+                <ul class="nav-menu" id="mainNavMenu">
+                    <li><a href="student-directory.html" id="navPeerBorrowLink">Peer Borrow</a></li>
                     <li><a href="my-books.html" id="navMyBooksLink" class="active">My Books</a></li>
+                    <li><a href="my-fines.html" id="navFinesLink">Fines</a></li>
                     <li><a href="browse.html" id="navBrowseLink">Browse</a></li>
                 </ul>
             </div>
@@ -53,6 +54,10 @@
                             <a href="my-fines.html" class="dropdown-item">My Fines &amp; Dues</a>
                             <a href="profile.html" class="dropdown-item">My Profile</a>
                             <a href="profile.html#change-password" class="dropdown-item">Change Password</a>
+                            <div class="dropdown-divider"></div>
+                            <a href="javascript:void(0)" class="dropdown-item" id="btnSwitchUserLibrarian" onclick="switchToLibrarianLogin(event)" style="color: var(--primary); font-weight: 500;">
+                                Switch User / Librarian Login
+                            </a>
                             <div class="dropdown-divider"></div>
                             <a href="logout" class="dropdown-item" data-action="logout" style="color: var(--danger);">Log Out</a>
                         </div>

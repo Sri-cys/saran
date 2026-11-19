@@ -56,12 +56,18 @@ public class RouteClassifier {
         routes.put("/profile", ConcurrencyOperation.USER_PROFILE_MUTATION);
         routes.put("/change-password", ConcurrencyOperation.USER_PROFILE_MUTATION);
 
-        // Feature 8: Book Interchanges
+        // Feature 8: Book Interchanges & Peer Transfers
         routes.put("/interchanges", ConcurrencyOperation.BOOK_INTERCHANGE);
         routes.put("/interchanges/accept", ConcurrencyOperation.BOOK_INTERCHANGE);
         routes.put("/interchanges/reject", ConcurrencyOperation.BOOK_INTERCHANGE);
         routes.put("/interchanges/cancel", ConcurrencyOperation.BOOK_INTERCHANGE);
         routes.put("/interchanges/otp/generate", ConcurrencyOperation.BOOK_INTERCHANGE);
+        routes.put("/api/transfers", ConcurrencyOperation.BOOK_INTERCHANGE);
+        routes.put("/api/transfers/request", ConcurrencyOperation.BOOK_INTERCHANGE);
+        routes.put("/api/transfers/accept", ConcurrencyOperation.BOOK_INTERCHANGE);
+        routes.put("/api/transfers/reject", ConcurrencyOperation.BOOK_INTERCHANGE);
+        routes.put("/api/transfers/cancel", ConcurrencyOperation.BOOK_INTERCHANGE);
+        routes.put("/api/transfers/otp/generate", ConcurrencyOperation.BOOK_INTERCHANGE);
 
         // Feature 11: Notifications
         routes.put("/notifications/read", ConcurrencyOperation.NOTIFICATION);

@@ -31,7 +31,10 @@ import java.util.logging.Logger;
 @WebServlet(name = "InterchangeActionServlet", urlPatterns = {
         "/interchanges/accept",
         "/interchanges/reject",
-        "/interchanges/cancel"
+        "/interchanges/cancel",
+        "/api/transfers/accept",
+        "/api/transfers/reject",
+        "/api/transfers/cancel"
 })
 public class InterchangeActionServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(InterchangeActionServlet.class.getName());

@@ -108,9 +108,13 @@ function highlightActiveNavigation() {
         const dataPage = link.getAttribute('data-page');
         if (href === filename || (dataPage && filename.startsWith(dataPage))) {
             link.classList.add('active');
-        } else if (!href || href === '#') {
-            // ignore empty
-        } else if (filename !== 'index.html' && href === filename) {
+        } else if (filename === 'student-directory.html' && href && href.includes('student-directory.html')) {
+            link.classList.add('active');
+        } else if (filename === 'my-books.html' && href && href.includes('my-books.html')) {
+            link.classList.add('active');
+        } else if (filename === 'my-fines.html' && href && href.includes('my-fines.html')) {
+            link.classList.add('active');
+        } else if (filename === 'browse.html' && href && href.includes('browse.html')) {
             link.classList.add('active');
         } else {
             // Keep manually assigned active if matches
@@ -120,6 +124,17 @@ function highlightActiveNavigation() {
         }
     });
 }
+
+window.switchToLibrarianLogin = function (e) {
+    if (e && e.preventDefault) e.preventDefault();
+    sessionStorage.removeItem('psgitech_user');
+    sessionStorage.removeItem('psgitech_csrf_token');
+    localStorage.removeItem('psgitech_user');
+    localStorage.removeItem('psgitech_remember_me');
+    fetch('logout', { method: 'POST' }).finally(() => {
+        window.location.href = 'librarian-login.html';
+    });
+};
 
 /**
  * Initializes navbar dropdowns and mobile toggles.

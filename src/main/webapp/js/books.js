@@ -880,15 +880,26 @@ function loadBookReservationStatus(book, avail, total) {
                 `;
             } else if (data.myReservation) {
                 const pos = data.myReservation.queuePosition || 1;
+                const myResId = data.myReservation.reservationId;
                 sec.innerHTML = `
-                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 16px 20px; margin-top: 20px;">
-                        <div style="font-weight: bold; color: var(--primary); font-size: 1.1rem; margin-bottom: 4px;">
-                            &#10004; Reserved (Your Queue Position: #${pos})
+                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 18px 22px; margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                            <div>
+                                <div style="font-weight: bold; color: var(--primary); font-size: 1.15rem; margin-bottom: 4px;">
+                                    &#10004; Reserved (Your Queue Position: #${pos})
+                                </div>
+                                <p class="text-secondary" style="margin: 0; font-size: 0.92rem;">
+                                    Waiting Queue: <strong>${waitingLabel}</strong> in line. You will be automatically allocated a copy upon return.
+                                </p>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <button type="button" class="btn btn-outline" style="border-color: #B45309; color: #B45309; background: #FFFBEB; font-weight: 600;" 
+                                        onclick="handleDetailCancelReservation(${book.bookId}, ${myResId})">
+                                    Cancel Reservation
+                                </button>
+                                <a href="my-reservations.html" class="btn btn-secondary btn-sm">View in My Reservations</a>
+                            </div>
                         </div>
-                        <p class="text-secondary" style="margin: 0 0 12px 0;">
-                            Waiting Queue: <strong>${waitingLabel}</strong> in line. You will be allocated a copy as soon as a student returns one.
-                        </p>
-                        <a href="my-reservations.html" class="btn btn-secondary btn-sm">View in My Reservations</a>
                     </div>
                 `;
             } else if (book.hasOutstandingFines || data.hasOutstandingFines) {
@@ -1044,14 +1055,24 @@ window.handleReserveBookClick = async function(bookId) {
             const sec = document.getElementById('reservationSection');
             if (sec) {
                 sec.innerHTML = `
-                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 14px 18px; margin-top: 20px;">
-                        <div style="font-weight: bold; color: var(--primary); font-size: 1.1rem; margin-bottom: 4px;">
-                            &#10004; Reserved (Your Queue Position: #${pos})
+                    <div class="info-card" style="background-color: #F8F6F0; border-left: 4px solid var(--primary); padding: 18px 22px; margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                            <div>
+                                <div style="font-weight: bold; color: var(--primary); font-size: 1.15rem; margin-bottom: 4px;">
+                                    &#10004; Reserved (Your Queue Position: #${pos})
+                                </div>
+                                <p class="text-secondary" style="margin: 0; font-size: 0.92rem;">
+                                    Waiting Queue: <strong>${waitingLabel}</strong> in line. You will be automatically allocated a copy upon return.
+                                </p>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <button type="button" class="btn btn-outline" style="border-color: #B45309; color: #B45309; background: #FFFBEB; font-weight: 600;" 
+                                        onclick="handleDetailCancelReservation(${bookId}, ${data.reservationId})">
+                                    Cancel Reservation
+                                </button>
+                                <a href="my-reservations.html" class="btn btn-secondary btn-sm">View in My Reservations</a>
+                            </div>
                         </div>
-                        <p class="text-secondary" style="margin: 0 0 12px 0;">
-                            Waiting Queue: <strong>${waitingLabel}</strong> in line. You will be allocated a copy as soon as a student returns one.
-                        </p>
-                        <a href="my-reservations.html" class="btn btn-secondary btn-sm">View in My Reservations</a>
                     </div>
                 `;
             }
@@ -1067,6 +1088,35 @@ window.handleReserveBookClick = async function(bookId) {
             }
         }
     } catch (e) {
+        console.error('Error reserving book:', e);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Reserve Book (Join Queue)';
+        }
+        alert('Network error occurred while placing reservation.');
+    }
+};
+
+window.handleDetailCancelReservation = async function(bookId, reservationId) {
+    if (!confirm('Are you sure you want to cancel this reservation?')) return;
+    try {
+        const resp = await fetch('reservations/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ reservationId })
+        });
+        const res = await resp.json();
+        if (resp.ok && res.success) {
+            alert('Reservation cancelled successfully.');
+            location.reload();
+        } else {
+            alert(res.message || 'Failed to cancel reservation.');
+        }
+    } catch (e) {
+        console.error('Error cancelling reservation:', e);
+        alert('Network error occurred while cancelling reservation.');
+    }
+};
         console.error('Error reserving book:', e);
         if (msgBox) {
             msgBox.innerHTML = `<div style="color: var(--danger); font-size: 0.92rem; margin-top: 6px;">Network error while placing reservation. Please try again.</div>`;

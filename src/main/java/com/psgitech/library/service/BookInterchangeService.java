@@ -18,6 +18,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -269,8 +270,8 @@ public class BookInterchangeService {
                     }
                 }
 
-                // Verify recipient authorization
-                if (recipientUserId != toStudentId) {
+                // Verify participant authorization
+                if (recipientUserId != toStudentId && recipientUserId != fromStudentId) {
                     throw new InterchangeNotAllowedException("You are not authorized to accept this interchange request.");
                 }
 
@@ -466,7 +467,7 @@ public class BookInterchangeService {
                 if (interchange == null) {
                     throw new InterchangeNotFoundException("Interchange request #" + interchangeId + " was not found.");
                 }
-                if (interchange.getToStudentId() != recipientUserId) {
+                if (interchange.getToStudentId() != recipientUserId && interchange.getFromStudentId() != recipientUserId) {
                     throw new InterchangeNotAllowedException("You are not authorized to reject this interchange request.");
                 }
                 if (interchange.getStatus() != InterchangeStatus.REQUESTED) {
@@ -523,7 +524,7 @@ public class BookInterchangeService {
                 if (interchange == null) {
                     throw new InterchangeNotFoundException("Interchange request #" + interchangeId + " was not found.");
                 }
-                if (interchange.getFromStudentId() != senderUserId) {
+                if (interchange.getFromStudentId() != senderUserId && interchange.getInitiatedBy() != senderUserId && interchange.getToStudentId() != senderUserId) {
                     throw new InterchangeNotAllowedException("You are not authorized to cancel this interchange request.");
                 }
                 if (interchange.getStatus() != InterchangeStatus.REQUESTED) {
@@ -564,6 +565,136 @@ public class BookInterchangeService {
     }
 
     // --- Query Operations ---
+
+    public List<Map<String, Object>> getAvailablePeerLoans(int currentUserId, String query) {
+        return interchangeRepository.findAvailablePeerLoans(currentUserId, query);
+    }
+
+    public BookInterchange requestBorrow(int requestingUserId, int transactionId, String requestNote) {
+        if (transactionId <= 0) {
+            throw new IllegalArgumentException("Valid borrowing transaction ID is required.");
+        }
+
+        // 1. Resolve and validate requesting student
+        User requester = userRepository.findById(requestingUserId);
+        if (requester == null) {
+            throw new StudentNotFoundException("Requesting student account was not found.");
+        }
+        if (!requester.isActive()) {
+            throw new RecipientNotEligibleException("Your student account is inactive or suspended.");
+        }
+        if (requester.getRole() != Role.STUDENT && requester.getRole() != Role.ADMIN) {
+            throw new RecipientNotEligibleException("Only registered students can request peer book interchanges.");
+        }
+
+        // 2. Validate active loan
+        BorrowTransaction tx = borrowRepository.findById(transactionId);
+        if (tx == null) {
+            throw new BorrowTransactionNotFoundException("Borrowing transaction #" + transactionId + " does not exist.");
+        }
+        if (tx.getStudentId() == requestingUserId) {
+            throw new InvalidInterchangeException("You already hold this borrowed book.");
+        }
+        if (tx.getStatus() != com.psgitech.library.enums.BorrowStatus.ACTIVE) {
+            throw new InterchangeNotAllowedException("Only ACTIVE book borrowings can be requested for peer borrow.");
+        }
+        if (new com.psgitech.library.repository.LossDamageCaseRepository().hasOpenCaseForTransaction(transactionId)) {
+            throw new InterchangeNotAllowedException("An open lost or damaged case exists for this loan; transfer is not permitted.");
+        }
+
+        // 3. Due-date eligibility check using configured Asia/Kolkata library timezone
+        ZoneId libraryZone = FineConfig.getLibraryZone();
+        LocalDate today = LocalDate.now(libraryZone);
+        if (today.isAfter(tx.getDueDate())) {
+            throw new InterchangeNotAllowedException("This book is overdue (due date: " + tx.getDueDate() +
+                    "). Overdue books cannot be transferred to another student. Please return the book to the library desk.");
+        }
+
+        // 4. Pre-check: Check if this transaction already has a pending REQUESTED interchange
+        BookInterchange existingPending = interchangeRepository.findActiveByTransactionId(transactionId);
+        if (existingPending != null) {
+            if (existingPending.getToStudentId() == requestingUserId) {
+                return existingPending;
+            }
+            throw new InvalidInterchangeException("A pending interchange request already exists for this borrowed book (Request #" +
+                    existingPending.getInterchangeId() + ").");
+        }
+
+        // 5. Pre-check: Reservation queue priority
+        int waitingReservations = countWaitingAndAllocatedReservations(tx.getBookId());
+        if (waitingReservations > 0) {
+            throw new ActiveReservationQueueException("Direct interchange is unavailable. There are currently " +
+                    waitingReservations + " student(s) waiting in the official reservation queue for this title.");
+        }
+
+        // 6. Pre-check: Requester borrowing capacity and same-book restriction
+        if (borrowRepository.hasActiveBorrowingForBook(requestingUserId, tx.getBookId())) {
+            throw new RecipientNotEligibleException("You already hold an active copy of this book.");
+        }
+        if (BorrowingPolicy.hasOutstandingFines(requestingUserId)) {
+            throw new RecipientNotEligibleException("You have unpaid library fines. Fines must be cleared before borrowing peer books.");
+        }
+        if (BorrowingPolicy.hasUnresolvedCase(requestingUserId)) {
+            throw new RecipientNotEligibleException("You have an unresolved lost or damaged book case. Clear obligations before borrowing.");
+        }
+        int activeLoans = borrowRepository.countActiveByStudentId(requestingUserId);
+        int activeAllocations = countActiveAllocationsForStudent(requestingUserId);
+        int maxLimit = BorrowingPolicy.getMaxActiveBorrowingLimit();
+        if ((activeLoans + activeAllocations) >= maxLimit) {
+            throw new RecipientNotEligibleException("You have reached the maximum borrowing limit (" +
+                    maxLimit + " active books/allocations).");
+        }
+
+        // 7. Persist REQUESTED interchange record
+        BookInterchange interchange = new BookInterchange(
+                transactionId, tx.getBookId(), tx.getCopyId(),
+                tx.getStudentId(), requestingUserId, requestingUserId,
+                tx.getIssueDate(), tx.getDueDate(), requestNote
+        );
+        interchange.setFromStudentName(tx.getStudentName());
+        interchange.setFromStudentRegNo(tx.getRegisterNumber());
+        interchange.setToStudentName(requester.getName());
+        interchange.setToStudentRegNo(requester.getIdentifier());
+        interchange.setBookTitle(tx.getBookTitle());
+        interchange.setBookAuthor(tx.getBookAuthor());
+        interchange.setCopyCode(tx.getCopyCode());
+        interchange.setCoverImageUrl(tx.getCoverImageUrl());
+
+        Connection conn = null;
+        boolean originalAutoCommit = true;
+        try {
+            conn = DBConnection.getConnection();
+            originalAutoCommit = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+
+            BookInterchange inserted = interchangeRepository.insert(conn, interchange);
+
+            // Record Notification: INTERCHANGE_REQUEST_RECEIVED for the holder
+            try {
+                com.psgitech.library.model.NotificationDraft notifDraft = com.psgitech.library.model.NotificationDraft
+                        .builder(com.psgitech.library.enums.NotificationType.INTERCHANGE_REQUEST_RECEIVED, tx.getStudentId(), "INTERCHANGE_REQUESTED:" + inserted.getInterchangeId())
+                        .entity("INTERCHANGE", inserted.getInterchangeId())
+                        .param("bookTitle", tx.getBookTitle())
+                        .param("recipientName", requester.getName())
+                        .build();
+                new com.psgitech.library.service.NotificationRecorder().record(conn, notifDraft);
+            } catch (SQLException e) {
+                LOGGER.log(Level.WARNING, "Failed to record peer borrow request notification", e);
+            }
+
+            conn.commit();
+            return inserted;
+        } catch (SQLException e) {
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { e.addSuppressed(ex); }
+            }
+            throw new RuntimeException("Database error saving peer borrow request.", e);
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(originalAutoCommit); conn.close(); } catch (SQLException ignored) {}
+            }
+        }
+    }
 
     public List<BookInterchange> getIncomingRequests(int studentId) {
         return interchangeRepository.findIncomingForStudent(studentId);

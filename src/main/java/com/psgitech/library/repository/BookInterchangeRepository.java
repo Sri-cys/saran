@@ -7,7 +7,9 @@ import com.psgitech.library.util.DBConnection;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -143,13 +145,19 @@ public class BookInterchangeRepository {
 
     /**
      * Retrieves all incoming REQUESTED requests for a recipient student.
+     * Includes requests directed to this student as recipient or as holder being requested.
      */
     public List<BookInterchange> findIncomingForStudent(int studentId) {
-        String sql = BASE_JOINED_SELECT + "WHERE bi.to_student_id = ? AND bi.status = 'REQUESTED' ORDER BY bi.requested_at DESC";
+        String sql = BASE_JOINED_SELECT +
+                "WHERE ((bi.to_student_id = ? AND (bi.initiated_by IS NULL OR bi.initiated_by <> ?)) " +
+                "    OR (bi.from_student_id = ? AND bi.initiated_by = bi.to_student_id)) " +
+                "  AND bi.status = 'REQUESTED' ORDER BY bi.requested_at DESC";
         List<BookInterchange> list = new ArrayList<>();
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, studentId);
+            ps.setInt(2, studentId);
+            ps.setInt(3, studentId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapRow(rs));
@@ -166,10 +174,15 @@ public class BookInterchangeRepository {
      * Counts pending incoming requests for a recipient student.
      */
     public int countPendingIncomingForStudent(int studentId) {
-        String sql = "SELECT COUNT(*) FROM book_interchanges WHERE to_student_id = ? AND status = 'REQUESTED'";
+        String sql = "SELECT COUNT(*) FROM book_interchanges bi " +
+                "WHERE ((bi.to_student_id = ? AND (bi.initiated_by IS NULL OR bi.initiated_by <> ?)) " +
+                "    OR (bi.from_student_id = ? AND bi.initiated_by = bi.to_student_id)) " +
+                "  AND bi.status = 'REQUESTED'";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, studentId);
+            ps.setInt(2, studentId);
+            ps.setInt(3, studentId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return rs.getInt(1);
@@ -186,11 +199,15 @@ public class BookInterchangeRepository {
      * Retrieves all outgoing interchange requests initiated by a student.
      */
     public List<BookInterchange> findOutgoingForStudent(int studentId) {
-        String sql = BASE_JOINED_SELECT + "WHERE bi.from_student_id = ? ORDER BY bi.requested_at DESC";
+        String sql = BASE_JOINED_SELECT +
+                "WHERE (bi.initiated_by = ? OR (bi.from_student_id = ? AND (bi.initiated_by IS NULL OR bi.initiated_by = ?))) " +
+                "ORDER BY bi.requested_at DESC";
         List<BookInterchange> list = new ArrayList<>();
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, studentId);
+            ps.setInt(2, studentId);
+            ps.setInt(3, studentId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapRow(rs));
@@ -199,6 +216,94 @@ public class BookInterchangeRepository {
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Error retrieving outgoing interchanges for student #" + studentId, e);
             throw new RuntimeException("Database error retrieving outgoing requests.", e);
+        }
+        return list;
+    }
+
+    /**
+     * Queries active open loans (borrow_transactions where status='ACTIVE' and return_date IS NULL)
+     * excluding the specified student's own loans, optionally filtered by search query.
+     */
+    public List<Map<String, Object>> findAvailablePeerLoans(int excludeUserId, String query) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT bt.transaction_id, bt.student_id AS holder_id, bt.book_id, bt.copy_id, " +
+                "bt.issue_date, bt.due_date, bt.status AS loan_status, " +
+                "b.title AS book_title, b.author AS book_author, b.isbn, b.cover_image_url, " +
+                "bc.copy_code, " +
+                "u.name AS holder_name, u.register_number AS holder_roll_no, u.email AS holder_email, " +
+                "COALESCE(u.department, sm.department, 'Engineering') AS department, " +
+                "COALESCE(u.year, sm.batch_year, 4) AS student_year, " +
+                "(SELECT bi.interchange_id FROM book_interchanges bi WHERE bi.transaction_id = bt.transaction_id AND bi.status = 'REQUESTED' LIMIT 1) AS active_interchange_id, " +
+                "(SELECT bi.initiated_by FROM book_interchanges bi WHERE bi.transaction_id = bt.transaction_id AND bi.status = 'REQUESTED' LIMIT 1) AS active_initiated_by, " +
+                "(SELECT bi.to_student_id FROM book_interchanges bi WHERE bi.transaction_id = bt.transaction_id AND bi.status = 'REQUESTED' LIMIT 1) AS active_to_student_id " +
+                "FROM borrow_transactions bt " +
+                "JOIN books b ON bt.book_id = b.book_id " +
+                "JOIN book_copies bc ON bt.copy_id = bc.copy_id " +
+                "JOIN users u ON bt.student_id = u.user_id " +
+                "LEFT JOIN student_master sm ON u.register_number = sm.roll_number " +
+                "WHERE bt.status = 'ACTIVE' AND bt.return_date IS NULL "
+        );
+
+        if (excludeUserId > 0) {
+            sql.append("AND bt.student_id != ? ");
+        }
+
+        boolean hasQuery = query != null && !query.trim().isEmpty();
+        if (hasQuery) {
+            sql.append("AND (b.title LIKE ? OR b.author LIKE ? OR b.isbn LIKE ? OR u.name LIKE ? OR u.register_number LIKE ?) ");
+        }
+
+        sql.append("ORDER BY bt.due_date ASC, bt.transaction_id DESC");
+
+        List<Map<String, Object>> list = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int paramIdx = 1;
+            if (excludeUserId > 0) {
+                ps.setInt(paramIdx++, excludeUserId);
+            }
+            if (hasQuery) {
+                String qWild = "%" + query.trim() + "%";
+                for (int i = 0; i < 5; i++) {
+                    ps.setString(paramIdx++, qWild);
+                }
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("transactionId", rs.getInt("transaction_id"));
+                    map.put("holderId", rs.getInt("holder_id"));
+                    map.put("bookId", rs.getInt("book_id"));
+                    map.put("copyId", rs.getInt("copy_id"));
+                    map.put("issueDate", rs.getDate("issue_date") != null ? rs.getDate("issue_date").toString() : null);
+                    map.put("dueDate", rs.getDate("due_date") != null ? rs.getDate("due_date").toString() : null);
+                    map.put("bookTitle", rs.getString("book_title"));
+                    map.put("bookAuthor", rs.getString("book_author"));
+                    map.put("isbn", rs.getString("isbn"));
+                    map.put("coverImageUrl", rs.getString("cover_image_url"));
+                    map.put("copyCode", rs.getString("copy_code"));
+                    map.put("holderName", rs.getString("holder_name"));
+                    map.put("holderRollNo", rs.getString("holder_roll_no"));
+                    map.put("holderEmail", rs.getString("holder_email"));
+                    map.put("department", rs.getString("department"));
+                    map.put("studentYear", rs.getInt("student_year"));
+
+                    int activeInterchangeId = rs.getInt("active_interchange_id");
+                    boolean isRequested = !rs.wasNull() && activeInterchangeId > 0;
+                    map.put("isRequested", isRequested);
+                    map.put("activeInterchangeId", isRequested ? activeInterchangeId : null);
+
+                    int activeToStudentId = rs.getInt("active_to_student_id");
+                    boolean requestedByMe = isRequested && (activeToStudentId == excludeUserId);
+                    map.put("requestedByMe", requestedByMe);
+
+                    list.add(map);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error querying available peer loans", e);
+            throw new RuntimeException("Database error retrieving peer loans.", e);
         }
         return list;
     }

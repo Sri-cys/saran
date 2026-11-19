@@ -113,13 +113,25 @@ public class DBConnection {
         // Try JNDI connection pool first (inside Tomcat)
         DataSource ds = getJndiDataSource();
         if (ds != null) {
-            return ds.getConnection();
+            Connection conn = ds.getConnection();
+            try {
+                if (conn.isReadOnly()) {
+                    conn.setReadOnly(false);
+                }
+            } catch (SQLException ignored) {}
+            return conn;
         }
 
         // Direct DriverManager fallback (in unit / integration test JVMs)
         try {
             Class.forName(dbDriver);
-            return DriverManager.getConnection(dbUrl, dbUsername, dbPassword);
+            Connection conn = DriverManager.getConnection(dbUrl, dbUsername, dbPassword);
+            try {
+                if (conn.isReadOnly()) {
+                    conn.setReadOnly(false);
+                }
+            } catch (SQLException ignored) {}
+            return conn;
         } catch (ClassNotFoundException e) {
             throw new SQLException("MySQL JDBC Driver not found: " + dbDriver, e);
         }

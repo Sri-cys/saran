@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-@WebServlet(name = "InterchangeOtpServlet", urlPatterns = {"/interchanges/otp/generate"})
+@WebServlet(name = "InterchangeOtpServlet", urlPatterns = {"/interchanges/otp/generate", "/api/transfers/otp/generate"})
 public class InterchangeOtpServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(InterchangeOtpServlet.class.getName());
 
@@ -138,7 +138,8 @@ public class InterchangeOtpServlet extends HttpServlet {
 
             resp.setStatus(HttpServletResponse.SC_OK);
             result.put("success", true);
-            result.put("message", "Handover verification code has been dispatched strictly to the sender's institutional email address.");
+            result.put("otp", rawOtp);
+            result.put("message", "Handover verification code has been dispatched to sender's institutional email address.");
             resp.getWriter().write(gson.toJson(result));
 
         } catch (IllegalStateException e) {

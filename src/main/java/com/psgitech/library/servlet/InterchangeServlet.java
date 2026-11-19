@@ -26,9 +26,9 @@ import java.util.logging.Logger;
 
 /**
  * Servlet handling Student-to-Student Book Interchange queries and initiation.
- * URL Mapping: /interchanges
+ * URL Mapping: /interchanges, /api/transfers, /api/transfers/request
  */
-@WebServlet(name = "InterchangeServlet", urlPatterns = {"/interchanges"})
+@WebServlet(name = "InterchangeServlet", urlPatterns = {"/interchanges", "/api/transfers", "/api/transfers/request"})
 public class InterchangeServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(InterchangeServlet.class.getName());
     private BookInterchangeService interchangeService;
@@ -76,6 +76,15 @@ public class InterchangeServlet extends HttpServlet {
                 data.put("pendingIncomingCount", count);
                 resp.setStatus(HttpServletResponse.SC_OK);
                 resp.getWriter().write(gson.toJson(buildResponse(true, "Pending count retrieved.", data)));
+                return;
+            }
+
+            if ("peer-loans".equalsIgnoreCase(type) || "available".equalsIgnoreCase(type)) {
+                String query = req.getParameter("q");
+                if (query == null) query = req.getParameter("query");
+                List<Map<String, Object>> loans = interchangeService.getAvailablePeerLoans(currentUser.getUserId(), query);
+                resp.setStatus(HttpServletResponse.SC_OK);
+                resp.getWriter().write(gson.toJson(buildResponse(true, "Available peer loans retrieved.", loans)));
                 return;
             }
 
@@ -163,19 +172,24 @@ public class InterchangeServlet extends HttpServlet {
             resp.getWriter().write(gson.toJson(buildResponse(false, "Valid borrowing transactionId is required.", null)));
             return;
         }
-        if (recipientRegisterNumber == null || recipientRegisterNumber.trim().isEmpty()) {
-            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            resp.getWriter().write(gson.toJson(buildResponse(false, "Recipient student register number is required.", null)));
-            return;
-        }
 
         try {
-            BookInterchange interchange = interchangeService.initiateInterchange(
-                    currentUser.getUserId(), transactionId, recipientRegisterNumber.trim(), requestNote
-            );
-            resp.setStatus(HttpServletResponse.SC_CREATED);
-            resp.getWriter().write(gson.toJson(buildResponse(true,
-                    "Interchange request sent. The borrowing remains yours until the recipient accepts.", interchange)));
+            BookInterchange interchange;
+            if (recipientRegisterNumber == null || recipientRegisterNumber.trim().isEmpty()) {
+                interchange = interchangeService.requestBorrow(
+                        currentUser.getUserId(), transactionId, requestNote
+                );
+                resp.setStatus(HttpServletResponse.SC_CREATED);
+                resp.getWriter().write(gson.toJson(buildResponse(true,
+                        "Peer borrow request sent to current book holder.", interchange)));
+            } else {
+                interchange = interchangeService.initiateInterchange(
+                        currentUser.getUserId(), transactionId, recipientRegisterNumber.trim(), requestNote
+                );
+                resp.setStatus(HttpServletResponse.SC_CREATED);
+                resp.getWriter().write(gson.toJson(buildResponse(true,
+                        "Interchange request sent. The borrowing remains yours until the recipient accepts.", interchange)));
+            }
 
         } catch (StudentNotFoundException | BorrowTransactionNotFoundException e) {
             resp.setStatus(HttpServletResponse.SC_NOT_FOUND);

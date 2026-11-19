@@ -22,14 +22,15 @@
         sort: 'RECENTLY_ADDED',
         page: 1,
         pageSize: 12,
-        categories: []
+        categories: [],
+        activeReservationsMap: new Map()
     };
 
     document.addEventListener('DOMContentLoaded', function () {
         initCatalogPage();
     });
 
-    function initCatalogPage() {
+    async function initCatalogPage() {
         parseInitialUrlParams();
         loadCategories();
         bindFilterEvents();
@@ -40,7 +41,34 @@
             if (catSelect) catSelect.value = state.category;
             fetchAndRenderBooks(false);
         });
+        await fetchUserReservations();
         fetchAndRenderBooks(false);
+    }
+
+    /**
+     * Fetches the logged-in student's active reservations once on catalog page load
+     */
+    async function fetchUserReservations() {
+        try {
+            const resp = await fetch('reservations/my');
+            if (resp.status === 401) return;
+            const res = await resp.json();
+            if (res.success && res.data && Array.isArray(res.data.activeReservations)) {
+                state.activeReservationsMap.clear();
+                res.data.activeReservations.forEach(r => {
+                    const statusStr = (r.status || '').toUpperCase();
+                    if (statusStr === 'WAITING' || statusStr === 'ALLOCATED') {
+                        state.activeReservationsMap.set(Number(r.bookId), {
+                            reservationId: r.reservationId,
+                            queuePosition: r.queuePosition,
+                            status: statusStr
+                        });
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('Failed to prefetch user reservations:', err);
+        }
     }
 
     /**
@@ -575,6 +603,36 @@
                 badgeHtml = `<span class="badge badge-borrowed" style="background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">All Copies Borrowed</span>`;
             }
 
+            const hasReservation = state.activeReservationsMap.has(Number(book.bookId));
+            const resInfo = hasReservation ? state.activeReservationsMap.get(Number(book.bookId)) : null;
+
+            let reservationBtnHtml = '';
+            if (hasReservation) {
+                reservationBtnHtml = `
+                    <button type="button" class="btn btn-outline btn-sm btn-cancel-res" 
+                            style="flex: 1; border-color: #B45309; color: #B45309; background: #FFFBEB; padding: 7px 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;"
+                            onclick="event.stopPropagation(); handleCatalogCancelReservation(${book.bookId}, ${resInfo.reservationId}, event);">
+                        Cancel Reservation
+                    </button>
+                `;
+            } else if (avail === 0) {
+                reservationBtnHtml = `
+                    <button type="button" class="btn btn-primary btn-sm btn-reserve-res" 
+                            style="flex: 1; background-color: #1F3A60; border-color: #1F3A60; color: #FFFFFF; padding: 7px 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;"
+                            onclick="event.stopPropagation(); handleCatalogReserveBook(${book.bookId}, event);">
+                        Reserve Book
+                    </button>
+                `;
+            } else {
+                reservationBtnHtml = `
+                    <button type="button" class="btn btn-secondary btn-sm" 
+                            style="flex: 1; background-color: #E8F5EE; border: 1px solid #A3E0BF; color: #159B50; padding: 7px 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;"
+                            onclick="event.stopPropagation(); window.location.href='book-details.html?id=${book.bookId}';">
+                        &#10003; In Stock (${avail})
+                    </button>
+                `;
+            }
+
             return `
                 <div class="catalog-book-card" onclick="window.location.href='book-details.html?id=${book.bookId}'" title="${titleEsc}" tabindex="0" role="link">
                     <div class="catalog-book-cover">
@@ -600,10 +658,156 @@
                         <div style="margin-top: 8px;">
                             ${badgeHtml}
                         </div>
+                        <div class="catalog-card-action-row" style="margin-top: 12px; display: flex; gap: 8px; align-items: center;" onclick="event.stopPropagation();">
+                            <a href="book-details.html?id=${book.bookId}" class="btn btn-outline btn-sm" style="flex: 1; text-align: center; padding: 7px 8px; font-size: 0.8rem; font-weight: 600;" onclick="event.stopPropagation();">View Details</a>
+                            ${reservationBtnHtml}
+                        </div>
                     </div>
                 </div>
             `;
         }).join('');
+    }
+
+    /**
+     * Handles inline Reserve Book action from catalog card
+     */
+    window.handleCatalogReserveBook = async function (bookId, event) {
+        if (event) event.stopPropagation();
+        const btn = event ? event.target : null;
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Reserving...';
+        }
+
+        try {
+            const resp = await fetch('reservations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ bookId: bookId })
+            });
+
+            if (resp.status === 401) {
+                window.location.href = `login.html?redirect=browse.html`;
+                return;
+            }
+
+            const res = await resp.json();
+            if (resp.ok && res.success) {
+                const data = res.data || {};
+                const resId = data.reservationId;
+                const qPos = data.queuePosition || 1;
+                state.activeReservationsMap.set(Number(bookId), {
+                    reservationId: resId,
+                    queuePosition: qPos,
+                    status: 'WAITING'
+                });
+
+                showToast(`Reserved successfully! You are #${qPos} in queue.`);
+
+                if (btn) {
+                    btn.className = 'btn btn-outline btn-sm btn-cancel-res';
+                    btn.style.borderColor = '#B45309';
+                    btn.style.color = '#B45309';
+                    btn.style.backgroundColor = '#FFFBEB';
+                    btn.textContent = 'Cancel Reservation';
+                    btn.disabled = false;
+                    btn.onclick = function (e) {
+                        handleCatalogCancelReservation(bookId, resId, e);
+                    };
+                }
+            } else {
+                showToast(res.message || 'Unable to place reservation.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Reserve Book';
+                }
+            }
+        } catch (err) {
+            console.error('Error reserving book:', err);
+            showToast('Network error while placing reservation.');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Reserve Book';
+            }
+        }
+    };
+
+    /**
+     * Handles inline Cancel Reservation action from catalog card
+     */
+    window.handleCatalogCancelReservation = async function (bookId, resId, event) {
+        if (event) event.stopPropagation();
+        const btn = event ? event.target : null;
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Cancelling...';
+        }
+
+        try {
+            const resp = await fetch('reservations/cancel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ reservationId: resId })
+            });
+
+            if (resp.status === 401) {
+                window.location.href = `login.html?redirect=browse.html`;
+                return;
+            }
+
+            const res = await resp.json();
+            if (resp.ok && res.success) {
+                state.activeReservationsMap.delete(Number(bookId));
+                showToast('Reservation cancelled successfully.');
+
+                if (btn) {
+                    btn.className = 'btn btn-primary btn-sm btn-reserve-res';
+                    btn.style.backgroundColor = '#1F3A60';
+                    btn.style.borderColor = '#1F3A60';
+                    btn.style.color = '#FFFFFF';
+                    btn.textContent = 'Reserve Book';
+                    btn.disabled = false;
+                    btn.onclick = function (e) {
+                        handleCatalogReserveBook(bookId, e);
+                    };
+                }
+            } else {
+                showToast(res.message || 'Unable to cancel reservation.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Cancel Reservation';
+                }
+            }
+        } catch (err) {
+            console.error('Error cancelling reservation:', err);
+            showToast('Network error while cancelling reservation.');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Cancel Reservation';
+            }
+        }
+    };
+
+    function showToast(msg) {
+        let toast = document.getElementById('toastPopup');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toastPopup';
+            toast.className = 'toast-popup';
+            toast.style.cssText = 'position: fixed; bottom: 24px; right: 24px; background: #203B60; color: #FFFFFF; padding: 14px 22px; border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,0.2); z-index: 9999; font-size: 0.95rem;';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = msg;
+        toast.style.display = 'block';
+        setTimeout(() => {
+            toast.style.display = 'none';
+        }, 4000);
     }
 
     /**

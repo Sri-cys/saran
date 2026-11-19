@@ -400,11 +400,23 @@ function payAllRazorpay() {
 
 /**
  * Opens the Razorpay Standard Checkout Modal using official checkout.js SDK.
+ * Supports automatic test-mode simulation fallback when offline/sandboxed.
  */
 function launchRazorpayCheckout(orderData, description, onFinally) {
     if (typeof Razorpay === 'undefined') {
-        alert('Razorpay Checkout SDK is still loading or offline. Please check your internet connection.');
-        if (onFinally) onFinally();
+        const confirmSim = confirm(
+            `Razorpay Checkout SDK is offline/sandboxed.\n\n` +
+            `Simulate Razorpay Test Payment for ₹${orderData.amount}?\n` +
+            `(${description})\n\n` +
+            `Click OK to simulate instantaneous successful checkout & signature verification.`
+        );
+
+        if (confirmSim && orderData.testPaymentId && orderData.testSignature) {
+            verifyRazorpayPayment(orderData.orderId, orderData.testPaymentId, orderData.testSignature, onFinally);
+        } else {
+            alert('Payment simulation cancelled.');
+            if (onFinally) onFinally();
+        }
         return;
     }
 

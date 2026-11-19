@@ -17,6 +17,8 @@
               minIdle="4"
               maxWaitMillis="3000"
               validationQuery="SELECT 1"
+              defaultReadOnly="false"
+              defaultAutoCommit="true"
               testOnBorrow="true"
               testWhileIdle="true"
               timeBetweenEvictionRunsMillis="30000"

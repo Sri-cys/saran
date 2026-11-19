@@ -175,8 +175,9 @@ a:hover {
 
 .nav-menu a:hover,
 .nav-menu a.active {
-    background-color: var(--background-warm);
+    background-color: #EFECE4;
     color: var(--primary);
+    font-weight: 600;
 }
 
 /* Search Bar in Navbar */
