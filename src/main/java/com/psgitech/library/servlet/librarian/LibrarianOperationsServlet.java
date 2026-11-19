@@ -15,6 +15,9 @@ import com.psgitech.library.service.AcquisitionService;
 import com.psgitech.library.service.CsvImportService;
 import com.psgitech.library.service.PurchaseService;
 import com.psgitech.library.service.QueryService;
+import com.psgitech.library.service.FloorLayoutService;
+import com.psgitech.library.model.LibraryLayout;
+import com.psgitech.library.model.HighDemandAlert;
 import com.psgitech.library.util.DBConnection;
 import com.psgitech.library.util.GsonProvider;
 
@@ -40,7 +43,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-@WebServlet(name = "LibrarianOperationsServlet", urlPatterns = {"/api/librarian/operations/*"})
+@WebServlet(name = "LibrarianOperationsServlet", urlPatterns = {"/api/librarian/operations/*", "/api/librarian/layout/*"})
 public class LibrarianOperationsServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LibrarianOperationsServlet.class.getName());
 
@@ -49,6 +52,7 @@ public class LibrarianOperationsServlet extends HttpServlet {
     private QueryService queryService;
     private PurchaseService purchaseService;
     private BorrowRepository borrowRepository;
+    private FloorLayoutService floorLayoutService;
     private Gson gson;
 
     @Override
@@ -58,6 +62,7 @@ public class LibrarianOperationsServlet extends HttpServlet {
         this.queryService = new QueryService();
         this.purchaseService = new PurchaseService();
         this.borrowRepository = new BorrowRepository();
+        this.floorLayoutService = new FloorLayoutService();
         this.gson = GsonProvider.getGson();
     }
 
@@ -84,6 +89,16 @@ public class LibrarianOperationsServlet extends HttpServlet {
                 handleGetPurchases(req, resp);
             } else if (path.endsWith("/copy-lookup")) {
                 handleCopyLookup(req, resp);
+            } else if (path.endsWith("/layout/floors") || path.endsWith("/floors")) {
+                resp.setStatus(HttpServletResponse.SC_OK);
+                resp.getWriter().write(gson.toJson(ApiResponse.ok(floorLayoutService.getFloors())));
+            } else if (path.endsWith("/layout/grid") || path.endsWith("/layout/heatmap") || path.endsWith("/grid") || path.endsWith("/heatmap")) {
+                String floor = req.getParameter("floor");
+                resp.setStatus(HttpServletResponse.SC_OK);
+                resp.getWriter().write(gson.toJson(ApiResponse.ok(floorLayoutService.getFloorHeatmap(floor))));
+            } else if (path.endsWith("/high-demand-alerts")) {
+                resp.setStatus(HttpServletResponse.SC_OK);
+                resp.getWriter().write(gson.toJson(ApiResponse.ok(floorLayoutService.getHighDemandAlerts())));
             } else {
                 resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 resp.getWriter().write(gson.toJson(ApiResponse.error("NOT_FOUND", "Endpoint not found: " + path)));

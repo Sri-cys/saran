@@ -49,10 +49,40 @@ document.addEventListener('DOMContentLoaded', function () {
     initSearchHandler();
     highlightActiveNavigation();
     checkCurrentUserState();
+    updateLiveLibraryHours();
     if (typeof initPasswordVisibilityToggles === 'function') {
         initPasswordVisibilityToggles();
     }
 });
+
+function updateLiveLibraryHours() {
+    const badge = document.getElementById('libraryHoursBadge');
+    if (!badge) return;
+    try {
+        const now = new Date();
+        const kolkataOptions = { timeZone: 'Asia/Kolkata', hour12: false, hour: 'numeric', minute: 'numeric', weekday: 'short' };
+        const parts = new Intl.DateTimeFormat('en-IN', kolkataOptions).formatToParts(now);
+        const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '12', 10);
+        const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+        const weekday = parts.find(p => p.type === 'weekday')?.value || '';
+        const timeDecimal = hour + (minute / 60.0);
+
+        let isOpen = false;
+        let hoursText = '';
+        if (weekday === 'Sun') {
+            isOpen = (timeDecimal >= 9.0 && timeDecimal < 13.0);
+            hoursText = isOpen ? 'Open Today: 9:00 AM - 1:00 PM' : 'Closed Today (Sun 9:00 AM - 1:00 PM)';
+        } else {
+            isOpen = (timeDecimal >= 8.0 && timeDecimal < 20.0);
+            hoursText = isOpen ? 'Open Today: 8:00 AM - 8:00 PM' : 'Closed (Opens 8:00 AM)';
+        }
+
+        badge.textContent = hoursText;
+        badge.className = isOpen ? 'badge badge-available' : 'badge badge-borrowed';
+    } catch (e) {
+        // Fallback gracefully
+    }
+}
 
 // Global Logout click listener
 document.addEventListener('click', function (e) {
@@ -321,7 +351,7 @@ function updateNavForLoggedInUser(user) {
             navDashboardLink.href = 'student-home.html';
             navDashboardLink.textContent = 'Student Dashboard';
         }
-        if (navBrandLogo) navBrandLogo.href = 'student-home.html';
+        if (navBrandLogo) navBrandLogo.href = 'index.html';
         if (staffDeskLink) staffDeskLink.style.display = 'none';
         if (staffManageLink) staffManageLink.style.display = 'none';
         if (adminUsersLink) adminUsersLink.style.display = 'none';

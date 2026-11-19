@@ -10,7 +10,7 @@ import { initCirculationView } from './librarian-circulation.js';
 import { initStudentsView } from './librarian-students.js';
 import { initQueuesView } from './librarian-queues.js';
 import { initFinesView } from './librarian-fines.js';
-import { initOperationsModule, loadAcquisitions, loadStudentQueries, loadPurchases } from './librarian-operations.js';
+import { initOperationsModule, loadAcquisitions, loadStudentQueries, loadPurchases, loadFloorHeatmap, loadHighDemandAlerts } from './librarian-operations.js';
 import { initReportsModule, loadActivityLogs, generateCurrentReport } from './librarian-reports.js';
 
 let initializedViews = new Set();
@@ -122,6 +122,10 @@ function handleHashChange() {
         loadStudentQueries();
     } else if (cleanHash === '#operations/purchases') {
         loadPurchases();
+    } else if (cleanHash === '#operations/shelf-locator') {
+        loadFloorHeatmap();
+    } else if (cleanHash === '#operations/high-demand') {
+        loadHighDemandAlerts();
     } else if (cleanHash === '#reports/activity-logs') {
         loadActivityLogs(1);
     } else if (cleanHash === '#reports/analytics') {

@@ -37,10 +37,11 @@ public class LoginServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        String requestedRedirect = getRequestedRedirect(req);
         HttpSession session = req.getSession(false);
         if (session != null && session.getAttribute("user") != null) {
             User user = (User) session.getAttribute("user");
-            resp.sendRedirect(getRedirectUrlForUser(req.getContextPath(), user));
+            resp.sendRedirect(getRedirectUrlForUser(req.getContextPath(), user, requestedRedirect));
             return;
         }
         resp.sendRedirect(req.getContextPath() + "/login.html");
@@ -61,6 +62,7 @@ public class LoginServlet extends HttpServlet {
         }
         String password = req.getParameter("password");
         String rememberMe = req.getParameter("rememberMe");
+        String requestedRedirect = getRequestedRedirect(req);
 
         Map<String, Object> result = new HashMap<>();
 
@@ -109,7 +111,7 @@ public class LoginServlet extends HttpServlet {
                 }
             }
 
-            String redirectUrl = getRedirectUrlForUser(req.getContextPath(), user);
+            String redirectUrl = getRedirectUrlForUser(req.getContextPath(), user, requestedRedirect);
             result.put("success", true);
             result.put("message", "Login successful! Welcome, " + user.getName());
             result.put("redirect", redirectUrl);
@@ -183,7 +185,24 @@ public class LoginServlet extends HttpServlet {
         }
     }
 
-    private String getRedirectUrlForUser(String contextPath, User user) {
+    private String getRequestedRedirect(HttpServletRequest req) {
+        String redirect = req.getParameter("redirect");
+        if (redirect == null || redirect.trim().isEmpty()) {
+            redirect = req.getParameter("returnUrl");
+        }
+        return redirect != null ? redirect.trim() : null;
+    }
+
+    private String getRedirectUrlForUser(String contextPath, User user, String requestedRedirect) {
+        if (requestedRedirect != null && !requestedRedirect.isEmpty()) {
+            // Validate to prevent open redirect vulnerabilities
+            if (requestedRedirect.startsWith("/") && !requestedRedirect.startsWith("//") && !requestedRedirect.contains("://")) {
+                if (requestedRedirect.startsWith(contextPath + "/")) {
+                    return requestedRedirect;
+                }
+                return contextPath + requestedRedirect;
+            }
+        }
         if (user instanceof Librarian) {
             Librarian lib = (Librarian) user;
             if (lib.isMustChangePassword()) {
@@ -194,6 +213,11 @@ public class LoginServlet extends HttpServlet {
         if (user.getRole() == Role.ADMIN) {
             return contextPath + "/admin-users.html";
         }
-        return contextPath + "/student-home.html";
+        // Role.STUDENT signs in directly to the full digital-library Home page (index.html)
+        return contextPath + "/index.html";
+    }
+
+    private String getRedirectUrlForUser(String contextPath, User user) {
+        return getRedirectUrlForUser(contextPath, user, null);
     }
 }

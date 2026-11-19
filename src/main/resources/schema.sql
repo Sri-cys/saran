@@ -572,6 +572,52 @@ CREATE TABLE IF NOT EXISTS library_activity_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS library_layout (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    layout_id INT NULL,
+    floor VARCHAR(20) NOT NULL,
+    block VARCHAR(50) NOT NULL,
+    section VARCHAR(50) NOT NULL,
+    rack VARCHAR(50) NOT NULL,
+    grid_row INT NOT NULL,
+    grid_col INT NOT NULL,
+    row_span INT NOT NULL DEFAULT 1,
+    col_span INT NOT NULL DEFAULT 1,
+    label VARCHAR(100) NULL,
+    category_hint VARCHAR(100) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_floor_grid (floor, grid_row, grid_col),
+    INDEX idx_layout_rack (floor, block, section, rack)
+);
+
+CREATE TABLE IF NOT EXISTS goodwill_extensions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    extension_id INT NULL,
+    student_id INT NOT NULL,
+    transaction_id INT NOT NULL,
+    loan_id INT NULL,
+    extra_days INT NOT NULL DEFAULT 7,
+    reason TEXT NOT NULL,
+    previous_due_date DATE NULL,
+    new_due_date DATE NULL,
+    granted_by INT NOT NULL,
+    granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_goodwill_student (student_id),
+    INDEX idx_ge_student (student_id),
+    INDEX idx_ge_transaction (transaction_id),
+    FOREIGN KEY (student_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (granted_by) REFERENCES users(user_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS config_settings (
+    setting_key VARCHAR(100) PRIMARY KEY,
+    setting_value VARCHAR(255) NOT NULL,
+    description VARCHAR(255) NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+
 
 
 

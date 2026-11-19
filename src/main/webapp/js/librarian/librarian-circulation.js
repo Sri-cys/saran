@@ -122,6 +122,7 @@ function renderCirculationTable(loans, tab) {
                     ${tx.status === 'ACTIVE' ? `
                         <button class="btn-quick" style="padding: 4px 8px; font-size: 11px;" onclick="window.librarianCirculation.openReturnModal(${tx.transactionId}, '${escapeHtml(tx.copyCode || '')}', '${escapeHtml(tx.studentRegisterNumber || '')}')">Return</button>
                         <button class="btn-quick" style="padding: 4px 8px; font-size: 11px;" onclick="window.librarianCirculation.renewLoan(${tx.transactionId})">Renew</button>
+                        <button class="btn-quick" style="padding: 4px 8px; font-size: 11px; color: #203B60; border-color: #203B60;" onclick="window.librarianCirculation.openGoodwillModal(${tx.transactionId}, ${tx.studentId}, '${escapeHtml(tx.studentRegisterNumber || '')}')">Goodwill Ext</button>
                     ` : ''}
                     ${isOverdue ? `
                         <button class="btn-quick" style="padding: 4px 8px; font-size: 11px; color: #B45309; border-color: #B45309;" 
@@ -256,12 +257,108 @@ function escapeHtml(text) {
     }[m]));
 }
 
+export async function openGoodwillModal(transactionId, studentId, regNo) {
+    const modal = document.getElementById('goodwillModal');
+    if (!modal) return;
+
+    const txInput = document.getElementById('gwTransactionId');
+    const regInput = document.getElementById('gwRegisterNumber');
+    const notice = document.getElementById('gwEligibilityNotice');
+    const reasonInput = document.getElementById('gwReason');
+    const daysInput = document.getElementById('gwExtraDays');
+
+    if (txInput) txInput.value = transactionId || '';
+    if (regInput) {
+        regInput.value = regNo || (studentId ? 'ID #' + studentId : '');
+        regInput.dataset.studentId = studentId || '';
+    }
+    if (daysInput) daysInput.value = '7';
+    if (reasonInput) reasonInput.value = '';
+
+    if (notice) {
+        notice.textContent = 'Checking student goodwill eligibility...';
+        notice.style.color = 'var(--text-muted)';
+    }
+
+    modal.classList.add('show');
+
+    if (studentId) {
+        try {
+            const res = await apiFetch(`/api/librarian/circulation/goodwill-status?studentId=${studentId}`);
+            if (res && res.success && res.data) {
+                if (res.data.hasUsed) {
+                    notice.textContent = 'Notice: This student has ALREADY used their one-time goodwill extension.';
+                    notice.style.color = '#B91C1C';
+                    const btn = document.getElementById('btnSubmitGoodwill');
+                    if (btn) btn.disabled = true;
+                } else {
+                    notice.textContent = 'Eligible: Student has not used their lifetime goodwill extension.';
+                    notice.style.color = '#159B50';
+                    const btn = document.getElementById('btnSubmitGoodwill');
+                    if (btn) btn.disabled = false;
+                }
+            }
+        } catch (e) {
+            if (notice) notice.textContent = '';
+        }
+    }
+}
+
+export function closeGoodwillModal() {
+    closeModal('goodwillModal');
+}
+
+export async function submitGoodwillExtension() {
+    const txInput = document.getElementById('gwTransactionId');
+    const regInput = document.getElementById('gwRegisterNumber');
+    const daysInput = document.getElementById('gwExtraDays');
+    const reasonInput = document.getElementById('gwReason');
+
+    const transactionId = parseInt(txInput?.value || '0', 10);
+    const studentId = parseInt(regInput?.dataset.studentId || '0', 10);
+    const extraDays = parseInt(daysInput?.value || '7', 10);
+    const reason = reasonInput?.value?.trim() || '';
+
+    if (!transactionId) {
+        showToast('Please specify a valid transaction ID.', 'error');
+        return;
+    }
+    if (!studentId) {
+        showToast('Could not resolve student ID for this loan.', 'error');
+        return;
+    }
+    if (!reason) {
+        showToast('Please provide a mandatory justification reason.', 'error');
+        return;
+    }
+
+    try {
+        const res = await apiFetch('/api/librarian/circulation/goodwill-extension', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentId, transactionId, extraDays, reason })
+        });
+        if (res && res.success) {
+            showToast(`Goodwill extension granted! New due date: ${res.data?.newDueDate || 'extended'}.`, 'success');
+            closeGoodwillModal();
+            loadCirculationTab(currentCircSubtab);
+        } else {
+            showToast(res.error?.message || 'Failed to grant goodwill extension.', 'error');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
 window.librarianCirculation = {
     openIssueModal,
     openReturnModal,
     openPickupModal,
     renewLoan,
     sendOverdueReminder,
+    openGoodwillModal,
+    closeGoodwillModal,
+    submitGoodwillExtension,
     loadCirculationTab,
     loadActiveLoansForDueDate
 };

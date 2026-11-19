@@ -43,7 +43,8 @@
                         Operations ▾
                     </button>
                     <div class="dropdown-popover">
-                        <a href="#inventory" class="dropdown-item" onclick="window.librarianInventory.openShelfModal(1, 'Smart Shelf Locator')">Smart Shelf Locator</a>
+                        <a href="#operations/shelf-locator" class="dropdown-item">Smart Shelf Locator &amp; 2D Heatmap</a>
+                        <a href="#operations/high-demand" class="dropdown-item">High Demand &amp; Shortage Alerts</a>
                         <a href="#operations/acquisitions" class="dropdown-item">Acquisition Requests</a>
                         <a href="#operations/import-csv" class="dropdown-item">Bulk CSV Import</a>
                         <a href="#operations/barcode" class="dropdown-item">QR / Barcode Scanner</a>
@@ -305,6 +306,7 @@
                 <div style="display: flex; gap: 8px;">
                     <button class="btn-quick btn-quick-primary" onclick="window.librarianCirculation.openIssueModal()">Issue Book</button>
                     <button class="btn-quick" onclick="window.librarianCirculation.openPickupModal()">Allocation Pickup</button>
+                    <button class="btn-quick" onclick="window.librarianCirculation.openGoodwillModal('', '', '')" style="color: #203B60; border-color: #203B60;">+ Goodwill Extension</button>
                 </div>
             </div>
 
@@ -755,6 +757,81 @@
                         </tr>
                     </thead>
                     <tbody id="purchasesTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION: SMART SHELF LOCATOR & 2D FLOOR HEATMAP (#operations/shelf-locator)
+             ================================================================== -->
+        <section id="section-operations-shelf-locator" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Smart Shelf Locator &amp; 2D Floor Heatmap</h1>
+                    <p style="font-size: 13px; color: var(--navy-light); margin-top: 2px;">Real-time circulation density, copy allocation, and rack navigation grid</p>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <label style="font-size: 12px; font-weight: 600; color: var(--navy-primary);">Floor:</label>
+                        <select id="heatmapFloorSelect" class="form-input" style="padding: 4px 10px; font-size: 12px;" onchange="window.librarianOperations.loadFloorHeatmap()">
+                            <option value="Floor 1" selected>Floor 1 - Main Stack</option>
+                        </select>
+                    </div>
+                    <button class="btn-quick" onclick="window.librarianOperations.loadFloorHeatmap()">Refresh Heatmap</button>
+                </div>
+            </div>
+
+            <!-- Heatmap Legend & Summary -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; gap: 16px; align-items: center; font-size: 12px;">
+                    <span style="font-weight: 600; color: var(--navy-primary);">Activity Density:</span>
+                    <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #E8F5EE; border: 1px solid #A3E0BF; border-radius: 3px;"></span> Low (&lt; 30% or &lt; 2 loans)</span>
+                    <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 3px;"></span> Medium (30%–65% or 2–3 loans)</span>
+                    <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 3px;"></span> High (&gt; 65% or 4+ loans)</span>
+                </div>
+                <div style="font-size: 12px; color: var(--navy-light);">
+                    Grid coordinates updated continuously from active borrowings &amp; physical location stacks.
+                </div>
+            </div>
+
+            <!-- 2D Racks Grid Container -->
+            <div id="heatmapGridContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;">
+                <!-- Populated dynamically via librarian-operations.js -->
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             SECTION: HIGH DEMAND & SHORTAGE ALERTS (#operations/high-demand)
+             ================================================================== -->
+        <section id="section-operations-high-demand" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">High Demand Queue &amp; Copy Shortage Alerts</h1>
+                    <p style="font-size: 13px; color: var(--navy-light); margin-top: 2px;">Automated detection for waitlist queues &ge; 4 and copy shortage ratio &ge; 2.0x</p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span id="highDemandCount" class="stock-pill stock-amber" style="font-size: 12px;">0 Books Alerted</span>
+                    <button class="btn-quick" onclick="window.librarianOperations.loadHighDemandAlerts()">Refresh Alerts</button>
+                </div>
+            </div>
+
+            <!-- Alerts Table -->
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Book ID</th>
+                            <th>Book Title &amp; Details</th>
+                            <th>Dept &amp; Category</th>
+                            <th>Waitlist Queue</th>
+                            <th>Circulation Stock</th>
+                            <th>Shortage Ratio</th>
+                            <th>System Recommendation &amp; Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="highDemandTableBody">
+                        <tr><td colspan="7" style="text-align: center; padding: 24px;">Click 'Refresh Alerts' to analyze demand.</td></tr>
+                    </tbody>
                 </table>
             </div>
         </section>
@@ -1390,6 +1467,45 @@
             <div class="modal-footer">
                 <button type="button" class="btn-quick" onclick="document.getElementById('printLabelsModal').classList.remove('show')">Close</button>
                 <button type="button" class="btn-quick btn-quick-primary" onclick="window.print()">🖨 Print Label Sheet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Goodwill Loan Extension -->
+    <div id="goodwillModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Grant One-Time Goodwill Loan Extension</h3>
+                <button class="modal-close-btn" onclick="window.librarianCirculation.closeGoodwillModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 13px; color: var(--navy-light); margin-bottom: 14px;">
+                    Policy: Staff may grant exactly <strong>one</strong> lifetime goodwill loan extension per student. 
+                    This updates the due date while preserving the original loan transaction ID and issue date.
+                </p>
+                <form id="goodwillForm" onsubmit="return false;">
+                    <div style="margin-bottom: 12px;">
+                        <label class="form-label">Student Register Number / ID</label>
+                        <input type="text" id="gwRegisterNumber" class="form-input" placeholder="e.g. 21CS001 or Student ID" readonly>
+                        <span id="gwEligibilityNotice" style="font-size: 12px; margin-top: 4px; display: block;"></span>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label class="form-label">Active Loan Transaction ID</label>
+                        <input type="number" id="gwTransactionId" class="form-input" placeholder="e.g. 101" readonly>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label class="form-label">Extension Days (Default 7 Days)</label>
+                        <input type="number" id="gwExtraDays" class="form-input" value="7" min="1" max="30" required>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label class="form-label">Justification Reason (Mandatory for Audit Trail) *</label>
+                        <textarea id="gwReason" class="form-input" rows="3" placeholder="e.g. Academic conference presentation / Medical extenuating circumstance" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-quick" onclick="window.librarianCirculation.closeGoodwillModal()">Cancel</button>
+                <button type="button" class="btn-quick btn-quick-primary" id="btnSubmitGoodwill" onclick="window.librarianCirculation.submitGoodwillExtension()">Grant Extension</button>
             </div>
         </div>
     </div>

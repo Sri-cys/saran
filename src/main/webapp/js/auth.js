@@ -224,7 +224,7 @@ function initRegisterForm() {
 
             showAlert(alertBox, 'success', data.message || `Account registered successfully! Welcome, ${activeUser.name}. Redirecting to Student Dashboard...`);
             setTimeout(() => {
-                window.location.href = data.redirect || 'student-home.html';
+                window.location.href = data.redirect || 'index.html';
             }, 800);
         })
         .catch(err => {
@@ -453,7 +453,7 @@ function initLoginForm() {
                 }
                 showAlert(alertBox, 'success', data.message || `Login successful! Welcome, ${data.user ? data.user.name : ''}`);
                 setTimeout(() => {
-                    window.location.href = data.redirect || 'student-home.html';
+                    window.location.href = data.redirect || 'index.html';
                 }, 700);
             } else {
                 showAlert(alertBox, 'danger', data.message || 'Invalid credentials. Please verify your login details.');
@@ -523,7 +523,7 @@ function simulateFallbackLogin(loginKey, password, alertBox, submitBtn, remember
                 window.location.href = 'librarian-dashboard.html';
             }
         } else {
-            window.location.href = 'student-home.html';
+            window.location.href = 'index.html';
         }
     }, 700);
 }

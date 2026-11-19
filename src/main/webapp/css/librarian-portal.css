@@ -1000,3 +1000,13 @@ h1, h2, h3, h4, .brand-text, .kpi-number, .book-title-serif {
         grid-template-columns: 1fr;
     }
 }
+
+/* 2D Floor Layout & Heatmap Grid */
+.heatmap-rack-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: default;
+}
+.heatmap-rack-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(10, 37, 64, 0.08);
+}

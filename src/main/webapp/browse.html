@@ -3,26 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Browse Books Catalog | PSG iTech Library</title>
+    <title>Academic Catalog | PSG iTech Library</title>
     <link rel="stylesheet" href="css/library-theme.css">
 </head>
 <body>
 
-    <!-- Global Navigation -->
+    <!-- =====================================================================
+         Single-Row White Top Navigation Bar
+         ===================================================================== -->
     <header class="navbar">
         <div class="nav-container">
-            <a href="index.html" class="nav-left">
+            <!-- Left Branding -->
+            <a href="index.html" class="nav-left" id="navBrandLogo">
                 <img src="images/psgitech-logo.png" alt="PSG iTech Logo" class="logo-icon">
                 <span class="brand-text">PSG iTECH LIBRARY</span>
             </a>
 
+            <!-- Middle Navigation -->
             <div class="nav-middle">
                 <ul class="nav-menu">
-                    <li><a href="smart-discovery.html">Discover</a></li>
-                    <li><a href="browse.html" class="active">Catalog</a></li>
-                    <li><a href="student-directory.html">Student Directory</a></li>
-                    <li><a href="my-reservations.html" id="navReservationsLink">My Reservations</a></li>
-                    <li><a href="student-home.html" id="navDashboardLink">Student Dashboard</a></li>
+                    <li><a href="student-directory.html" id="navStudentDirLink">Student Directory</a></li>
+                    <li><a href="my-books.html" id="navMyBooksLink">My Books</a></li>
+                    <li><a href="browse.html" id="navBrowseLink" class="active">Browse</a></li>
                 </ul>
                 <form class="nav-search-form" id="navSearchForm">
                     <select class="nav-search-select" id="navSearchType">
@@ -30,10 +32,9 @@
                         <option value="title">Title</option>
                         <option value="author">Author</option>
                         <option value="isbn">ISBN</option>
-                        <option value="category">Category</option>
                     </select>
-                    <input type="text" class="nav-search-input" id="navSearchInput" placeholder="Search books, authors, ISBN...">
-                    <button type="submit" class="nav-search-btn">
+                    <input type="text" class="nav-search-input" id="navSearchInput" placeholder="Search books, authors, ISBN..." autocomplete="off">
+                    <button type="submit" class="nav-search-btn" id="navSearchBtn" title="Search">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="11" cy="11" r="8"></circle>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -42,20 +43,35 @@
                 </form>
             </div>
 
+            <!-- Right Controls: Logged-Out vs Logged-In -->
             <div class="nav-right">
-                <div class="nav-actions" id="navLoggedOut">
-                    <a href="login.html" class="btn btn-secondary btn-sm">Log In</a>
-                    <a href="register.html" class="btn btn-primary btn-sm">Sign Up</a>
+                <div class="nav-actions" id="navLoggedOut" style="display: none;">
+                    <a href="login.html" class="btn btn-secondary btn-sm" id="navLoginBtn">Log In</a>
+                    <a href="register.html" class="btn btn-primary btn-sm" id="navRegisterBtn">Sign Up</a>
                 </div>
+
                 <div class="nav-actions" id="navLoggedIn" style="display: none;">
+                    <button class="notification-bell" id="notificationBtn" title="Notifications">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <span class="notification-badge" style="display: none;">0</span>
+                    </button>
+
                     <div class="profile-dropdown">
                         <button class="profile-trigger" id="profileTrigger">
                             <span class="avatar-icon" id="navAvatar">U</span>
                             <span id="navUsername">Account</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
                         </button>
                         <div class="dropdown-menu" id="profileDropdownMenu">
-                            <a href="student-home.html" class="dropdown-item">My Dashboard</a>
+                            <div class="dropdown-header" id="navDropdownRoleHeader">Student Portal</div>
+                            <a href="student-home.html" class="dropdown-item" id="navDashboardLink">Student Dashboard</a>
                             <a href="profile.html" class="dropdown-item">My Profile</a>
+                            <a href="librarian-dashboard.html" class="dropdown-item" id="navStaffDeskLink" style="display: none;">Librarian Desk</a>
                             <a href="manage-books.html" class="dropdown-item" id="navStaffManageLink" style="display: none;">Manage Books</a>
                             <div class="dropdown-divider"></div>
                             <a href="logout" class="dropdown-item" data-action="logout" style="color: var(--danger);">Log Out</a>
@@ -66,96 +82,143 @@
         </div>
     </header>
 
+    <!-- =====================================================================
+         Main Catalog Page
+         ===================================================================== -->
     <main class="main-content">
-        <div class="container" style="margin-top: 32px;">
+        <div class="catalog-page-container">
 
-            <!-- Discovery Header -->
-            <div style="border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;">
-                <div>
-                    <h1 style="margin-bottom: 4px;">Explore Library Collections</h1>
-                    <p class="text-secondary">Discover textbooks, reference manuals, and academic resources available at the central college library</p>
+            <!-- "Explore Academic Categories" Card Strip -->
+            <section class="category-strip-section" aria-label="Explore Academic Categories">
+                <div class="category-strip-header">
+                    <h2 class="category-strip-title">Explore Academic Categories</h2>
+                    <span class="text-secondary" style="font-size: 0.9rem;">Click a category card to filter instantly</span>
                 </div>
-                <div id="staffQuickActions" style="display: none;">
-                    <a href="manage-books.html" class="btn btn-primary btn-sm">+ Manage Books Workspace</a>
+                <div class="category-strip-scroll" id="categoryStripScroll" role="region" aria-label="Academic Categories List">
+                    <div style="padding: 12px; color: #5F6368; font-size: 0.9rem;">Loading categories...</div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Filters & Search Toolbar -->
-            <div class="admin-toolbar" style="margin-bottom: 30px;">
-                <div class="filter-group">
-                    <!-- Search Scope Selection -->
-                    <div style="min-width: 110px;">
-                        <select id="catalogSearchType" class="form-control">
-                            <option value="all">All Fields</option>
-                            <option value="title">Title</option>
-                            <option value="author">Author</option>
-                            <option value="isbn">ISBN</option>
-                            <option value="category">Category</option>
-                        </select>
+            <!-- Two-Column Catalog Workspace -->
+            <section class="catalog-workspace" aria-label="Catalog Books and Filters">
+
+                <!-- Left Column — Sticky "Filter Catalog" Card -->
+                <aside class="catalog-filter-card" id="catalogFilterCard" aria-label="Filter Options">
+                    <div class="filter-card-header">
+                        <h3 class="filter-card-title">Filter Catalog</h3>
+                        <button type="button" class="filter-reset-btn" id="btnResetFilters" title="Clear all active filters">Reset</button>
                     </div>
 
-                    <!-- Text Search Input with Debounce -->
-                    <div style="flex: 1; min-width: 220px;">
-                        <input type="text" id="catalogSearchInput" class="form-control" placeholder="Search by title, author, or ISBN...">
+                    <form id="catalogFilterForm" onsubmit="return false;" class="filter-form-group">
+                        <!-- Category Input -->
+                        <div class="filter-field">
+                            <label for="filterCategorySelect">Category</label>
+                            <select id="filterCategorySelect">
+                                <option value="ALL">All Categories</option>
+                            </select>
+                        </div>
+
+                        <!-- Author Input -->
+                        <div class="filter-field">
+                            <label for="filterAuthorInput">Author</label>
+                            <input type="text" id="filterAuthorInput" placeholder="e.g. Cormen" autocomplete="off">
+                        </div>
+
+                        <!-- Publisher Input -->
+                        <div class="filter-field">
+                            <label for="filterPublisherInput">Publisher</label>
+                            <input type="text" id="filterPublisherInput" placeholder="e.g. Pearson" autocomplete="off">
+                        </div>
+
+                        <!-- Department Input -->
+                        <div class="filter-field">
+                            <label for="filterDeptSelect">Department</label>
+                            <select id="filterDeptSelect">
+                                <option value="ALL">All Departments</option>
+                                <option value="CSE">Computer Science (CSE)</option>
+                                <option value="IT">Information Technology (IT)</option>
+                                <option value="ECE">Electronics &amp; Comm (ECE)</option>
+                                <option value="EEE">Electrical &amp; Electronics (EEE)</option>
+                                <option value="MECH">Mechanical Eng (MECH)</option>
+                                <option value="AI&DS">AI &amp; Data Science (AI&DS)</option>
+                                <option value="CIVIL">Civil Engineering (CIVIL)</option>
+                                <option value="GENERAL">General Sciences</option>
+                            </select>
+                        </div>
+
+                        <!-- Side-by-Side Publication Year Inputs (From & To) -->
+                        <div class="filter-field">
+                            <label>Publication Year</label>
+                            <div class="year-range-grid">
+                                <input type="number" id="filterYearFrom" placeholder="From" min="1900" max="2099">
+                                <input type="number" id="filterYearTo" placeholder="To" min="1900" max="2099">
+                            </div>
+                            <span id="yearErrorMsg" style="color: #B91C1C; font-size: 0.8rem; display: none;">'From' year must be &le; 'To' year</span>
+                        </div>
+
+                        <!-- Copy Availability Input -->
+                        <div class="filter-field">
+                            <label for="filterAvailabilitySelect">Copy Availability</label>
+                            <select id="filterAvailabilitySelect">
+                                <option value="ALL">All Items</option>
+                                <option value="AVAILABLE">Available Now Only</option>
+                                <option value="UNAVAILABLE">Currently Unavailable</option>
+                            </select>
+                        </div>
+
+                        <!-- Full-Width Apply Filters Button -->
+                        <button type="submit" class="filter-apply-btn" id="btnApplyFilters">Apply Filters</button>
+                    </form>
+                </aside>
+
+                <!-- Right Column — Single-Row Toolbar & Book Grid -->
+                <div class="catalog-main-content">
+                    <!-- Single-Row Toolbar -->
+                    <div class="catalog-toolbar" id="catalogToolbar">
+                        <div class="toolbar-left">
+                            <span class="toolbar-count" id="catalogResultCount">Showing 0 of 0 books</span>
+                            <div class="active-pills-list" id="activeFilterPills" aria-label="Active Filter Pills">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+
+                        <div class="toolbar-right">
+                            <div class="toolbar-control-group">
+                                <label for="catalogSortSelect">Sort:</label>
+                                <select id="catalogSortSelect">
+                                    <option value="RELEVANCE">Relevance</option>
+                                    <option value="RECENTLY_ADDED" selected>Recently Added</option>
+                                    <option value="YEAR_DESC">Year (Newest First)</option>
+                                    <option value="YEAR_ASC">Year (Oldest First)</option>
+                                    <option value="POPULARITY">Most Popular</option>
+                                    <option value="TITLE_ASC">Title (A - Z)</option>
+                                </select>
+                            </div>
+
+                            <div class="toolbar-control-group">
+                                <label for="catalogPageSizeSelect">Show:</label>
+                                <select id="catalogPageSizeSelect">
+                                    <option value="12" selected>12</option>
+                                    <option value="24">24</option>
+                                    <option value="36">36</option>
+                                    <option value="48">48</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Category Filter -->
-                    <div style="min-width: 160px;">
-                        <select id="catalogCategoryFilter" class="form-control">
-                            <option value="ALL">All Categories</option>
-                            <option value="Computer Science">Computer Science</option>
-                            <option value="Programming">Programming</option>
-                            <option value="Data Structures">Data Structures</option>
-                            <option value="Artificial Intelligence">Artificial Intelligence</option>
-                            <option value="Mathematics">Mathematics</option>
-                            <option value="Electronics">Electronics</option>
-                            <option value="General Knowledge">General Knowledge</option>
-                            <option value="Fiction">Fiction</option>
-                        </select>
+                    <!-- Multi-Column Book Grid -->
+                    <div class="catalog-books-grid" id="catalogGrid" aria-live="polite">
+                        <!-- Populated dynamically via browse.js -->
                     </div>
 
-                    <!-- Department Filter -->
-                    <div style="min-width: 140px;">
-                        <select id="catalogDeptFilter" class="form-control">
-                            <option value="ALL">All Departments</option>
-                            <option value="CSE">CSE</option>
-                            <option value="IT">IT</option>
-                            <option value="ECE">ECE</option>
-                            <option value="EEE">EEE</option>
-                            <option value="MECH">MECH</option>
-                            <option value="AI&DS">AI&DS</option>
-                            <option value="CIVIL">CIVIL</option>
-                            <option value="GENERAL">GENERAL</option>
-                        </select>
-                    </div>
-
-                    <!-- Availability Filter -->
-                    <div style="min-width: 150px;">
-                        <select id="catalogAvailabilityFilter" class="form-control">
-                            <option value="ALL">All Availability</option>
-                            <option value="AVAILABLE">Available Now Only</option>
-                            <option value="UNAVAILABLE">Currently Unavailable</option>
-                        </select>
-                    </div>
-
-                    <!-- Staff-Only Archived Filter -->
-                    <div id="archivedFilterContainer" style="display: none; align-items: center; gap: 6px;">
-                        <label class="form-checkbox-label" style="font-size: 0.88rem;">
-                            <input type="checkbox" id="catalogArchivedFilter" value="true">
-                            <span>Show Archived</span>
-                        </label>
+                    <!-- Pagination -->
+                    <div id="catalogPagination" style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 32px;">
+                        <!-- Populated dynamically -->
                     </div>
                 </div>
 
-                <div>
-                    <span id="catalogCountBadge" class="badge badge-role">Loading Books...</span>
-                </div>
-            </div>
-
-            <!-- Real-Time Catalog Cards Grid -->
-            <div id="catalogGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 24px; min-height: 280px;">
-                <!-- Populated dynamically via books.js fetch -->
-            </div>
+            </section>
 
         </div>
     </main>
@@ -169,17 +232,7 @@
 
     <script src="js/main.js"></script>
     <script src="js/auth.js"></script>
-    <script src="js/books.js"></script>
+    <script src="js/browse.js"></script>
     <script src="js/notification-bell.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            if (isStaffUser()) {
-                const staffActions = document.getElementById('staffQuickActions');
-                const staffLink = document.getElementById('navStaffManageLink');
-                if (staffActions) staffActions.style.display = 'block';
-                if (staffLink) staffLink.style.display = 'block';
-            }
-        });
-    </script>
 </body>
 </html>

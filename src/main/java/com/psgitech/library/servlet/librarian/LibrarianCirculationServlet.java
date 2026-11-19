@@ -21,6 +21,8 @@ import com.psgitech.library.repository.UserRepository;
 import com.psgitech.library.service.ActivityLogService;
 import com.psgitech.library.service.AllocationService;
 import com.psgitech.library.service.BorrowingService;
+import com.psgitech.library.service.GoodwillExtensionService;
+import com.psgitech.library.model.GoodwillExtension;
 import com.psgitech.library.service.NotificationService;
 import com.psgitech.library.util.DBConnection;
 import com.psgitech.library.util.GsonProvider;
@@ -60,6 +62,7 @@ public class LibrarianCirculationServlet extends HttpServlet {
     private UserRepository userRepository;
     private NotificationService notificationService;
     private ActivityLogService activityLogService;
+    private GoodwillExtensionService goodwillService;
     private Gson gson;
 
     @Override
@@ -71,6 +74,7 @@ public class LibrarianCirculationServlet extends HttpServlet {
         this.userRepository = new UserRepository();
         this.notificationService = new NotificationService();
         this.activityLogService = new ActivityLogService();
+        this.goodwillService = new GoodwillExtensionService();
         this.gson = GsonProvider.getGson();
     }
 
@@ -108,6 +112,25 @@ public class LibrarianCirculationServlet extends HttpServlet {
                 resp.getWriter().write(gson.toJson(ApiResponse.ok(list)));
             } else if (path.endsWith("/recent-returned")) {
                 List<BorrowTransaction> list = borrowRepository.findRecentlyReturnedTransactions(50);
+                resp.setStatus(HttpServletResponse.SC_OK);
+                resp.getWriter().write(gson.toJson(ApiResponse.ok(list)));
+            } else if (path.endsWith("/goodwill-status")) {
+                String studentIdStr = req.getParameter("studentId");
+                if (studentIdStr == null || studentIdStr.trim().isEmpty()) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write(gson.toJson(ApiResponse.error("MISSING_PARAM", "studentId is required")));
+                    return;
+                }
+                int studentId = Integer.parseInt(studentIdStr.trim());
+                boolean hasUsed = goodwillService.hasUsedGoodwillExtension(studentId);
+                GoodwillExtension ext = goodwillService.getExtensionForStudent(studentId);
+                Map<String, Object> map = new java.util.HashMap<>();
+                map.put("hasUsed", hasUsed);
+                map.put("extension", ext);
+                resp.setStatus(HttpServletResponse.SC_OK);
+                resp.getWriter().write(gson.toJson(ApiResponse.ok(map)));
+            } else if (path.endsWith("/goodwill-extensions")) {
+                List<GoodwillExtension> list = goodwillService.getRecentExtensions(50);
                 resp.setStatus(HttpServletResponse.SC_OK);
                 resp.getWriter().write(gson.toJson(ApiResponse.ok(list)));
             } else {
@@ -151,6 +174,8 @@ public class LibrarianCirculationServlet extends HttpServlet {
                 handleConfirmPickup(req, resp);
             } else if (path.endsWith("/overdue-reminder")) {
                 handleOverdueReminder(req, resp);
+            } else if (path.endsWith("/goodwill-extension")) {
+                handleGoodwillExtension(req, resp);
             } else {
                 resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 resp.getWriter().write(gson.toJson(ApiResponse.error("NOT_FOUND", "Unknown endpoint: " + path)));
@@ -290,6 +315,25 @@ public class LibrarianCirculationServlet extends HttpServlet {
 
         resp.setStatus(HttpServletResponse.SC_OK);
         resp.getWriter().write(gson.toJson(ApiResponse.ok(Map.of("success", true, "transactionId", transactionId))));
+    }
+
+    private void handleGoodwillExtension(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        JsonObject json = parseJsonBody(req);
+        if (!json.has("studentId") || !json.has("transactionId") || !json.has("reason")) {
+            throw new ValidationException("studentId, transactionId, and reason are required.");
+        }
+        int studentId = json.get("studentId").getAsInt();
+        int transactionId = json.get("transactionId").getAsInt();
+        int extraDays = json.has("extraDays") && !json.get("extraDays").isJsonNull() ? json.get("extraDays").getAsInt() : 7;
+        String reason = getRequiredString(json, "reason");
+
+        User currentStaff = getAuthenticatedStaff(req);
+        GoodwillExtension ext = goodwillService.grantGoodwillExtension(
+                studentId, transactionId, extraDays, reason, currentStaff.getUserId(), req.getRemoteAddr()
+        );
+
+        resp.setStatus(HttpServletResponse.SC_OK);
+        resp.getWriter().write(gson.toJson(ApiResponse.ok(ext)));
     }
 
     private User getAuthenticatedStaff(HttpServletRequest req) {

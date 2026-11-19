@@ -732,8 +732,125 @@ window.librarianOperations = {
         document.getElementById('viewQueryResolver').textContent = resolver;
         document.getElementById('viewQueryModal').classList.add('show');
     },
-    filterCirculationByDate
+    filterCirculationByDate,
+    loadFloorHeatmap,
+    loadHighDemandAlerts
 };
+
+export async function loadFloorHeatmap() {
+    const floorSelect = document.getElementById('heatmapFloorSelect');
+    const gridContainer = document.getElementById('heatmapGridContainer');
+    if (!gridContainer) return;
+
+    const floor = floorSelect?.value || 'Floor 1';
+    gridContainer.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--navy-light);">Loading 2D floor layout & circulation density...</div>';
+
+    try {
+        const res = await apiFetch(`/api/librarian/layout/heatmap?floor=${encodeURIComponent(floor)}`);
+        if (res && res.success && Array.isArray(res.data)) {
+            renderHeatmapGrid(res.data);
+        } else {
+            gridContainer.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--navy-light);">No layout grid configured for ' + escapeHtml(floor) + '.</div>';
+        }
+    } catch (err) {
+        gridContainer.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: #B91C1C; padding: 30px;">Failed to load heatmap: ${escapeHtml(err.message)}</div>`;
+    }
+}
+
+function renderHeatmapGrid(cells) {
+    const gridContainer = document.getElementById('heatmapGridContainer');
+    if (!gridContainer) return;
+
+    if (!cells || cells.length === 0) {
+        gridContainer.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--navy-light);">No racks found.</div>';
+        return;
+    }
+
+    gridContainer.innerHTML = cells.map(cell => {
+        const density = cell.densityLevel || 'LOW';
+        let badgeColor = '#159B50';
+        let badgeBg = '#E8F5EE';
+        let borderColor = '#A3E0BF';
+
+        if (density === 'HIGH') {
+            badgeColor = '#B91C1C';
+            badgeBg = '#FEF2F2';
+            borderColor = '#FCA5A5';
+        } else if (density === 'MEDIUM') {
+            badgeColor = '#B45309';
+            badgeBg = '#FEF3C7';
+            borderColor = '#FDE68A';
+        }
+
+        return `
+            <div class="heatmap-rack-card" style="background: white; border: 2px solid ${borderColor}; border-radius: 8px; padding: 16px; position: relative; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div>
+                        <span style="font-weight: 700; font-size: 15px; color: var(--navy-primary);">${escapeHtml(cell.rack)}</span>
+                        <span style="font-size: 12px; color: var(--navy-light); margin-left: 6px;">(${escapeHtml(cell.label || 'Rack')})</span>
+                    </div>
+                    <span style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${borderColor}; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700;">
+                        ${density} ACTIVITY
+                    </span>
+                </div>
+                <div style="font-size: 12px; color: var(--navy-light); margin-bottom: 12px;">
+                    <div>${escapeHtml(cell.section)} • ${escapeHtml(cell.block)}</div>
+                    <div style="font-weight: 500; color: #334155; margin-top: 2px;">${escapeHtml(cell.categoryHint || 'General Stack')}</div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 12px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                    <div><span style="color: var(--navy-light);">Copies:</span> <strong>${cell.totalCopies || 0}</strong></div>
+                    <div><span style="color: var(--navy-light);">Active Loans:</span> <strong>${cell.activeBorrowCount || 0}</strong></div>
+                    <div><span style="color: var(--navy-light);">Utilization:</span> <strong>${cell.fillPercentage || 0}%</strong></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+export async function loadHighDemandAlerts() {
+    const tbody = document.getElementById('highDemandTableBody');
+    const countDisplay = document.getElementById('highDemandCount');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px;">Analyzing inventory demand & waitlists...</td></tr>';
+
+    try {
+        const res = await apiFetch('/api/librarian/operations/high-demand-alerts');
+        if (res && res.success && Array.isArray(res.data)) {
+            const alerts = res.data;
+            if (countDisplay) countDisplay.textContent = `${alerts.length} Books Alerted`;
+
+            if (alerts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px; color: #159B50;">All inventory circulation queues are operating within optimal capacity. Zero shortage alerts.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = alerts.map(a => `
+                <tr>
+                    <td><strong>#${a.bookId}</strong></td>
+                    <td>
+                        <div style="font-weight: 600; color: var(--navy-primary);">${escapeHtml(a.title)}</div>
+                        <div style="font-size: 11px; color: var(--navy-light);">by ${escapeHtml(a.author)} • ISBN: ${escapeHtml(a.isbn || 'N/A')}</div>
+                    </td>
+                    <td>${escapeHtml(a.category)} &bull; ${escapeHtml(a.department)}</td>
+                    <td><span style="font-weight: 700; color: #B91C1C; font-size: 14px;">${a.waitingCount} queued</span></td>
+                    <td>
+                        <strong>${a.availableCopies}</strong> / ${a.totalCopies} total
+                    </td>
+                    <td>
+                        <span class="stock-pill stock-red">${a.shortageRatio}x</span>
+                    </td>
+                    <td>
+                        <div style="font-size: 12px; color: #334155; margin-bottom: 4px;">${escapeHtml(a.recommendation)}</div>
+                        <a href="#operations/acquisitions" class="btn-quick" style="padding: 2px 8px; font-size: 11px;">Create Requisition</a>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #B91C1C; padding: 24px;">Failed to load alerts: ${escapeHtml(err.message)}</td></tr>`;
+    }
+}
 
 function escapeHtml(str) {
     if (!str) return '';
