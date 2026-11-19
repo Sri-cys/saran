@@ -21,6 +21,7 @@ public class LibrarianStudentService {
     private final ReservationService reservationService;
     private final BookInterchangeService interchangeService;
     private final ActivityLogService activityLogService;
+    private final TrustStandingService trustStandingService;
 
     public LibrarianStudentService() {
         this.repository = new LibrarianStudentRepository();
@@ -29,6 +30,7 @@ public class LibrarianStudentService {
         this.reservationService = new ReservationService();
         this.interchangeService = new BookInterchangeService();
         this.activityLogService = new ActivityLogService();
+        this.trustStandingService = new TrustStandingService();
     }
 
     public LibrarianStudentService(LibrarianStudentRepository repository,
@@ -43,6 +45,7 @@ public class LibrarianStudentService {
         this.reservationService = reservationService;
         this.interchangeService = interchangeService;
         this.activityLogService = activityLogService;
+        this.trustStandingService = new TrustStandingService();
     }
 
     public List<Map<String, Object>> getStudents(int page, int pageSize, String query, String filter) {
@@ -70,6 +73,7 @@ public class LibrarianStudentService {
         profile.put("fines", fines);
         profile.put("incomingTransfers", interchangeService.getIncomingRequests(studentId));
         profile.put("outgoingTransfers", interchangeService.getOutgoingRequests(studentId));
+        profile.put("trustStanding", trustStandingService.computeTrustStanding(studentId));
 
         return profile;
     }

@@ -171,6 +171,45 @@
                 </div>
             </div>
 
+            <!-- Exception Triage Panel (Smart Desk Operations 6.5) -->
+            <div id="exceptionTriageSection" style="margin-bottom: 24px; background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 18px;">⚠️</span>
+                        <h2 style="font-size: 16px; font-weight: bold; color: var(--navy-primary); margin: 0;">Exception Triage Panel</h2>
+                        <span id="triageTotalBadge" class="status-pill status-pill-overdue" style="font-size: 11px;">0 Exceptions</span>
+                    </div>
+                    <span style="font-size: 12px; color: var(--navy-light);">Real-time action queue across Queues, Transfers, Fines &amp; Stock</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                    <div class="triage-card" onclick="window.location.hash='#queues'; window.librarianHome.showTriageDrilldown('allocations');" style="cursor: pointer; border: 1px solid #FEE2E2; background: #FEF2F2; border-radius: 6px; padding: 12px 14px; transition: transform 0.15s ease;">
+                        <div style="font-size: 11px; text-transform: uppercase; color: #991B1B; font-weight: 600;">Expiring Allocations (&lt;2h)</div>
+                        <div id="triageExpiringCount" style="font-size: 20px; font-weight: bold; color: #B91C1C; margin: 4px 0;">0</div>
+                        <div style="font-size: 11px; color: #7F1D1D;">Pickup deadline approaching &rarr;</div>
+                    </div>
+                    <div class="triage-card" onclick="window.location.hash='#queues/transfers'; window.librarianHome.showTriageDrilldown('transfers');" style="cursor: pointer; border: 1px solid #FEF3C7; background: #FFFBEB; border-radius: 6px; padding: 12px 14px; transition: transform 0.15s ease;">
+                        <div style="font-size: 11px; text-transform: uppercase; color: #92400E; font-weight: 600;">Stalled Transfers (&gt;24h)</div>
+                        <div id="triageStalledCount" style="font-size: 20px; font-weight: bold; color: #B45309; margin: 4px 0;">0</div>
+                        <div style="font-size: 11px; color: #78350F;">Unverified OTP peer handover &rarr;</div>
+                    </div>
+                    <div class="triage-card" onclick="window.location.hash='#fines'; window.librarianHome.showTriageDrilldown('cases');" style="cursor: pointer; border: 1px solid #E0E7FF; background: #EEF2FF; border-radius: 6px; padding: 12px 14px; transition: transform 0.15s ease;">
+                        <div style="font-size: 11px; text-transform: uppercase; color: #3730A3; font-weight: 600;">Lost / Damaged Cases</div>
+                        <div id="triageCasesCount" style="font-size: 20px; font-weight: bold; color: #4338CA; margin: 4px 0;">0</div>
+                        <div style="font-size: 11px; color: #312E81;">Pending assessment or payment &rarr;</div>
+                    </div>
+                    <div class="triage-card" onclick="window.location.hash='#inventory'; window.librarianHome.showTriageDrilldown('worn_copies');" style="cursor: pointer; border: 1px solid #F3E8FF; background: #FAF5FF; border-radius: 6px; padding: 12px 14px; transition: transform 0.15s ease;">
+                        <div style="font-size: 11px; text-transform: uppercase; color: #6B21A8; font-weight: 600;">Retire-Eligible Copies</div>
+                        <div id="triageRetireCount" style="font-size: 20px; font-weight: bold; color: #7E22CE; margin: 4px 0;">0</div>
+                        <div style="font-size: 11px; color: #581C87;">Damaged or heavily worn &rarr;</div>
+                    </div>
+                    <div class="triage-card" onclick="window.location.hash='#circulation/overdue'; window.librarianHome.showTriageDrilldown('overdue');" style="cursor: pointer; border: 1px solid #FEE2E2; background: #FEF2F2; border-radius: 6px; padding: 12px 14px; transition: transform 0.15s ease;">
+                        <div style="font-size: 11px; text-transform: uppercase; color: #991B1B; font-weight: 600;">Critical Overdue (15+ Days)</div>
+                        <div id="triageOverdueCount" style="font-size: 20px; font-weight: bold; color: #B91C1C; margin: 4px 0;">0</div>
+                        <div style="font-size: 11px; color: #7F1D1D;">Long-standing overdue loans &rarr;</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 4.3 Department Analytics -->
             <div class="analytics-grid">
                 <div class="chart-card-container">
@@ -304,6 +343,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <h1 style="font-size: 24px; color: var(--navy-primary); font-weight: bold;">Circulation Desk Operations</h1>
                 <div style="display: flex; gap: 8px;">
+                    <button class="btn-quick" onclick="window.librarianCirculation.openExpressDeskModal()" style="background: #1F3A60; color: white; font-weight: bold;">⚡ Express Desk (Alt+Shift+D)</button>
                     <button class="btn-quick btn-quick-primary" onclick="window.librarianCirculation.openIssueModal()">Issue Book</button>
                     <button class="btn-quick" onclick="window.librarianCirculation.openPickupModal()">Allocation Pickup</button>
                     <button class="btn-quick" onclick="window.librarianCirculation.openGoodwillModal('', '', '')" style="color: #203B60; border-color: #203B60;">+ Goodwill Extension</button>
@@ -918,6 +958,8 @@
                         <option value="OVERDUE_AGE_BUCKETS">7. Overdue Age Buckets</option>
                         <option value="TOP_BORROWERS">8. Top Student Borrowers</option>
                         <option value="ACQUISITION_EXPENDITURE">9. Acquisition Expenditure</option>
+                        <option value="COPY_SHORTAGE_BOTTLENECKS">10. Copy-Shortage Bottlenecks</option>
+                        <option value="ZERO_CIRCULATION_WARMERS">11. Zero-Circulation Shelf Warmers (180d)</option>
                     </select>
                 </div>
                 <div style="display: flex; gap: 8px; align-items: center;">
@@ -1494,8 +1536,8 @@
                         <input type="number" id="gwTransactionId" class="form-input" placeholder="e.g. 101" readonly>
                     </div>
                     <div style="margin-bottom: 12px;">
-                        <label class="form-label">Extension Days (Default 7 Days)</label>
-                        <input type="number" id="gwExtraDays" class="form-input" value="7" min="1" max="30" required>
+                        <label class="form-label">Extension Days (Default 2 Days per Policy)</label>
+                        <input type="number" id="gwExtraDays" class="form-input" value="2" min="1" max="14" required>
                     </div>
                     <div style="margin-bottom: 12px;">
                         <label class="form-label">Justification Reason (Mandatory for Audit Trail) *</label>
@@ -1506,6 +1548,92 @@
             <div class="modal-footer">
                 <button type="button" class="btn-quick" onclick="window.librarianCirculation.closeGoodwillModal()">Cancel</button>
                 <button type="button" class="btn-quick btn-quick-primary" id="btnSubmitGoodwill" onclick="window.librarianCirculation.submitGoodwillExtension()">Grant Extension</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Express Desk Rapid Circulation Mode (Section 6.1) -->
+    <div id="expressDeskModal" class="modal-backdrop">
+        <div class="modal-dialog" style="max-width: 980px; width: 95%;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 20px;">⚡</span>
+                    <h3 class="modal-title">Express Circulation Desk</h3>
+                    <span style="font-size: 11px; background: #E2E8F0; color: #334155; padding: 2px 6px; border-radius: 4px; font-family: monospace;">Alt+Shift+D</span>
+                </div>
+                <div style="display: flex; gap: 8px; margin-left: auto; align-items: center;">
+                    <button type="button" class="btn-quick" onclick="window.librarianCirculation.resetExpressDesk()" title="Reset Desk (Esc)">Clear / Reset (Esc)</button>
+                    <button class="modal-close-btn" onclick="window.librarianCirculation.closeExpressDeskModal()">✕</button>
+                </div>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <!-- Persistent High-Contrast ARIA-Live Banner -->
+                <div id="expressHoldBanner" aria-live="assertive" role="alert" style="display: none; background: #B91C1C; color: white; padding: 14px 18px; border-radius: 6px; font-weight: bold; font-size: 16px; margin-bottom: 18px; text-align: center; box-shadow: 0 4px 12px rgba(185,28,28,0.35); letter-spacing: 0.5px;"></div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <!-- Left Column: Student Borrower Card -->
+                    <div style="background: #F8F9FA; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px;">
+                        <h4 style="font-size: 14px; font-weight: bold; color: var(--navy-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                            <span>👤</span> Step 1: Student Borrower Card
+                        </h4>
+                        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+                            <input type="text" id="expressStudentInput" class="form-input" placeholder="Scan/Type Student Roll No or Email..." style="flex: 1;" autocomplete="off">
+                            <button type="button" class="btn-quick btn-quick-primary" onclick="window.librarianCirculation.searchExpressStudent()">Lookup</button>
+                        </div>
+                        <div id="expressStudentCardDetails" style="min-height: 220px; font-size: 13px;">
+                            <div style="text-align: center; color: #94A3B8; padding: 50px 0;">
+                                Scan student barcode or enter roll number above.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Auto-Detect Issue/Return -->
+                    <div style="background: #F8F9FA; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px;">
+                        <h4 style="font-size: 14px; font-weight: bold; color: var(--navy-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                            <span>📖</span> Step 2: Physical Copy &amp; Action
+                        </h4>
+                        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+                            <input type="text" id="expressCopyInput" class="form-input" placeholder="Scan Copy Barcode or enter Copy ID..." style="flex: 1;" autocomplete="off">
+                            <button type="button" class="btn-quick" onclick="window.librarianCirculation.inspectExpressCopy()">Inspect</button>
+                        </div>
+                        <div id="expressCopyCardDetails" style="min-height: 160px; font-size: 13px;">
+                            <div style="text-align: center; color: #94A3B8; padding: 35px 0;">
+                                Scan physical book copy to auto-detect Issue or Return.
+                            </div>
+                        </div>
+                        <div style="margin-top: 14px;">
+                            <button type="button" id="expressExecuteBtn" class="btn-quick btn-quick-primary" style="width: 100%; padding: 10px; font-size: 14px; font-weight: bold;" onclick="window.librarianCirculation.executeExpressAction()" disabled>
+                                Confirm Action (Enter ↵)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom: Rapid Actions Log (Last 10 Actions) -->
+                <div style="margin-top: 20px; border-top: 1px solid #E2E8F0; padding-top: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h5 style="font-size: 13px; font-weight: bold; color: var(--navy-light); margin: 0;">Rapid Desk Action Log (Recent 10)</h5>
+                        <span id="expressLogCounter" style="font-size: 11px; color: #64748B;">0 operations recorded</span>
+                    </div>
+                    <div style="max-height: 130px; overflow-y: auto; background: white; border: 1px solid #E2E8F0; border-radius: 6px;">
+                        <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-align: left;">
+                            <thead>
+                                <tr style="background: #F1F5F9; border-bottom: 1px solid #E2E8F0; color: #475569;">
+                                    <th style="padding: 6px 10px;">Time</th>
+                                    <th style="padding: 6px 10px;">Action</th>
+                                    <th style="padding: 6px 10px;">Details</th>
+                                    <th style="padding: 6px 10px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expressActionLogBody">
+                                <tr><td colspan="4" style="text-align: center; color: #94A3B8; padding: 12px;">No transactions completed in this session yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-quick" onclick="window.librarianCirculation.closeExpressDeskModal()">Close Express Desk</button>
             </div>
         </div>
     </div>

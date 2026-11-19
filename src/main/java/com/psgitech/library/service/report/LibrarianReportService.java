@@ -49,6 +49,13 @@ public class LibrarianReportService implements LibrarianReportProvider {
                 return generateTopBorrowers(filter);
             case "ACQUISITION_EXPENDITURE":
                 return generateAcquisitionExpenditure(filter);
+            case "COPY_SHORTAGE_BOTTLENECKS":
+            case "COPY_SHORTAGE":
+                return generateCopyShortageBottlenecks(filter);
+            case "ZERO_CIRCULATION_WARMERS":
+            case "ZERO_CIRCULATION":
+            case "SHELF_WARMERS":
+                return generateZeroCirculationWarmers(filter);
             case "MONTHLY_BORROW_VS_RETURN":
             default:
                 return generateMonthlyBorrowVsReturn(filter);
@@ -509,6 +516,158 @@ public class LibrarianReportService implements LibrarianReportProvider {
         res.getChartData().put("datasets", List.of(Map.of("label", "Expenditure (Rs.)", "data", spend, "color", "#F5A623")));
         res.getSummary().put("totalExpenditure", totalSpend);
         res.getSummary().put("totalItemsPurchased", totalItems);
+        return res;
+    }
+
+    private ReportResult generateCopyShortageBottlenecks(ReportFilter filter) {
+        ReportResult res = new ReportResult("COPY_SHORTAGE_BOTTLENECKS", "Copy-Shortage Bottlenecks",
+                filter.getFromDate().toString(), filter.getToDate().toString());
+        res.setHeaders(List.of("Rank", "Book ID", "Title", "Category", "Active Copies", "Waiting Queue", "Shortage Ratio", "Recommended Additions"));
+
+        // Fetch shortage threshold ratio from config, default 2.0
+        double shortageRatioThreshold = 2.0;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT setting_value FROM config_settings WHERE setting_key = 'copy_shortage_ratio'")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    shortageRatioThreshold = Double.parseDouble(rs.getString("setting_value").trim());
+                }
+            }
+        } catch (Exception ignored) {}
+
+        String sql = "SELECT b.book_id, b.title, b.category, " +
+                     "COUNT(DISTINCT bc.copy_id) AS active_copies, " +
+                     "COUNT(DISTINCT r.reservation_id) AS waiting_reservations " +
+                     "FROM books b " +
+                     "LEFT JOIN book_copies bc ON b.book_id = bc.book_id AND bc.status != 'RETIRED' " +
+                     "LEFT JOIN reservations r ON b.book_id = r.book_id AND r.status = 'WAITING' " +
+                     "GROUP BY b.book_id, b.title, b.category " +
+                     "HAVING waiting_reservations > 0";
+
+        List<String> labels = new ArrayList<>();
+        List<Number> waiting = new ArrayList<>();
+        List<Number> copies = new ArrayList<>();
+        int rank = 1;
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            List<Map<String, Object>> candidateList = new ArrayList<>();
+            while (rs.next()) {
+                int bookId = rs.getInt("book_id");
+                String title = rs.getString("title");
+                String category = rs.getString("category");
+                int activeCopies = rs.getInt("active_copies");
+                int waitingQueue = rs.getInt("waiting_reservations");
+
+                // Guard divide by zero
+                double ratio = activeCopies > 0 ? (double) waitingQueue / activeCopies : (double) waitingQueue * 2.0;
+                if (ratio >= shortageRatioThreshold) {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("bookId", bookId);
+                    item.put("title", title);
+                    item.put("category", category != null ? category : "General");
+                    item.put("activeCopies", activeCopies);
+                    item.put("waitingQueue", waitingQueue);
+                    item.put("ratio", Math.round(ratio * 100.0) / 100.0);
+                    int recommended = Math.max(1, waitingQueue - activeCopies);
+                    item.put("recommended", recommended);
+                    candidateList.add(item);
+                }
+            }
+
+            // Sort by ratio descending
+            candidateList.sort((a, b) -> Double.compare(((Number) b.get("ratio")).doubleValue(), ((Number) a.get("ratio")).doubleValue()));
+
+            for (Map<String, Object> item : candidateList) {
+                res.getRows().add(List.of(
+                        rank,
+                        item.get("bookId"),
+                        item.get("title"),
+                        item.get("category"),
+                        item.get("activeCopies"),
+                        item.get("waitingQueue"),
+                        item.get("ratio"),
+                        item.get("recommended")
+                ));
+                if (rank <= 10) {
+                    labels.add((String) item.get("title"));
+                    waiting.add((Number) item.get("waitingQueue"));
+                    copies.add((Number) item.get("activeCopies"));
+                }
+                rank++;
+            }
+
+            res.getSummary().put("bottleneckTitlesCount", candidateList.size());
+            res.getSummary().put("thresholdApplied", shortageRatioThreshold);
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Report generation failed: " + res.getReportType(), e);
+        }
+
+        res.getChartData().put("labels", labels);
+        res.getChartData().put("datasets", List.of(
+                Map.of("label", "Waiting Queue", "data", waiting, "color", "#E02020"),
+                Map.of("label", "Active Copies", "data", copies, "color", "#0A2540")
+        ));
+        return res;
+    }
+
+    private ReportResult generateZeroCirculationWarmers(ReportFilter filter) {
+        ReportResult res = new ReportResult("ZERO_CIRCULATION_WARMERS", "Zero-Circulation Shelf Warmers (180+ Days)",
+                filter.getFromDate().toString(), filter.getToDate().toString());
+        res.setHeaders(List.of("Rank", "Copy ID", "Copy Code", "Book Title", "Category", "Location / Shelf", "Days Idle", "Action Recommendation"));
+
+        String sql = "SELECT bc.copy_id, bc.copy_code, b.book_id, b.title, b.category, " +
+                     "COALESCE(CONCAT(bl.floor, ' / ', bl.rack, ' / ', bl.shelf), 'Unassigned') AS location, " +
+                     "DATEDIFF(CURRENT_DATE, COALESCE(MAX(bt.issue_date), bc.created_at)) AS days_idle " +
+                     "FROM book_copies bc " +
+                     "JOIN books b ON bc.book_id = b.book_id " +
+                     "LEFT JOIN book_locations bl ON bc.copy_id = bl.copy_id " +
+                     "LEFT JOIN borrow_transactions bt ON bc.copy_id = bt.copy_id " +
+                     "WHERE bc.status != 'RETIRED' " +
+                     "GROUP BY bc.copy_id, bc.copy_code, b.book_id, b.title, b.category, bl.floor, bl.rack, bl.shelf, bc.created_at " +
+                     "HAVING days_idle >= 180 " +
+                     "ORDER BY days_idle DESC LIMIT 100";
+
+        List<String> labels = new ArrayList<>();
+        List<Number> idleDays = new ArrayList<>();
+        int rank = 1;
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                int copyId = rs.getInt("copy_id");
+                String copyCode = rs.getString("copy_code");
+                String title = rs.getString("title");
+                String category = rs.getString("category") != null ? rs.getString("category") : "General";
+                String location = rs.getString("location");
+                int days = rs.getInt("days_idle");
+
+                String rec = days >= 365 ? "Retire Review" : "Relocate to Prominent Shelf";
+
+                res.getRows().add(List.of(rank, copyId, copyCode, title, category, location, days, rec));
+
+                if (rank <= 10) {
+                    labels.add(copyCode != null ? copyCode : ("Copy #" + copyId));
+                    idleDays.add(days);
+                }
+                rank++;
+            }
+
+            res.getSummary().put("shelfWarmerCount", rank - 1);
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Report generation failed: " + res.getReportType(), e);
+        }
+
+        res.getChartData().put("labels", labels);
+        res.getChartData().put("datasets", List.of(
+                Map.of("label", "Days Idle", "data", idleDays, "color", "#F5A623")
+        ));
         return res;
     }
 }

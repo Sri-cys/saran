@@ -597,7 +597,7 @@ CREATE TABLE IF NOT EXISTS goodwill_extensions (
     student_id INT NOT NULL,
     transaction_id INT NOT NULL,
     loan_id INT NULL,
-    extra_days INT NOT NULL DEFAULT 7,
+    extra_days INT NOT NULL DEFAULT 2,
     reason TEXT NOT NULL,
     previous_due_date DATE NULL,
     new_due_date DATE NULL,
@@ -616,6 +616,17 @@ CREATE TABLE IF NOT EXISTS config_settings (
     description VARCHAR(255) NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+INSERT INTO config_settings (setting_key, setting_value, description)
+VALUES 
+    ('high_demand_queue_threshold', '4', 'Threshold of waiting reservations to mark book as High Demand'),
+    ('copy_shortage_ratio', '2.0', 'Ratio of waiting requests to active copies indicating shortage'),
+    ('goodwill_extension_days', '2', 'Default goodwill extension days granted by librarian (+2 days)'),
+    ('trust_exemplary_min_returns', '5', 'Minimum on-time returns required for exemplary trust standing'),
+    ('trust_max_overdue_days_for_exemplary', '0', 'Maximum allowable lifetime overdue days for exemplary trust standing')
+ON DUPLICATE KEY UPDATE 
+    setting_value = VALUES(setting_value),
+    description = VALUES(description);
 
 
 

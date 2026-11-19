@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.psgitech.library.dto.librarian.ApiResponse;
 import com.psgitech.library.dto.librarian.NoDuesSlipDTO;
+import com.psgitech.library.dto.librarian.TrustStandingDTO;
 import com.psgitech.library.exception.ValidationException;
 import com.psgitech.library.model.User;
 import com.psgitech.library.service.LibrarianStudentService;
@@ -52,6 +53,8 @@ public class LibrarianStudentServlet extends HttpServlet {
                 handleStudentProfile(req, resp);
             } else if (path.endsWith("/no-dues")) {
                 handleNoDuesCheck(req, resp);
+            } else if (path.endsWith("/trust-standing")) {
+                handleTrustStanding(req, resp);
             } else {
                 handleListStudents(req, resp);
             }
@@ -141,6 +144,18 @@ public class LibrarianStudentServlet extends HttpServlet {
 
         resp.setStatus(HttpServletResponse.SC_OK);
         resp.getWriter().write(gson.toJson(ApiResponse.ok(slip)));
+    }
+
+    private void handleTrustStanding(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        String idStr = req.getParameter("studentId");
+        if (idStr == null || idStr.trim().isEmpty()) {
+            throw new ValidationException("studentId parameter is required.");
+        }
+        int studentId = Integer.parseInt(idStr.trim());
+        TrustStandingDTO dto = new com.psgitech.library.service.TrustStandingService().computeTrustStanding(studentId);
+
+        resp.setStatus(HttpServletResponse.SC_OK);
+        resp.getWriter().write(gson.toJson(ApiResponse.ok(dto)));
     }
 
     private void handleToggleStatus(HttpServletRequest req, HttpServletResponse resp) throws IOException {

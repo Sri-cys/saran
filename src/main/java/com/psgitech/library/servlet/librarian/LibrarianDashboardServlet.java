@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.psgitech.library.dto.librarian.ApiResponse;
 import com.psgitech.library.dto.librarian.DashboardStatsDTO;
 import com.psgitech.library.service.LibrarianDashboardService;
+import com.psgitech.library.service.LibrarianTriageService;
 import com.psgitech.library.util.GsonProvider;
 
 import javax.servlet.ServletException;
@@ -26,11 +27,13 @@ public class LibrarianDashboardServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LibrarianDashboardServlet.class.getName());
 
     private LibrarianDashboardService dashboardService;
+    private LibrarianTriageService triageService;
     private Gson gson;
 
     @Override
     public void init() {
         this.dashboardService = new LibrarianDashboardService();
+        this.triageService = new LibrarianTriageService();
         this.gson = GsonProvider.getGson();
     }
 
@@ -53,6 +56,8 @@ public class LibrarianDashboardServlet extends HttpServlet {
                 handleCharts(req, resp);
             } else if (path.endsWith("/collections")) {
                 handleCollections(req, resp);
+            } else if (path.endsWith("/triage")) {
+                handleTriage(req, resp);
             } else {
                 resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 resp.getWriter().write(gson.toJson(ApiResponse.error("NOT_FOUND", "Unknown dashboard endpoint: " + path)));
@@ -86,6 +91,19 @@ public class LibrarianDashboardServlet extends HttpServlet {
         Map<String, Object> collections = dashboardService.getHomeCollections();
         resp.setStatus(HttpServletResponse.SC_OK);
         resp.getWriter().write(gson.toJson(ApiResponse.ok(collections)));
+    }
+
+    private void handleTriage(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        String section = req.getParameter("section");
+        if (section != null && !section.trim().isEmpty()) {
+            List<Map<String, Object>> drilldown = triageService.getDrilldown(section.trim());
+            resp.setStatus(HttpServletResponse.SC_OK);
+            resp.getWriter().write(gson.toJson(ApiResponse.ok(drilldown)));
+        } else {
+            Map<String, Object> summary = triageService.getTriageSummary();
+            resp.setStatus(HttpServletResponse.SC_OK);
+            resp.getWriter().write(gson.toJson(ApiResponse.ok(summary)));
+        }
     }
 
     private void handleSearch(HttpServletRequest req, HttpServletResponse resp) throws IOException {

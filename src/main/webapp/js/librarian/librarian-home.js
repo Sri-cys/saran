@@ -68,6 +68,7 @@ export async function loadDashboardStats() {
             renderKpis(res.data);
             pollingBackoffMs = 12000; // reset backoff on success
         }
+        await loadExceptionTriage();
     } catch (err) {
         if (err.name !== 'AbortError') {
             console.warn('Dashboard stats polling failed:', err.message);
@@ -260,3 +261,43 @@ function escapeHtml(text) {
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[m]));
 }
+
+export async function loadExceptionTriage() {
+    try {
+        const res = await apiFetch('/api/librarian/dashboard/triage');
+        if (res && res.success && res.data) {
+            const d = res.data;
+            const badge = document.getElementById('triageTotalBadge');
+            if (badge) badge.innerText = `${d.totalExceptions || 0} Exceptions`;
+
+            const expEl = document.getElementById('triageExpiringCount');
+            if (expEl) expEl.innerText = d.expiringAllocationsCount || 0;
+
+            const stEl = document.getElementById('triageStalledCount');
+            if (stEl) stEl.innerText = d.stalledTransfersCount || 0;
+
+            const csEl = document.getElementById('triageCasesCount');
+            if (csEl) csEl.innerText = d.pendingLostDamagedCount || 0;
+
+            const retEl = document.getElementById('triageRetireCount');
+            if (retEl) retEl.innerText = d.retireEligibleCopiesCount || 0;
+
+            const ovEl = document.getElementById('triageOverdueCount');
+            if (ovEl) ovEl.innerText = d.criticalOverdueCount || 0;
+        }
+    } catch (e) {
+        console.warn('Failed to load exception triage data:', e.message);
+    }
+}
+
+export function showTriageDrilldown(section) {
+    // Navigation routing handles tab switch, custom drill-down views can be activated
+    if (section === 'overdue' && window.librarianCirculation) {
+        window.librarianCirculation.loadCirculationTab('overdue');
+    }
+}
+
+window.librarianHome = {
+    loadExceptionTriage,
+    showTriageDrilldown
+};

@@ -128,15 +128,47 @@ export async function viewStudentProfile(studentId) {
             const loans = data.activeLoans || [];
             const history = data.borrowingHistory || [];
             const fines = data.fines || [];
+            const trust = data.trustStanding || {};
+
+            let tierColor = '#159B50';
+            let tierBg = '#E8F5EE';
+            if (trust.tier === 'WATCHLIST') { tierColor = '#B45309'; tierBg = '#FEF3C7'; }
+            else if (trust.tier === 'RESTRICTED') { tierColor = '#B91C1C'; tierBg = '#FEE2E2'; }
+            else if (trust.tier === 'STANDARD') { tierColor = '#2563EB'; tierBg = '#EFF6FF'; }
 
             const body = document.getElementById('studentProfileModalBody');
             if (body) {
                 body.innerHTML = `
+                    <!-- Trust Standing Section (Section 6.4) -->
+                    <div style="background: ${tierBg}; border: 1px solid ${tierColor}40; border-radius: 8px; padding: 14px 18px; margin-bottom: 18px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-size: 11px; text-transform: uppercase; font-weight: bold; color: ${tierColor};">Student Trust Standing (Server-Computed)</span>
+                            <span style="font-size: 12px; font-weight: bold; padding: 2px 10px; border-radius: 4px; background: white; color: ${tierColor}; border: 1px solid ${tierColor};">
+                                ${escapeHtml(trust.tier || 'STANDARD')}
+                            </span>
+                        </div>
+                        <div style="font-size: 13px; color: #1E293B; margin-bottom: 8px;">
+                            ${escapeHtml(trust.explanation || 'Standard academic borrowing profile.')}
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px; border-top: 1px solid ${tierColor}30; padding-top: 8px;">
+                            <div>12M On-Time Rate: <strong>${trust.onTimeRatePercent || 100}%</strong></div>
+                            <div>Active Overdues: <strong>${trust.activeOverdueCount || 0}</strong></div>
+                            <div>Goodwill Status: <strong>${trust.goodwillAlreadyUsed ? 'Already Used' : (trust.eligibleForGoodwill ? 'Eligible (+2d)' : 'Ineligible')}</strong></div>
+                        </div>
+                    </div>
+
                     <div style="margin-bottom: 16px;">
                         <h4 style="font-size: 15px; color: #203B60; margin-bottom: 8px;">Active Loans (${loans.length})</h4>
                         ${loans.length === 0 ? '<p style="color: #5F6368; font-size: 13px;">No active loans.</p>' : `
                             <ul style="padding-left: 18px; font-size: 13px;">
-                                ${loans.map(l => `<li><strong>${escapeHtml(l.bookTitle)}</strong> (Due: ${l.dueDate})</li>`).join('')}
+                                ${loans.map(l => `
+                                    <li style="margin-bottom: 4px;">
+                                        <strong>${escapeHtml(l.bookTitle)}</strong> (Due: ${l.dueDate})
+                                        ${(!trust.goodwillAlreadyUsed && trust.tier === 'EXEMPLARY') ? 
+                                            `<button class="btn-quick" style="padding: 2px 6px; font-size: 10px; margin-left: 8px; color: #203B60;" onclick="window.librarianCirculation.openGoodwillModal(${l.transactionId}, ${studentId}, '')">+ Goodwill (+2d)</button>` 
+                                            : ''}
+                                    </li>
+                                `).join('')}
                             </ul>
                         `}
                     </div>

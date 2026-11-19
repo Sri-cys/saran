@@ -1010,3 +1010,45 @@ h1, h2, h3, h4, .brand-text, .kpi-number, .book-title-serif {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(10, 37, 64, 0.08);
 }
+
+/* Exception Triage Hover */
+.triage-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+}
+
+/* Printable Sticker Sheets & Rack End-Caps */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #printLabelsModal, #printLabelsModal *,
+    .printable-sheet, .printable-sheet * {
+        visibility: visible;
+    }
+    #printLabelsModal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background: white;
+    }
+    .modal-backdrop {
+        background: white !important;
+    }
+    .modal-dialog {
+        box-shadow: none !important;
+        border: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    .modal-header, .modal-footer {
+        display: none !important;
+    }
+    .barcode-label-card {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+}

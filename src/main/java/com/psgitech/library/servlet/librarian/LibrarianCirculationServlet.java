@@ -24,6 +24,8 @@ import com.psgitech.library.service.BorrowingService;
 import com.psgitech.library.service.GoodwillExtensionService;
 import com.psgitech.library.model.GoodwillExtension;
 import com.psgitech.library.service.NotificationService;
+import com.psgitech.library.service.TrustStandingService;
+import com.psgitech.library.dto.librarian.TrustStandingDTO;
 import com.psgitech.library.util.DBConnection;
 import com.psgitech.library.util.GsonProvider;
 
@@ -38,6 +40,9 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import com.psgitech.library.model.Student;
+import com.psgitech.library.config.BorrowingPolicy;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -63,6 +68,7 @@ public class LibrarianCirculationServlet extends HttpServlet {
     private NotificationService notificationService;
     private ActivityLogService activityLogService;
     private GoodwillExtensionService goodwillService;
+    private TrustStandingService trustStandingService;
     private Gson gson;
 
     @Override
@@ -75,6 +81,7 @@ public class LibrarianCirculationServlet extends HttpServlet {
         this.notificationService = new NotificationService();
         this.activityLogService = new ActivityLogService();
         this.goodwillService = new GoodwillExtensionService();
+        this.trustStandingService = new TrustStandingService();
         this.gson = GsonProvider.getGson();
     }
 
@@ -133,6 +140,10 @@ public class LibrarianCirculationServlet extends HttpServlet {
                 List<GoodwillExtension> list = goodwillService.getRecentExtensions(50);
                 resp.setStatus(HttpServletResponse.SC_OK);
                 resp.getWriter().write(gson.toJson(ApiResponse.ok(list)));
+            } else if (path.endsWith("/borrower-card")) {
+                handleBorrowerCard(req, resp);
+            } else if (path.endsWith("/copy-inspect")) {
+                handleCopyInspect(req, resp);
             } else {
                 // Default: active borrowings with optional search query or specific due date
                 String query = req.getParameter("q");
@@ -176,6 +187,8 @@ public class LibrarianCirculationServlet extends HttpServlet {
                 handleOverdueReminder(req, resp);
             } else if (path.endsWith("/goodwill-extension")) {
                 handleGoodwillExtension(req, resp);
+            } else if (path.endsWith("/express-action")) {
+                handleExpressAction(req, resp);
             } else {
                 resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 resp.getWriter().write(gson.toJson(ApiResponse.error("NOT_FOUND", "Unknown endpoint: " + path)));
@@ -334,6 +347,262 @@ public class LibrarianCirculationServlet extends HttpServlet {
 
         resp.setStatus(HttpServletResponse.SC_OK);
         resp.getWriter().write(gson.toJson(ApiResponse.ok(ext)));
+    }
+
+    private void handleBorrowerCard(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        String query = req.getParameter("query");
+        if (query == null || query.trim().isEmpty()) {
+            query = req.getParameter("q");
+        }
+        if (query == null || query.trim().isEmpty()) {
+            throw new ValidationException("Query parameter (student roll number, email or ID) is required.");
+        }
+        String q = query.trim();
+
+        User student = null;
+        try {
+            int uid = Integer.parseInt(q);
+            student = userRepository.findById(uid);
+        } catch (NumberFormatException ignored) {}
+
+        if (student == null) {
+            student = userRepository.findByRegisterNumber(q);
+        }
+        if (student == null) {
+            student = userRepository.findByEmail(q);
+        }
+
+        if (student == null || student.getRole() != Role.STUDENT) {
+            resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            resp.getWriter().write(gson.toJson(ApiResponse.error("NOT_FOUND", "Student record not found for: " + q)));
+            return;
+        }
+
+        int studentId = student.getUserId();
+        TrustStandingDTO trust = trustStandingService.computeTrustStanding(studentId);
+        List<BorrowTransaction> activeLoans = borrowingService.getStudentActiveBorrowings(studentId);
+
+        int borrowingLimit = BorrowingPolicy.getMaxActiveBorrowingLimit();
+
+        boolean canBorrow = activeLoans.size() < borrowingLimit &&
+                trust.getActiveOverdueCount() == 0 &&
+                trust.getTier() != TrustStandingDTO.Tier.RESTRICTED &&
+                student.isActive();
+
+        String regNo = (student instanceof Student) ? ((Student) student).getRegisterNumber() : student.getEmail();
+        String dept = (student instanceof Student) ? ((Student) student).getDepartment() : "General";
+
+        Map<String, Object> card = new java.util.HashMap<>();
+        card.put("studentId", student.getUserId());
+        card.put("name", student.getName());
+        card.put("registerNumber", regNo != null ? regNo : student.getEmail());
+        card.put("email", student.getEmail());
+        card.put("department", dept != null ? dept : "General");
+        card.put("active", student.isActive());
+        card.put("borrowingLimit", borrowingLimit);
+        card.put("activeLoansCount", activeLoans.size());
+        card.put("canBorrow", canBorrow);
+        card.put("trustStanding", trust);
+        card.put("activeLoans", activeLoans);
+
+        resp.setStatus(HttpServletResponse.SC_OK);
+        resp.getWriter().write(gson.toJson(ApiResponse.ok(card)));
+    }
+
+    private void handleCopyInspect(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        String identifier = req.getParameter("identifier");
+        if (identifier == null || identifier.trim().isEmpty()) {
+            identifier = req.getParameter("copyId");
+        }
+        if (identifier == null || identifier.trim().isEmpty()) {
+            throw new ValidationException("Copy identifier (copy code or ID) is required.");
+        }
+        String idStr = identifier.trim();
+
+        Map<String, Object> copyInfo = new java.util.HashMap<>();
+        String sql = "SELECT bc.copy_id, bc.copy_code, bc.status AS copy_status, " +
+                "b.book_id, b.title, b.author, b.isbn, b.category " +
+                "FROM book_copies bc " +
+                "JOIN books b ON bc.book_id = b.book_id " +
+                "WHERE bc.copy_code = ? OR bc.copy_id = ?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, idStr);
+            int cid = -1;
+            try { cid = Integer.parseInt(idStr); } catch (NumberFormatException ignored) {}
+            ps.setInt(2, cid);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    resp.getWriter().write(gson.toJson(ApiResponse.error("NOT_FOUND", "Copy not found for: " + idStr)));
+                    return;
+                }
+
+                int copyId = rs.getInt("copy_id");
+                String copyCode = rs.getString("copy_code");
+                String status = rs.getString("copy_status");
+                String title = rs.getString("title");
+
+                copyInfo.put("copyId", copyId);
+                copyInfo.put("copyCode", copyCode);
+                copyInfo.put("status", status);
+                copyInfo.put("bookId", rs.getInt("book_id"));
+                copyInfo.put("title", title);
+                copyInfo.put("author", rs.getString("author"));
+                copyInfo.put("isbn", rs.getString("isbn"));
+                copyInfo.put("category", rs.getString("category"));
+
+                if ("AVAILABLE".equalsIgnoreCase(status)) {
+                    copyInfo.put("suggestedAction", "ISSUE");
+                    copyInfo.put("actionDescription", "Ready for checkout (Available)");
+                } else if ("BORROWED".equalsIgnoreCase(status)) {
+                    copyInfo.put("suggestedAction", "RETURN");
+                    copyInfo.put("actionDescription", "Currently on loan (Return)");
+
+                    // Fetch active loan details
+                    String loanSql = "SELECT bt.transaction_id, bt.student_id, u.name AS borrower_name, " +
+                            "COALESCE(u.register_number, u.email) AS borrower_reg, bt.due_date, " +
+                            "(bt.due_date < CURRENT_DATE) AS is_overdue " +
+                            "FROM borrow_transactions bt " +
+                            "JOIN users u ON bt.student_id = u.user_id " +
+                            "WHERE bt.copy_id = ? AND bt.status = 'ACTIVE' LIMIT 1";
+                    try (PreparedStatement psLoan = conn.prepareStatement(loanSql)) {
+                        psLoan.setInt(1, copyId);
+                        try (ResultSet rsLoan = psLoan.executeQuery()) {
+                            if (rsLoan.next()) {
+                                copyInfo.put("transactionId", rsLoan.getInt("transaction_id"));
+                                copyInfo.put("borrowerId", rsLoan.getInt("student_id"));
+                                copyInfo.put("borrowerName", rsLoan.getString("borrower_name"));
+                                copyInfo.put("borrowerReg", rsLoan.getString("borrower_reg"));
+                                copyInfo.put("dueDate", rsLoan.getString("due_date"));
+                                copyInfo.put("isOverdue", rsLoan.getBoolean("is_overdue"));
+                            }
+                        }
+                    }
+                } else if ("ALLOCATED".equalsIgnoreCase(status)) {
+                    copyInfo.put("suggestedAction", "CONFIRM_PICKUP");
+                    copyInfo.put("actionDescription", "Reserved copy awaiting student pickup");
+
+                    String allocSql = "SELECT a.allocation_id, a.student_id, u.name AS allocated_name, " +
+                            "COALESCE(u.register_number, u.email) AS allocated_reg, a.expires_at AS pickup_deadline " +
+                            "FROM allocations a " +
+                            "JOIN users u ON a.student_id = u.user_id " +
+                            "WHERE a.copy_id = ? AND a.status = 'ALLOCATED' LIMIT 1";
+                    try (PreparedStatement psAlloc = conn.prepareStatement(allocSql)) {
+                        psAlloc.setInt(1, copyId);
+                        try (ResultSet rsAlloc = psAlloc.executeQuery()) {
+                            if (rsAlloc.next()) {
+                                copyInfo.put("allocationId", rsAlloc.getInt("allocation_id"));
+                                copyInfo.put("allocatedStudentId", rsAlloc.getInt("student_id"));
+                                copyInfo.put("allocatedStudentName", rsAlloc.getString("allocated_name"));
+                                copyInfo.put("allocatedStudentReg", rsAlloc.getString("allocated_reg"));
+                                copyInfo.put("pickupDeadline", rsAlloc.getString("pickup_deadline"));
+                            }
+                        }
+                    }
+                } else {
+                    copyInfo.put("suggestedAction", "BLOCKED");
+                    copyInfo.put("actionDescription", "Copy is currently " + status + " and cannot be circulated.");
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Failed to inspect copy: " + idStr, e);
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            resp.getWriter().write(gson.toJson(ApiResponse.error("INTERNAL_ERROR", "Database error inspecting copy.")));
+            return;
+        }
+
+        resp.setStatus(HttpServletResponse.SC_OK);
+        resp.getWriter().write(gson.toJson(ApiResponse.ok(copyInfo)));
+    }
+
+    private void handleExpressAction(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        JsonObject json = parseJsonBody(req);
+        String action = getRequiredString(json, "action");
+        User currentStaff = getAuthenticatedStaff(req);
+
+        if ("ISSUE".equalsIgnoreCase(action)) {
+            String registerNumber = getRequiredString(json, "registerNumber");
+            int copyId = json.get("copyId").getAsInt();
+
+            BorrowTransaction tx = borrowingService.issueBook(registerNumber, copyId, currentStaff.getUserId());
+            logStaffAction(req, "EXPRESS_ISSUE", "BORROW_TRANSACTION", String.valueOf(tx.getTransactionId()),
+                    "Express Desk issued copy #" + copyId + " to student " + registerNumber);
+
+            Map<String, Object> res = new java.util.HashMap<>();
+            res.put("action", "ISSUE");
+            res.put("transaction", tx);
+            res.put("message", "Successfully issued " + (tx.getBookTitle() != null ? tx.getBookTitle() : ("copy #" + copyId)) + " to " + registerNumber);
+
+            resp.setStatus(HttpServletResponse.SC_OK);
+            resp.getWriter().write(gson.toJson(ApiResponse.ok(res)));
+
+        } else if ("RETURN".equalsIgnoreCase(action)) {
+            int transactionId = 0;
+            if (json.has("transactionId") && !json.get("transactionId").isJsonNull()) {
+                transactionId = json.get("transactionId").getAsInt();
+            } else if (json.has("copyId") && !json.get("copyId").isJsonNull()) {
+                int copyId = json.get("copyId").getAsInt();
+                BorrowTransaction activeTx = borrowRepository.findActiveByCopyId(copyId);
+                if (activeTx != null) {
+                    transactionId = activeTx.getTransactionId();
+                }
+            }
+
+            if (transactionId <= 0) {
+                throw new ValidationException("A valid transactionId or active copyId is required for check-in.");
+            }
+
+            BorrowTransaction tx = borrowingService.returnBook(transactionId, currentStaff.getUserId());
+            logStaffAction(req, "EXPRESS_RETURN", "BORROW_TRANSACTION", String.valueOf(transactionId),
+                    "Express Desk returned book for Tx #" + transactionId);
+
+            Map<String, Object> res = new java.util.HashMap<>();
+            res.put("action", "RETURN");
+            res.put("transaction", tx);
+            res.put("message", "Book successfully returned (Tx #" + transactionId + ")");
+
+            // Check if returned copy triggered FIFO auto-allocation to a waiting reservation
+            boolean holdAtDesk = false;
+            String allocatedToStudent = null;
+            String bookTitle = tx.getBookTitle();
+
+            try (Connection conn = DBConnection.getConnection()) {
+                String allocSql = "SELECT u.name AS student_name, COALESCE(u.register_number, u.email) AS reg_no, b.title AS book_title " +
+                        "FROM allocations a " +
+                        "JOIN users u ON a.student_id = u.user_id " +
+                        "JOIN books b ON a.book_id = b.book_id " +
+                        "WHERE a.copy_id = ? AND a.status = 'ALLOCATED' " +
+                        "ORDER BY a.allocated_at DESC LIMIT 1";
+                try (PreparedStatement psAlloc = conn.prepareStatement(allocSql)) {
+                    psAlloc.setInt(1, tx.getCopyId());
+                    try (ResultSet rsAlloc = psAlloc.executeQuery()) {
+                        if (rsAlloc.next()) {
+                            holdAtDesk = true;
+                            allocatedToStudent = rsAlloc.getString("student_name") + " (" + rsAlloc.getString("reg_no") + ")";
+                            if (bookTitle == null) bookTitle = rsAlloc.getString("book_title");
+                        }
+                    }
+                }
+            } catch (SQLException e) {
+                LOGGER.log(Level.WARNING, "Failed to verify return auto-allocation for hold-at-desk", e);
+            }
+
+            res.put("holdAtDesk", holdAtDesk);
+            res.put("allocatedToStudent", allocatedToStudent);
+            res.put("bookTitle", bookTitle);
+            if (holdAtDesk) {
+                res.put("alertBanner", "HOLD AT DESK — Allocated to " + allocatedToStudent);
+            }
+
+            resp.setStatus(HttpServletResponse.SC_OK);
+            resp.getWriter().write(gson.toJson(ApiResponse.ok(res)));
+
+        } else {
+            throw new ValidationException("Unsupported Express Desk action: " + action + " (Expected ISSUE or RETURN).");
+        }
     }
 
     private User getAuthenticatedStaff(HttpServletRequest req) {
