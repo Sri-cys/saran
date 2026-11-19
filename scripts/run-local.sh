@@ -65,12 +65,14 @@ export CATALINA_HOME="${TOMCAT_DIR}"
 export CATALINA_BASE="${TOMCAT_DIR}"
 echo "  Using Tomcat 9 at: ${CATALINA_HOME}"
 
-# Ensure connector port 8081 is configured in server.xml
+PORT="${PORT:-8080}"
+
+# Ensure connector port 8080 is configured in server.xml
 SERVER_XML="${CATALINA_HOME}/conf/server.xml"
 if [[ -f "${SERVER_XML}" ]]; then
-    if grep -q 'Connector port="8080"' "${SERVER_XML}"; then
-        echo "  Configuring Tomcat connector port from 8080 to 8081 in server.xml..."
-        sed -i '' 's/Connector port="8080"/Connector port="8081"/' "${SERVER_XML}" || true
+    if grep -q 'Connector port="8081"' "${SERVER_XML}"; then
+        echo "  Configuring Tomcat connector port from 8081 to 8080 in server.xml..."
+        sed -i '' 's/Connector port="8081"/Connector port="8080"/' "${SERVER_XML}" || true
     fi
 fi
 
@@ -114,21 +116,21 @@ if [[ ! -f "${WAR_PATH}" ]]; then
 fi
 echo "  Generated deployable WAR: $(ls -lh "${WAR_PATH}" | awk '{print $9, "(" $5 ")"}')"
 
-# 6. Stop Existing Tomcat on ports 8081 / 8005 safely
-echo "[6/8] Checking Port Availability (8081, 8005)..."
-CONFLICTING_PIDS=$(lsof -t -i :8081 -i :8005 2>/dev/null || true)
+# 6. Stop Existing Tomcat on ports ${PORT} / 8005 safely
+echo "[6/8] Checking Port Availability (${PORT}, 8005)..."
+CONFLICTING_PIDS=$(lsof -t -i :${PORT} -i :8005 2>/dev/null || true)
 if [[ -n "${CONFLICTING_PIDS}" ]]; then
-    echo "  Stopping process(es) holding ports 8081 / 8005 (PID: ${CONFLICTING_PIDS})..."
+    echo "  Stopping process(es) holding ports ${PORT} / 8005 (PID: ${CONFLICTING_PIDS})..."
     "${CATALINA_HOME}/bin/shutdown.sh" 5 -force >/dev/null 2>&1 || true
     sleep 2
-    REMAINING_PIDS=$(lsof -t -i :8081 -i :8005 2>/dev/null || true)
+    REMAINING_PIDS=$(lsof -t -i :${PORT} -i :8005 2>/dev/null || true)
     if [[ -n "${REMAINING_PIDS}" ]]; then
         echo "  Terminating remaining Tomcat process(es) holding ports: ${REMAINING_PIDS}"
         kill -9 ${REMAINING_PIDS} >/dev/null 2>&1 || true
         sleep 1
     fi
 fi
-echo "  Ports 8081 and 8005 are free."
+echo "  Ports ${PORT} and 8005 are free."
 
 # 7. Deploy WAR to Tomcat 9
 echo "[7/8] Deploying psgitech-library.war to Tomcat 9..."
@@ -141,14 +143,14 @@ echo "  Starting Tomcat 9 server..."
 "${CATALINA_HOME}/bin/startup.sh"
 
 # 8. Bounded Readiness Check
-echo "[8/8] Performing Readiness Health-Check on http://localhost:8081/psgitech-library/login.html..."
-TARGET_URL="http://localhost:8081/psgitech-library/login.html"
+echo "[8/8] Performing Readiness Health-Check on http://localhost:${PORT}/psgitech-library/index.html..."
+TARGET_URL="http://localhost:${PORT}/psgitech-library/index.html"
 SUCCESS=false
 MAX_ATTEMPTS=30
 
 for ((i=1; i<=MAX_ATTEMPTS; i++)); do
     STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${TARGET_URL}" || echo "000")
-    if [[ "${STATUS_CODE}" == "200" ]]; then
+    if [[ "${STATUS_CODE}" == "200" || "${STATUS_CODE}" == "302" ]]; then
         SUCCESS=true
         break
     fi
@@ -160,16 +162,15 @@ if [[ "${SUCCESS}" == "true" ]]; then
     echo "=============================================================================="
     echo "SUCCESS: PSG iTech Library System successfully deployed and running!"
     echo "=============================================================================="
-    echo "Application Home URL:  http://localhost:8081/psgitech-library/"
-    echo "Login Portal URL:      http://localhost:8081/psgitech-library/login.html"
-    echo "Dynamic Policy Admin:  http://localhost:8081/psgitech-library/loan-policy.html"
-    echo "Notifications URL:     http://localhost:8081/psgitech-library/notifications.html"
-    echo "Concurrency Monitor:   http://localhost:8081/psgitech-library/concurrency-monitor.html"
+    echo "Master Entry URL:      http://localhost:${PORT}/psgitech-library/"
+    echo "Root URL (Redirects):  http://localhost:${PORT}/"
+    echo "Login Portal URL:      http://localhost:${PORT}/psgitech-library/login.html"
+    echo "Staff Desk URL:        http://localhost:${PORT}/psgitech-library/librarian-dashboard.html"
     echo "Tomcat Server Logs:    ${CATALINA_HOME}/logs/catalina.out"
     echo "=============================================================================="
     
     # Feature 11: Verify notification unread-count endpoint returns 401 for anonymous access
-    NOTIF_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081/psgitech-library/notifications/unread-count" || echo "000")
+    NOTIF_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${PORT}/psgitech-library/notifications/unread-count" || echo "000")
     if [[ "${NOTIF_CODE}" == "401" ]]; then
         echo "  [Feature 11] Notification unread-count endpoint verified (401 Unauthorized for anonymous request)."
     else
@@ -177,7 +178,7 @@ if [[ "${SUCCESS}" == "true" ]]; then
     fi
 
     # Feature 12: Verify loan policy endpoint returns 401 for anonymous access
-    POLICY_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081/psgitech-library/admin/loan-policy" || echo "000")
+    POLICY_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${PORT}/psgitech-library/admin/loan-policy" || echo "000")
     if [[ "${POLICY_CODE}" == "401" ]]; then
         echo "  [Feature 12] Admin Loan Policy endpoint verified (401 Unauthorized for anonymous request)."
     else
@@ -185,7 +186,7 @@ if [[ "${SUCCESS}" == "true" ]]; then
     fi
     
     if command -v open >/dev/null 2>&1; then
-        open "${TARGET_URL}" || true
+        open "http://localhost:${PORT}/psgitech-library/" || true
     fi
     exit 0
 else
