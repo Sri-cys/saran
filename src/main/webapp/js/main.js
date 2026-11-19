@@ -190,8 +190,29 @@ function initSearchHandler() {
     }
 }
 
+function updateScrollBounds(container) {
+    if (!container) return;
+    const targetId = container.id;
+    const leftBtn = document.querySelector(`[data-scroll-target="${targetId}"][data-scroll-dir="left"]`);
+    const rightBtn = document.querySelector(`[data-scroll-target="${targetId}"][data-scroll-dir="right"]`);
+
+    if (leftBtn) {
+        const atStart = container.scrollLeft <= 5;
+        leftBtn.disabled = atStart;
+        leftBtn.style.opacity = atStart ? '0.35' : '1';
+        leftBtn.style.cursor = atStart ? 'not-allowed' : 'pointer';
+    }
+    if (rightBtn) {
+        const atEnd = (container.scrollLeft + container.clientWidth) >= (container.scrollWidth - 8);
+        rightBtn.disabled = atEnd;
+        rightBtn.style.opacity = atEnd ? '0.35' : '1';
+        rightBtn.style.cursor = atEnd ? 'not-allowed' : 'pointer';
+    }
+}
+window.updateScrollBounds = updateScrollBounds;
+
 /**
- * Adds horizontal scrolling controls for category and book shelves.
+ * Adds horizontal scrolling controls for category and book shelves with bounds checking & keyboard support.
  */
 function initScrollButtons() {
     document.querySelectorAll('[data-scroll-target]').forEach(button => {
@@ -201,8 +222,26 @@ function initScrollButtons() {
             const container = document.getElementById(targetId);
             if (container) {
                 container.scrollBy({ left: direction, behavior: 'smooth' });
+                setTimeout(() => updateScrollBounds(container), 350);
             }
         });
+    });
+
+    document.querySelectorAll('.books-scroll-row, .categories-scroll').forEach(container => {
+        container.addEventListener('scroll', () => updateScrollBounds(container));
+        container.setAttribute('tabindex', '0');
+        container.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                container.scrollBy({ left: 240, behavior: 'smooth' });
+                setTimeout(() => updateScrollBounds(container), 350);
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                container.scrollBy({ left: -240, behavior: 'smooth' });
+                setTimeout(() => updateScrollBounds(container), 350);
+            }
+        });
+        setTimeout(() => updateScrollBounds(container), 150);
     });
 }
 

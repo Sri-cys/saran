@@ -195,12 +195,18 @@ public class LoginServlet extends HttpServlet {
 
     private String getRedirectUrlForUser(String contextPath, User user, String requestedRedirect) {
         if (requestedRedirect != null && !requestedRedirect.isEmpty()) {
-            // Validate to prevent open redirect vulnerabilities
-            if (requestedRedirect.startsWith("/") && !requestedRedirect.startsWith("//") && !requestedRedirect.contains("://")) {
-                if (requestedRedirect.startsWith(contextPath + "/")) {
-                    return requestedRedirect;
+            String cleanRedirect = requestedRedirect.trim();
+            // Validate to prevent open redirect vulnerabilities: safe relative in-app paths only
+            if (cleanRedirect.startsWith("/")
+                    && !cleanRedirect.startsWith("//")
+                    && !cleanRedirect.startsWith("/\\")
+                    && !cleanRedirect.contains("\\")
+                    && !cleanRedirect.contains("://")
+                    && !cleanRedirect.toLowerCase().contains("javascript:")) {
+                if (!contextPath.isEmpty() && (cleanRedirect.equals(contextPath) || cleanRedirect.startsWith(contextPath + "/"))) {
+                    return cleanRedirect;
                 }
-                return contextPath + requestedRedirect;
+                return contextPath + cleanRedirect;
             }
         }
         if (user instanceof Librarian) {

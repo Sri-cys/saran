@@ -33,7 +33,14 @@
         parseInitialUrlParams();
         loadCategories();
         bindFilterEvents();
-        fetchAndRenderBooks();
+        window.addEventListener('popstate', function () {
+            parseInitialUrlParams();
+            updateCategoryCardVisuals();
+            const catSelect = document.getElementById('filterCategorySelect');
+            if (catSelect) catSelect.value = state.category;
+            fetchAndRenderBooks(false);
+        });
+        fetchAndRenderBooks(false);
     }
 
     /**
@@ -45,29 +52,134 @@
             state.keyword = params.get('q').trim();
             const topSearchInput = document.getElementById('navSearchInput');
             if (topSearchInput) topSearchInput.value = state.keyword;
+        } else {
+            state.keyword = '';
+            const topSearchInput = document.getElementById('navSearchInput');
+            if (topSearchInput) topSearchInput.value = '';
         }
+
         if (params.has('category')) {
             state.category = params.get('category').trim();
+        } else {
+            state.category = 'ALL';
         }
+
         if (params.has('department')) {
             state.department = params.get('department').trim();
             const deptSelect = document.getElementById('filterDeptSelect');
             if (deptSelect) deptSelect.value = state.department;
+        } else {
+            state.department = 'ALL';
+            const deptSelect = document.getElementById('filterDeptSelect');
+            if (deptSelect) deptSelect.value = 'ALL';
         }
+
         if (params.has('author')) {
             state.author = params.get('author').trim();
             const authorInput = document.getElementById('filterAuthorInput');
             if (authorInput) authorInput.value = state.author;
+        } else {
+            state.author = '';
+            const authorInput = document.getElementById('filterAuthorInput');
+            if (authorInput) authorInput.value = '';
         }
+
         if (params.has('publisher')) {
             state.publisher = params.get('publisher').trim();
             const pubInput = document.getElementById('filterPublisherInput');
             if (pubInput) pubInput.value = state.publisher;
+        } else {
+            state.publisher = '';
+            const pubInput = document.getElementById('filterPublisherInput');
+            if (pubInput) pubInput.value = '';
         }
+
         if (params.has('sort')) {
             state.sort = params.get('sort').trim();
             const sortSelect = document.getElementById('catalogSortSelect');
             if (sortSelect) sortSelect.value = state.sort;
+        } else {
+            state.sort = 'RECENTLY_ADDED';
+            const sortSelect = document.getElementById('catalogSortSelect');
+            if (sortSelect) sortSelect.value = 'RECENTLY_ADDED';
+        }
+
+        if (params.has('yearFrom')) {
+            const yf = parseInt(params.get('yearFrom'), 10);
+            state.yearFrom = !isNaN(yf) ? yf : null;
+            const yfInput = document.getElementById('filterYearFrom');
+            if (yfInput) yfInput.value = state.yearFrom !== null ? state.yearFrom : '';
+        } else {
+            state.yearFrom = null;
+            const yfInput = document.getElementById('filterYearFrom');
+            if (yfInput) yfInput.value = '';
+        }
+
+        if (params.has('yearTo')) {
+            const yt = parseInt(params.get('yearTo'), 10);
+            state.yearTo = !isNaN(yt) ? yt : null;
+            const ytInput = document.getElementById('filterYearTo');
+            if (ytInput) ytInput.value = state.yearTo !== null ? state.yearTo : '';
+        } else {
+            state.yearTo = null;
+            const ytInput = document.getElementById('filterYearTo');
+            if (ytInput) ytInput.value = '';
+        }
+
+        if (params.has('availability')) {
+            state.availability = params.get('availability').trim();
+            const availSelect = document.getElementById('filterAvailabilitySelect');
+            if (availSelect) availSelect.value = state.availability;
+        } else {
+            state.availability = 'ALL';
+            const availSelect = document.getElementById('filterAvailabilitySelect');
+            if (availSelect) availSelect.value = 'ALL';
+        }
+
+        if (params.has('page')) {
+            const p = parseInt(params.get('page'), 10);
+            state.page = (!isNaN(p) && p > 0) ? p : 1;
+        } else {
+            state.page = 1;
+        }
+
+        if (params.has('pageSize')) {
+            const ps = parseInt(params.get('pageSize'), 10);
+            state.pageSize = (!isNaN(ps) && ps > 0) ? ps : 12;
+            const psSelect = document.getElementById('catalogPageSizeSelect');
+            if (psSelect) psSelect.value = String(state.pageSize);
+        } else {
+            state.pageSize = 12;
+        }
+    }
+
+    /**
+     * Synchronizes browser URL query parameters with active filter state using pushState/replaceState
+     */
+    function syncUrlWithState(shouldPush = true) {
+        const params = new URLSearchParams();
+        if (state.keyword) params.set('q', state.keyword);
+        if (state.category && state.category !== 'ALL') params.set('category', state.category);
+        if (state.author) params.set('author', state.author);
+        if (state.publisher) params.set('publisher', state.publisher);
+        if (state.department && state.department !== 'ALL') params.set('department', state.department);
+        if (state.yearFrom !== null && !isNaN(state.yearFrom)) params.set('yearFrom', state.yearFrom);
+        if (state.yearTo !== null && !isNaN(state.yearTo)) params.set('yearTo', state.yearTo);
+        if (state.availability && state.availability !== 'ALL') params.set('availability', state.availability);
+        if (state.sort && state.sort !== 'RECENTLY_ADDED') params.set('sort', state.sort);
+        if (state.page > 1) params.set('page', state.page);
+        if (state.pageSize !== 12) params.set('pageSize', state.pageSize);
+
+        const newQuery = params.toString();
+        const newUrl = window.location.pathname + (newQuery ? '?' + newQuery : '');
+        const currentUrl = window.location.pathname + window.location.search;
+
+        if (newUrl !== currentUrl) {
+            if (shouldPush) {
+                window.history.pushState({ ...state }, '', newUrl);
+            } else {
+                window.history.replaceState({ ...state }, '', newUrl);
+            }
         }
     }
 
@@ -327,19 +439,39 @@
         fetchAndRenderBooks();
     }
 
+    function renderCatalogLoadingSkeletons(count = 6) {
+        let html = '';
+        for (let i = 0; i < count; i++) {
+            html += `
+                <div class="catalog-book-card" style="opacity: 0.6; pointer-events: none;">
+                    <div class="catalog-book-cover" style="background: #EFECE6;"></div>
+                    <div class="catalog-book-details">
+                        <div>
+                            <div style="height: 18px; background: #E2DDD5; margin-bottom: 8px; border-radius: 4px;"></div>
+                            <div style="height: 14px; width: 60%; background: #E2DDD5; margin-bottom: 8px; border-radius: 4px;"></div>
+                            <div style="height: 12px; width: 40%; background: #E2DDD5; border-radius: 4px;"></div>
+                        </div>
+                        <div style="height: 22px; width: 50%; background: #E2DDD5; margin-top: 12px; border-radius: 4px;"></div>
+                    </div>
+                </div>
+            `;
+        }
+        return html;
+    }
+
     /**
      * Executes the catalog search request and renders cards & pills
      */
-    function fetchAndRenderBooks() {
+    function fetchAndRenderBooks(updateUrl = true) {
         const grid = document.getElementById('catalogGrid');
         const countDisplay = document.getElementById('catalogResultCount');
         if (!grid) return;
 
-        grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 48px; color: #5F6368;">
-                <div style="font-size: 1.1rem; margin-bottom: 8px;">Loading catalog collection...</div>
-            </div>
-        `;
+        if (updateUrl) {
+            syncUrlWithState(true);
+        }
+
+        grid.innerHTML = renderCatalogLoadingSkeletons(state.pageSize > 8 ? 8 : 4);
 
         renderActiveFilterPills();
 
@@ -444,15 +576,16 @@
             }
 
             return `
-                <div class="catalog-book-card" onclick="window.location.href='book-details.html?id=${book.bookId}'" title="${titleEsc}">
+                <div class="catalog-book-card" onclick="window.location.href='book-details.html?id=${book.bookId}'" title="${titleEsc}" tabindex="0" role="link">
                     <div class="catalog-book-cover">
                         <img src="${escapeHtml(coverUrl)}" 
                              alt="${titleEsc}" 
                              loading="lazy"
+                             style="width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block;"
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                        <div class="book-cover-mock" style="display: none; width: 100%; height: 100%; background: linear-gradient(135deg, #203B60 0%, #102540 100%); flex-direction: column; justify-content: center; align-items: center; text-align: center; color: #FFFFFF; padding: 16px;">
+                        <div class="book-cover-mock" style="display: none; width: 100%; height: 100%; background: linear-gradient(135deg, #203B60 0%, #102540 100%); flex-direction: column; justify-content: space-between; align-items: center; text-align: center; color: #FFFFFF; padding: 16px;">
                             <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #A3C1E8;">${deptEsc}</span>
-                            <span style="font-family: 'Times New Roman', serif; font-size: 1.05rem; font-weight: bold; margin: 8px 0;">${titleEsc}</span>
+                            <span style="font-family: 'Times New Roman', serif; font-size: 1.05rem; font-weight: bold; margin: 8px 0; line-height: 1.25;">${titleEsc}</span>
                             <span style="font-size: 0.82rem; color: #E2DDD5;">${authorEsc}</span>
                         </div>
                     </div>

@@ -659,6 +659,8 @@ a:hover {
     padding: 10px 4px 20px 4px;
     scrollbar-width: thin;
     scrollbar-color: #CBD5E1 transparent;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
 }
 
 .books-scroll-row::-webkit-scrollbar {
@@ -680,6 +682,7 @@ a:hover {
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    scroll-snap-align: start;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
 }
@@ -2412,6 +2415,7 @@ a:hover {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: top center;
     display: block;
 }
 

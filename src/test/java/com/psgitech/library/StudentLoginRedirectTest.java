@@ -138,6 +138,40 @@ public class StudentLoginRedirectTest {
     }
 
     @Test
+    public void testMaliciousRedirectVectorsFallBackToIndexHtml() throws Exception {
+        Student student = new Student(1, "Aarav Sharma", "aarav@psgitech.ac.in", "hash", "9876543210", true, "21CS001", "CSE", 3);
+        mockAuthService.userToReturn = student;
+
+        String[] maliciousVectors = {
+                "//attacker.com",
+                "/\\attacker.com",
+                "/evil\\path",
+                "javascript:alert(1)",
+                "http://example.com",
+                "https://phishing.site"
+        };
+
+        for (String vector : maliciousVectors) {
+            Map<String, String> params = new HashMap<>();
+            params.put("loginKey", "aarav@psgitech.ac.in");
+            params.put("password", "Password123!");
+            params.put("returnUrl", vector);
+
+            Map<String, Object> sessionAttrs = new HashMap<>();
+            StringWriter responseWriter = new StringWriter();
+
+            HttpServletRequest req = createMockRequest(params, sessionAttrs, "POST");
+            HttpServletResponse resp = createMockResponse(responseWriter);
+
+            servlet.service(req, resp);
+
+            JsonObject json = JsonParser.parseString(responseWriter.toString()).getAsJsonObject();
+            String redirect = json.get("redirect").getAsString();
+            assertTrue("Vector " + vector + " should fall back to /index.html but got: " + redirect, redirect.endsWith("/index.html"));
+        }
+    }
+
+    @Test
     public void testLibrarianRedirectsToLibrarianDashboard() throws Exception {
         Librarian lib = new Librarian(2, "Dr. Ramanathan", "librarian@psgitech.ac.in", "hash", "9876543211", true, "LIB101", false);
         mockAuthService.userToReturn = lib;

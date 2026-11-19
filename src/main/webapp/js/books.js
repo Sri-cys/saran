@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (document.getElementById('catalogGrid')) {
         initBrowseCatalog();
     }
-    if (document.getElementById('shelfTrending') || document.getElementById('shelfFeatured')) {
+    if (document.getElementById('shelfTrending') || document.getElementById('shelfRecent') || document.getElementById('shelfRec') || document.getElementById('studentTrending') || document.getElementById('shelfFeatured')) {
         initHomepageShelves();
     }
     if (document.getElementById('bookDetailsContainer')) {
@@ -253,50 +253,200 @@ function initBrowseCatalog() {
     fetchAndRenderCatalog();
 }
 
+function renderShelfSkeleton(count = 4) {
+    let html = '';
+    for (let i = 0; i < count; i++) {
+        html += `
+            <div class="book-card" style="opacity: 0.6; pointer-events: none;">
+                <div class="book-cover-container" style="background: #EFECE6;"></div>
+                <div class="book-info" style="padding: 12px;">
+                    <div style="height: 16px; background: #E2DDD5; margin-bottom: 8px; border-radius: 3px;"></div>
+                    <div style="height: 12px; width: 60%; background: #E2DDD5; border-radius: 3px;"></div>
+                </div>
+            </div>
+        `;
+    }
+    return html;
+}
+
+function renderShelfBookCard(b) {
+    const title = escapeHtml(b.title || 'Library Book');
+    const author = escapeHtml(b.author || 'PSG iTech');
+    const dept = escapeHtml(b.department || 'CSE');
+    const coverUrl = b.coverImageUrl || `https://covers.openlibrary.org/b/isbn/${(b.isbn || '').replace(/[^0-9X]/gi, '')}-L.jpg`;
+
+    return `
+        <div class="book-card" onclick="window.location.href='book-details.html?id=${b.bookId}'" style="cursor: pointer;" tabindex="0" role="link" aria-label="${title}">
+            <div class="book-cover-container">
+                <img src="${escapeHtml(coverUrl)}" 
+                     alt="${title}" 
+                     class="book-cover-img"
+                     loading="lazy"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                     style="width: 100%; height: 100%; object-fit: cover; object-position: top center; border-radius: 4px;">
+                <div class="book-cover-mock" style="display: none; background: linear-gradient(135deg, #203B60 0%, #102540 100%); width: 100%; height: 100%; flex-direction: column; justify-content: space-between; padding: 14px 10px; color: #FFFFFF;">
+                    <span class="mock-dept" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: #A3C1E8;">${dept}</span>
+                    <span class="mock-title" style="font-family: 'Times New Roman', serif; font-size: 0.95rem; font-weight: bold; margin: 6px 0; line-height: 1.2;">${title}</span>
+                    <span class="mock-author" style="font-size: 0.78rem; color: #E2DDD5;">${author}</span>
+                </div>
+            </div>
+            <div class="book-info">
+                <div class="book-title" title="${title}">${title}</div>
+                <div class="author-name">${author}</div>
+                <div class="book-meta">
+                    ${renderAvailabilityBadgeHtml(b)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 /**
  * =============================================================================
  * 2. Homepage Real Books Shelves (index.html)
- * Replaces hardcoded shelves with live database records
+ * Independent Loading for Trending, Recent, and Recommended Carousels
  * =============================================================================
  */
 function initHomepageShelves() {
     const trendingShelf = document.getElementById('shelfTrending');
     const recentShelf = document.getElementById('shelfRecent');
+    const recShelf = document.getElementById('shelfRec');
     const studentShelf = document.getElementById('studentTrending');
 
-    if (trendingShelf || recentShelf || studentShelf) {
-        fetch('books?featured=true&limit=12', {
+    // 1. Trending Books Shelf (Independent loading)
+    if (trendingShelf) {
+        trendingShelf.innerHTML = renderShelfSkeleton(4);
+        fetch('books/popular?type=trending&limit=8', {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(res => res.json())
         .then(data => {
-            if (data.success && data.books && data.books.length > 0) {
-                const books = data.books;
-                const renderCard = (b) => `
-                    <div class="book-card" onclick="window.location.href='book-details.html?id=${b.bookId}'" style="cursor: pointer;">
-                        ${renderBookCoverHtml(b)}
-                        <div class="book-info">
-                            <div class="book-title" title="${escapeHtml(b.title)}">${escapeHtml(b.title)}</div>
-                            <div class="author-name">${escapeHtml(b.author)}</div>
-                            <div class="book-meta">
-                                ${renderAvailabilityBadgeHtml(b)}
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                if (trendingShelf) {
-                    trendingShelf.innerHTML = books.slice(0, 6).map(renderCard).join('');
-                }
-                if (recentShelf) {
-                    recentShelf.innerHTML = books.slice(4).map(renderCard).join('');
-                }
-                if (studentShelf) {
-                    studentShelf.innerHTML = books.slice(0, 4).map(renderCard).join('');
-                }
+            if (data.success && Array.isArray(data.books) && data.books.length > 0) {
+                trendingShelf.innerHTML = data.books.map(renderShelfBookCard).join('');
+            } else {
+                return fetch('books?featured=true&limit=8', {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                }).then(r => r.json()).then(d => {
+                    if (d.success && Array.isArray(d.books) && d.books.length > 0) {
+                        trendingShelf.innerHTML = d.books.map(renderShelfBookCard).join('');
+                    }
+                });
             }
         })
-        .catch(e => console.warn('Homepage featured books query notice:', e));
+        .catch(() => {
+            // Fallback to general books
+            fetch('books?featured=true&limit=6')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success && Array.isArray(d.books)) {
+                        trendingShelf.innerHTML = d.books.map(renderShelfBookCard).join('');
+                    }
+                }).catch(() => {});
+        })
+        .finally(() => {
+            if (typeof window.updateScrollBounds === 'function') window.updateScrollBounds(trendingShelf);
+        });
+    }
+
+    // 2. Recently Added Shelf (Independent loading)
+    if (recentShelf) {
+        recentShelf.innerHTML = renderShelfSkeleton(4);
+        fetch('books/discover?sort=RECENTLY_ADDED&pageSize=8', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.data && Array.isArray(data.data.items) && data.data.items.length > 0) {
+                recentShelf.innerHTML = data.data.items.map(renderShelfBookCard).join('');
+            } else {
+                return fetch('books?limit=8', {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                }).then(r => r.json()).then(d => {
+                    if (d.success && Array.isArray(d.books) && d.books.length > 0) {
+                        recentShelf.innerHTML = d.books.map(renderShelfBookCard).join('');
+                    }
+                });
+            }
+        })
+        .catch(() => {
+            fetch('books?limit=6')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success && Array.isArray(d.books)) {
+                        recentShelf.innerHTML = d.books.map(renderShelfBookCard).join('');
+                    }
+                }).catch(() => {});
+        })
+        .finally(() => {
+            if (typeof window.updateScrollBounds === 'function') window.updateScrollBounds(recentShelf);
+        });
+    }
+
+    // 3. Recommended for Students Shelf (Independent loading)
+    if (recShelf) {
+        recShelf.innerHTML = renderShelfSkeleton(4);
+        const loadPopularFallback = () => {
+            fetch('books/popular?type=popular&limit=8', {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && Array.isArray(data.books) && data.books.length > 0) {
+                    recShelf.innerHTML = data.books.map(renderShelfBookCard).join('');
+                } else {
+                    return fetch('books?featured=true&limit=6').then(r => r.json()).then(d => {
+                        if (d.success && Array.isArray(d.books)) {
+                            recShelf.innerHTML = d.books.map(renderShelfBookCard).join('');
+                        }
+                    });
+                }
+            })
+            .catch(() => {})
+            .finally(() => {
+                if (typeof window.updateScrollBounds === 'function') window.updateScrollBounds(recShelf);
+            });
+        };
+
+        if (isStudentUser()) {
+            fetch('books/recommendations', {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('Not eligible');
+                return res.json();
+            })
+            .then(data => {
+                if (data.success && Array.isArray(data.books) && data.books.length > 0) {
+                    recShelf.innerHTML = data.books.map(renderShelfBookCard).join('');
+                    if (typeof window.updateScrollBounds === 'function') window.updateScrollBounds(recShelf);
+                } else {
+                    loadPopularFallback();
+                }
+            })
+            .catch(() => {
+                loadPopularFallback();
+            });
+        } else {
+            loadPopularFallback();
+        }
+    }
+
+    // 4. Student Home Shelf (if present)
+    if (studentShelf) {
+        studentShelf.innerHTML = renderShelfSkeleton(4);
+        fetch('books?featured=true&limit=4', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success && Array.isArray(d.books)) {
+                studentShelf.innerHTML = d.books.map(renderShelfBookCard).join('');
+            }
+        })
+        .catch(() => {})
+        .finally(() => {
+            if (typeof window.updateScrollBounds === 'function') window.updateScrollBounds(studentShelf);
+        });
     }
 }
 
