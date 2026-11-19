@@ -5,10 +5,27 @@
 
 ---
 
+## Direct Portal Access & Live URLs (Apache Tomcat 9)
+
+When Apache Tomcat 9 is running with `target/psgitech-library.war`, access the portals directly via the following explicit URLs:
+
+* **Student & Faculty Login Page:** [http://localhost:8080/psgitech-library/login.html](http://localhost:8080/psgitech-library/login.html)
+* **Librarian Portal Login Page:** [http://localhost:8080/psgitech-library/librarian-login.html](http://localhost:8080/psgitech-library/librarian-login.html)
+* **Digital Library Home (Public / Post-Login):** [http://localhost:8080/psgitech-library/index.html](http://localhost:8080/psgitech-library/index.html)
+* **Academic Book Catalog:** [http://localhost:8080/psgitech-library/browse.html](http://localhost:8080/psgitech-library/browse.html)
+* **Librarian Smart Desk Dashboard:** [http://localhost:8080/psgitech-library/librarian-dashboard.html](http://localhost:8080/psgitech-library/librarian-dashboard.html)
+* **Student My Books & Transfers:** [http://localhost:8080/psgitech-library/my-books.html](http://localhost:8080/psgitech-library/my-books.html)
+* **Student Directory:** [http://localhost:8080/psgitech-library/student-directory.html](http://localhost:8080/psgitech-library/student-directory.html)
+* **Student Fines & Payments:** [http://localhost:8080/psgitech-library/my-fines.html](http://localhost:8080/psgitech-library/my-fines.html)
+
+> *Note: If Tomcat is configured to deploy as `ROOT.war` (serving directly from the port `8080` root `/`), omit `/psgitech-library` from the URLs.*
+
+---
+
 ## A. Project Overview
 
 ### 1. Introduction
-**PSG iTech Library** is an enterprise-grade academic library resource and queue management system engineered in **Core Java (Java Servlets, JDBC, MySQL)** with a zero-dependency vanilla HTML5/CSS3/JavaScript web interface. Inspired by the scholarly elegance of Open Library and strict institutional academic guidelines, the system unifies catalogue searching, physical inventory tracking, circulation desk operations, automated FIFO reservation queues, hold-shelf allocations, fine lifecycle management with UPI reconciliation, fair concurrency admission control, and peer-to-peer student book interchanges.
+**PSG iTech Library** is an enterprise-grade academic library resource and queue management system engineered in **Core Java (Java Servlets, JDBC, MySQL)** with a zero-dependency vanilla HTML5/CSS3/JavaScript web interface. Inspired by the scholarly elegance of Open Library and strict institutional academic guidelines, the system unifies catalogue searching, physical inventory tracking, circulation desk operations, automated FIFO reservation queues, hold-shelf allocations, fine lifecycle management with UPI reconciliation, fair concurrency admission control, peer-to-peer student book interchanges, and advanced librarian desk operations.
 
 ### 2. The Problem It Solves
 Traditional college library systems suffer from:
@@ -26,8 +43,8 @@ Traditional college library systems suffer from:
 - **High Concurrency Resilience**: Implement admission control, bounded queues, and deterministic multi-resource lock ordering to eliminate deadlocks.
 
 ### 4. Target Users
-- **Students**: Search the academic catalog, check availability, place FIFO reservations, manage active loans, initiate peer book transfers, pay fines via UPI, and generate digital receipts.
-- **Librarians**: Perform circulation desk operations (issue/return), verify UPI fine payments, process waivers, manage book inventory, and audit transactions.
+- **Students**: Search the academic catalog, check availability, place FIFO reservations, manage active loans, initiate peer book transfers, pay fines via UPI, and generate digital receipts. Students land directly on the digital library Home page (`index.html`) upon login.
+- **Librarians**: Perform circulation desk operations (issue/return), launch Express Desk (`Alt+Shift+D`), inspect 2D rack heatmaps, triage discrepancies, evaluate trust standing, verify UPI fine payments, process waivers, manage book inventory, and export 11 analytics reports.
 - **Administrators**: Manage student and staff accounts, oversee system roles and activations, configure concurrency parameters, and monitor live admission telemetry.
 
 ---
@@ -38,7 +55,7 @@ Traditional college library systems suffer from:
 |---|---|---|---|
 | **Programming Language** | Core Java | 17 (Target) / 25 (Runtime) | Object-oriented business logic, services, repositories, and domain models |
 | **Web Container API** | Java Servlet API | 4.0.1 (`javax.servlet-api`) | HTTP request routing, session management, and filter chains |
-| **Servlet Container** | Apache Tomcat | 9.0 (`javax.servlet`) | Web server running on HTTP port `8081` |
+| **Servlet Container** | Apache Tomcat | 9.0 (`javax.servlet`) | Web server running on standard HTTP port `8080` |
 | **Relational Database** | MySQL Community Server | 8.0.33+ | Persistent storage with ACID transactions, foreign keys, and generated columns |
 | **Database Driver** | MySQL Connector/J | 8.0.33 | JDBC connection management and prepared statements |
 | **In-Memory Database** | H2 Database | 2.2.224 | Isolated testing and configured development fallback |
@@ -51,7 +68,7 @@ Traditional college library systems suffer from:
 
 ---
 
-## C. Implemented Features (Features 1 – 11)
+## C. Implemented Features (Features 1 – 15)
 
 Every feature listed below is **fully implemented across all architectural layers** (Database DDL, Repositories, Domain Services, Servlets, and Frontend UI):
 
@@ -66,11 +83,15 @@ Every feature listed below is **fully implemented across all architectural layer
 │ Feature 5     │ Feature 6     │ Feature 7     │ Feature 8                   │
 │ Automated     │ Fines & UPI   │ Concurrency & │ Peer-to-Peer                │
 │ Allocation    │ Payment Recon │ Limiter       │ Book Interchange            │
+├───────────────┼───────────────┼───────────────┼─────────────────────────────┤
+│ Feature 9     │ Feature 10    │ Feature 11    │ Feature 12                  │
+│ Allocation    │ Smart Search  │ Notifications │ Exam-Season Dynamic         │
+│ Expiry Engine │ & Recs Engine │ & Outbox      │ Loan Policy Engine          │
 ├───────────────┴───────────────┼───────────────┴─────────────────────────────┤
-│ Feature 9                     │ Feature 10    │ Feature 11                  │
-│ Reservation Expiry Engine     │ Smart Search  │ Smart Notification & Alerts │
-│ & Auto Book Release           │ & Recs Engine │ Center & Asynchronous Outbox│
-└───────────────────────────────┴───────────────┴─────────────────────────────┘
+│ Feature 14                    │ Feature 15                                  │
+│ Lost & Damaged Replacement    │ Librarian Smart Desk Operations,            │
+│ & Fair Depreciation Ledger    │ Productivity Suite & 11 Analytics Reports   │
+└───────────────────────────────┴─────────────────────────────────────────────┘
 ```
 
 ---
@@ -160,7 +181,7 @@ Every feature listed below is **fully implemented across all architectural layer
 - **Module 10.5: Personalized Recommendations for Students** (`GET /books/recommendations`): Accessible strictly to authenticated students (`Role.STUDENT`; 401 for anonymous, 403 for staff). Constructs an interest profile from past loans and reservations (Category: 50%, Author: 30%, Campus Popularity: 15%, Recency: 5%). Strictly excludes active loans, active reservations, and past borrowings. Employs cold-start fallback (department matching followed by campus highlights). Guaranteed zero student identity leakage in responses.
 - **Module 10.6: Content-Based Similar Books** (`GET /books/similar?id={bookId}`): Calculates candidate title similarity based on Category match (weight 50), Author match (weight 35), and Academic Department match (weight 15). Seamlessly integrated into `book-details.html` with cover thumbnails and live availability badges.
 - **Module 10.7: Categorical Exploration** (`GET /books/categories`): Aggregates all book categories with Decision D13 canonical normalization (case-insensitive trimming), reporting title counts and live available copies per category.
-- **Academic Frontend Presentation** (`smart-discovery.html`): Implements PSG iTech's institutional design language (Times New Roman typography, Deep Navy `#203B60`, Warm Parchment `#F8F6F0`), independent parallel loading skeletons, empty/error retry states, and URL query parameter two-way synchronization.
+- **Integrated Academic Discovery & Catalog**: Personalized student recommendations, campus trending highlights, and category navigation are seamlessly integrated into the Digital Library Home page (`index.html`) across 3 independent scroll-snap carousel shelves (*Trending Books*, *Recently Added*, *Recommended for Students*) and the two-column Academic Catalog (`browse.html`). Top navigation standardizes globally to `Student Directory | My Books | Browse` (with active `#EFECE4` pill highlight), while legacy discovery URLs (`/discover`, `/smart-discovery`, `/smart-discovery.html`) are automatically redirected to `index.html` via `LegacyDiscoverRedirectServlet`.
 
 ### Feature 11 – Smart Notification and Alert Management System
 - **Comprehensive Institutional Notification Center**: Centralized notifications covering all 24 discrete library event types across reservations, book loans, renewals, peer transfers, fines, payments, and account security.
@@ -174,6 +195,53 @@ Every feature listed below is **fully implemented across all architectural layer
 - **User Notification Preferences & Immutable Policies**: Self-service institutional channel settings (`GET/POST /notifications/preferences`) allow students and staff to customize email and in-app channels by category, while enforcing locked system security alerts (`PASSWORD_CHANGED`) and mandatory financial notifications (`FINES_PAYMENTS`).
 - **Security & Data Sanitization**: Strict HTML entity encoding, message length caps (100-character titles, 500-character bodies), CRLF email header injection prevention, action URL whitelisting, and zero sensitive data leakage (UTRs masked to last 4 digits; passwords, tokens, and OTPs strictly prohibited).
 
+### Feature 12 – Exam-Season Dynamic Borrowing Policy
+- **Dynamic Hysteresis Dampening**: Automatically shifts high-demand books to shortened loan periods (e.g., 7 days or 3 days during peak exam windows) while preventing rapid oscillation between policies.
+- **Academic Exam Window Scheduling**: Configurable institutional exam date ranges with automated activation and deactivation.
+- **Policy Invariance on Active Loans**: Loan terms are locked at checkout; transitions apply strictly to future checkouts without retroactive penalty.
+
+### Feature 14 – Lost and Damaged Book Replacement
+- **Fair Depreciation Engine**: Computes book damage fees taking into account physical condition, age, and institutional depreciation schedules.
+- **Physical Copy Replacement Handshake**: Allows students to provide an identical physical replacement copy (ISBN-matched), verifying edition, and releasing liabilities upon staff acceptance.
+
+### Feature 15 – Librarian Smart Desk Operations, Productivity Suite & Analytics
+The Librarian Portal is an enterprise administrative workstation designed specifically for academic librarians and circulation staff:
+- **Dedicated Staff Authentication & Security**:
+  - Secure login portal at `librarian-login.html` with credential verification and 2FA email OTP validation via `EmailService`.
+  - First-login security policy (`must_change_password = TRUE`) enforcing immediate password changes via `first-login-change-password.html`.
+- **Single-Row Horizontal Navigation Dashboard**:
+  - Centralized desk console at `librarian-dashboard.html` with instant access to all core circulation modules:
+    * **Module A**: Circulation Counter (Fast issue and return workflows)
+    * **Module B**: Physical Inventory & Barcode Management
+    * **Module C**: Hold Shelf & Automatic Allocations
+    * **Module D**: Fine Verification & Cash Reconciliation
+    * **Module E**: Peer Handover Audit
+    * **Module F**: Dynamic Exam-Season Loan Policy
+- **Express Desk (`Alt+Shift+D`)**:
+  - Global keyboard shortcut `Alt+Shift+D` triggers an instant modal workspace for high-velocity circulation desk transactions.
+  - Native `BarcodeDetector` API barcode camera scanning with manual copy ID / accession number fallback.
+- **Smart Operations Suite**:
+  - **2D Interactive Rack Heatmap** (`FloorLayoutService`): Visual 2D floor map of library stacks, displaying live shelf utilization, capacity thresholds, and circulation density heatmaps.
+  - **Predictive Collection Radar**: Identifies impending syllabus surge demand and high-reservation low-stock titles, generating proactive acquisition recommendations.
+  - **Trust Standing & Goodwill Extension**: Algorithmic borrower credibility scoring ($0\text{--}100$) based on return history, overdue incidence, and fine settlement, enabling one-click goodwill loan extensions for trustworthy students.
+  - **Exception Triage & Discrepancy Manager**: Resolves orphaned hold-shelf allocations, unreturned overdue items, and peer transfer discrepancies.
+  - **Productivity Suite**:
+    * **Acquisition Requests**: Review, approve, and convert student/staff acquisition requests directly into inventory.
+    * **Bulk CSV Import**: In-house RFC 4180 compliant parser (UTF-8, optional BOM, quoted commas/newlines) with row-level validation, duplicate ISBN detection, and atomic batch ingestion.
+    * **Printable Barcode & Spine Labels**: Generates standardized Code 128 barcode labels and spine callout tags with `@media print` CSS pagination for Avery label sheets.
+- **11 CSV-Exportable Analytics Reports**:
+  1. *Circulation Velocity & Turnaround Report*
+  2. *Overdue Aging & Default Risk Analysis*
+  3. *Inventory Utilization & Dormant Stock Audit*
+  4. *Fine Realization, Waivers & Cash Audit*
+  5. *Reservation Queue Latency & Fulfillment Report*
+  6. *Departmental Resource Consumption Breakdown*
+  7. *Peak Circulation Hours & Counter Traffic Report*
+  8. *Lost & Damaged Asset Attrition Summary*
+  9. *Student Reading Engagement Index*
+  10. *Acquisition Pipeline & Purchase ROI*
+  11. *System Concurrency, Limiter & Queue Health*
+
 ---
 
 ## D. User Roles and Permissions
@@ -182,26 +250,33 @@ Permissions are enforced on the backend by [`AuthorizationFilter.java`](file:///
 
 | Operation / Path | Student | Librarian | Admin | Enforcement Mechanism |
 |---|:---:|:---:|:---:|---|
-| **Browse Catalog & Details** (`/books`, `/books/details`) | Yes | Yes | Yes | Public / Authenticated read |
+| **Digital Library Home & Catalog** (`/index.html`, `/browse.html`) | Yes | Yes | Yes | Public / Authenticated read |
 | **Smart Search & Filters** (`/books/discover`) | Yes | Yes | Yes | Public / Authenticated read |
 | **Autocomplete Suggestions** (`/books/suggestions`) | Yes | Yes | Yes | Public / Rate-limited read (20 req/10s) |
 | **Popular & Trending Highlights** (`/books/popular`) | Yes | Yes | Yes | Public / Authenticated read (300s cache) |
 | **Category Exploration** (`/books/categories`) | Yes | Yes | Yes | Public / Authenticated read |
 | **Similar Book Recommendations** (`/books/similar`) | Yes | Yes | Yes | Public / Authenticated read |
 | **Personalized Recommendations** (`/books/recommendations`) | Yes | No | No | `AuthorizationFilter` (`STUDENT` only; 401/403) |
-| **Self-Registration & Login** (`/register`, `/login`) | Yes | Yes | Yes | Open unauthenticated endpoints |
-| **View Student Portal** (`/student-home.html`, `/my-borrowings.html`) | Yes | No | Yes | `AuthorizationFilter` (Role check) |
+| **Self-Registration & General Login** (`/register`, `/login.html`, `/login`) | Yes | Yes | Yes | Open unauthenticated endpoints |
+| **Librarian Staff Login** (`/librarian-login.html`, `/librarian/login`) | No | Yes | Yes | Multi-factor staff login with OTP |
+| **Digital Library Home (Student Post-Login)** (`/index.html`) | Yes | Yes | Yes | Public / Authenticated default destination |
+| **Student My Books & History** (`/my-books.html`, `/my-borrowings.html`) | Yes | No | Yes | `AuthorizationFilter` (Role check) |
+| **Student Directory** (`/student-directory.html`) | Yes | Yes | Yes | `AuthorizationFilter` (Authenticated session) |
 | **Place & Cancel Reservations** (`/reservations`, `/reservations/cancel`) | Yes | No | Yes | `AuthorizationFilter` + Session validation |
 | **Peer Book Transfer** (`/interchanges`, `/interchanges/accept`, `/cancel`) | Yes | No | Yes | `AuthorizationFilter` + Ownership checks |
-| **Submit UPI Payment** (`/payments`) | Yes | No | Yes | `AuthorizationFilter` + Student ID match |
+| **Submit UPI Payment & Fines** (`/payments`, `/my-fines.html`) | Yes | No | Yes | `AuthorizationFilter` + Student ID match |
 | **View Digital Receipt** (`/receipt`, `/receipt.html`) | Yes | Yes | Yes | Authenticated session check |
+| **Librarian Smart Desk Dashboard** (`/librarian-dashboard.html`) | No | Yes | Yes | `AuthorizationFilter` (`LIBRARIAN` or `ADMIN`) |
+| **Librarian Express Desk** (`Alt+Shift+D` / `/api/librarian/desk/*`) | No | Yes | Yes | `AuthorizationFilter` (`LIBRARIAN` or `ADMIN`) |
 | **Circulation Desk Issue/Return** (`/borrow/issue`, `/borrow/return`) | No | Yes | Yes | `AuthorizationFilter` (`LIBRARIAN` or `ADMIN`) |
 | **Catalog Management** (`/books/add`, `/books/update`, `/books/archive`) | No | Yes | Yes | `AuthorizationFilter` (`LIBRARIAN` or `ADMIN`) |
 | **Verify UPI & Waive Fines** (`/payments/verify`, `/fines`) | No | Yes | Yes | `AuthorizationFilter` (`LIBRARIAN` or `ADMIN`) |
 | **Audit Peer Transfers** (`/api/admin/interchanges`) | No | Yes | Yes | `AuthorizationFilter` (`LIBRARIAN` or `ADMIN`) |
+| **Librarian Smart Operations (Heatmap, Triage, Radar)** (`/api/librarian/*`) | No | Yes | Yes | `AuthorizationFilter` (`LIBRARIAN` or `ADMIN`) |
+| **Librarian 11 Analytics Reports & CSV Export** (`/api/librarian/reports/*`) | No | Yes | Yes | `AuthorizationFilter` (`LIBRARIAN` or `ADMIN`) |
 | **User Management** (`/admin/users`, `admin-users.html`) | No | No | Yes | `AuthorizationFilter` (`ADMIN` only) |
 | **Concurrency Monitoring & Control** (`/api/admin/concurrency/*`) | No | No | Yes | `AuthorizationFilter` (`ADMIN` only) |
-| **Notification Center & Preferences** (`/notifications`, `/notifications/unread-count`, `/notifications/read`, `/notifications/read-all`, `/notifications/preferences`, `notifications.html`) | Yes | Yes | Yes | `AuthorizationFilter` (Authenticated session) |
+| **Notification Center & Preferences** (`/notifications`, `notifications.html`) | Yes | Yes | Yes | `AuthorizationFilter` (Authenticated session) |
 | **Notification Outbox Admin Telemetry** (`/admin/notifications/stats`) | No | No | Yes | `AuthorizationFilter` (`ADMIN` only) |
 
 ---
@@ -422,9 +497,24 @@ Running com.psgitech.library.NotificationRecordingAndTransactionTest [ 4 tests -
 Running com.psgitech.library.NotificationPreferencesAndReadStateTest [ 4 tests - PASS]
 Running com.psgitech.library.NotificationWorkerAndDeliveryTest       [ 4 tests - PASS]
 Running com.psgitech.library.NotificationSecurityAndConcurrencyTest  [ 5 tests - PASS]
+Running com.psgitech.library.LibrarianOperationsTest                 [ 7 tests - PASS]
+Running com.psgitech.library.FloorLayoutServiceTest                  [ 3 tests - PASS]
+Running com.psgitech.library.TrustStandingServiceTest                [ 3 tests - PASS]
+Running com.psgitech.library.LibrarianAll11ReportsTest               [ 2 tests - PASS]
+Running com.psgitech.library.StudentLoginRedirectTest                [ 5 tests - PASS]
+Running com.psgitech.library.LegacyDiscoverRedirectTest              [ 2 tests - PASS]
+Running com.psgitech.library.LossDamagedIntegrationTest              [ 6 tests - PASS]
+Running com.psgitech.library.LostDamagedSecurityAndEndpointTest      [10 tests - PASS]
+Running com.psgitech.library.CompensationCalculatorTest              [15 tests - PASS]
+Running com.psgitech.library.LoanPolicyPureRuleTest                  [12 tests - PASS]
+Running com.psgitech.library.LoanPolicyInvariantsTest                [ 3 tests - PASS]
+Running com.psgitech.library.LoanPolicyIntegrationTest               [ 6 tests - PASS]
+Running com.psgitech.library.LoanPolicyAdminAndSecurityTest          [ 8 tests - PASS]
+Running com.psgitech.library.LoanPolicyConcurrencyTest               [ 3 tests - PASS]
+Running com.psgitech.library.StudentDirectoryTest                    [10 tests - PASS]
 
 Results:
-Tests run: 246, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 382, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
 
@@ -434,8 +524,8 @@ Tests run: 246, Failures: 0, Errors: 0, Skipped: 0
 
 ```text
 Library-Management/
-├── pom.xml                                  # Maven project configuration & test DB profile
-├── README.md                                # Root project documentation
+├── pom.xml                                  # Maven project configuration & test DB profile (<finalName>psgitech-library</finalName>)
+├── README.md                                # Root project documentation & Tomcat URLs
 ├── PROJECT_IMPLEMENTATION_REPORT.md         # In-depth academic & viva verification report
 ├── server.js                                # Legacy Node.js mock development server (Port 8080)
 ├── database/                                # Historical SQL scripts
@@ -447,10 +537,10 @@ Library-Management/
 │   ├── 06_fine_payment.sql
 │   ├── 08_book_interchange.sql
 │   ├── 10_smart_discovery.sql               # Additive discovery indexes
-│   ├── 10_smart_discovery_rollback.sql      # Discovery index teardown
-│   ├── 10_smart_discovery_diagnostics.sql   # Index & schema validation
-│   ├── 10_smart_discovery_perf_seed.sql     # 20k book performance benchmark seed
-│   └── 10_smart_discovery_perf_cleanup.sql  # Benchmark seed cleanup
+│   ├── 11_notifications.sql                 # Transactional outbox schema
+│   ├── 12_loan_policy.sql                   # Dynamic loan policy schema
+│   ├── 14_lost_damaged.sql                  # Loss/damage replacement schema
+│   └── 17_librarian_portal.sql              # Librarian smart desk & triage schema
 └── src/
     ├── main/
     │   ├── java/com/psgitech/library/
@@ -464,21 +554,21 @@ Library-Management/
     │   │   ├── model/                       # Domain models and entities (Book, DTOs, Criteria)
     │   │   ├── repository/                  # JDBC DAOs with row-level locks & search repositories
     │   │   ├── scheduler/                   # Background expiry and notification delivery workers
-    │   │   ├── service/                     # Business logic, discovery, and notification delivery services
-    │   │   ├── servlet/                     # 45 HTTP Servlets (@WebServlet)
+    │   │   ├── service/                     # Business logic, discovery, triage & analytics services
+    │   │   ├── servlet/                     # 58 HTTP Servlets (@WebServlet)
     │   │   └── util/                        # DBConnection, PasswordUtil, AutocompleteRateLimiter
     │   ├── resources/
     │   │   ├── db.properties                # Database connection & concurrency configuration
-    │   │   ├── schema.sql                   # Complete unified MySQL schema (16 tables)
+    │   │   ├── schema.sql                   # Complete unified MySQL schema (21 tables)
     │   │   └── seed_data.sql                # Default accounts and catalog seed data
     │   └── webapp/
     │       ├── META-INF/context.xml         # Tomcat JNDI DataSource configuration
-    │       ├── WEB-INF/web.xml              # Filter chain and servlet mapping definitions
+    │       ├── WEB-INF/web.xml              # Filter chain and servlet mapping definitions (<welcome-file>index.html</welcome-file>)
     │       ├── css/library-theme.css        # Academic Times New Roman design system
-    │       ├── js/                          # Vanilla JS client logic (notification-bell.js, discovery.js, etc.)
-    │       └── *.html                       # 19 responsive web portal pages (incl. notifications.html, smart-discovery.html)
+    │       ├── js/                          # Vanilla JS client logic (browse.js, main.js, librarian-*.js, etc.)
+    │       └── *.html                       # 22 responsive web portal pages (incl. index.html, browse.html, librarian-dashboard.html)
     └── test/
-        ├── java/com/psgitech/library/       # 40 JUnit test classes (246 automated tests)
+        ├── java/com/psgitech/library/       # 62 JUnit test classes (382 automated tests)
         └── resources/db.properties          # Test database credentials
 ```
 
@@ -490,7 +580,7 @@ Library-Management/
 - **JDK**: Java 17 or higher (tested on Eclipse Temurin JDK 25).
 - **Build Tool**: Apache Maven 3.9+.
 - **Database**: MySQL 8.0+ running on `localhost:3306`.
-- **Application Server**: Apache Tomcat 9.0+ (configured on port `8081`).
+- **Application Server**: Apache Tomcat 9.0+ (running on standard port `8080`).
 
 ### Step 1: Database Setup
 1. Open the MySQL terminal:
@@ -508,12 +598,14 @@ Library-Management/
    mysql -u root psgitech_library < src/main/resources/seed_data.sql
    mysql -u root psgitech_library < sql/08_book_interchange.sql
    mysql -u root psgitech_library < sql/11_notifications.sql
+   mysql -u root psgitech_library < sql/17_librarian_portal.sql
    ```
 4. Execute the schema on `psgitech_library_test` for automated tests:
    ```bash
    mysql -u root psgitech_library_test < src/main/resources/schema.sql
    mysql -u root psgitech_library_test < sql/08_book_interchange.sql
    mysql -u root psgitech_library_test < sql/11_notifications.sql
+   mysql -u root psgitech_library_test < sql/17_librarian_portal.sql
    ```
 
 ### Step 2: Build Application with Maven
@@ -521,7 +613,7 @@ Run the full test suite and build the WAR package:
 ```bash
 mvn clean package
 ```
-*Verification: Confirms 286 tests pass and generates `target/psgitech-library.war`.*
+*Verification: Confirms 382 tests pass and generates `target/psgitech-library.war`.*
 
 ### Step 3: Deploy to Apache Tomcat 9.0
 Deploy the compiled WAR package directly to Apache Tomcat 9.0 (`javax.servlet`):
@@ -540,19 +632,29 @@ java -jar <TOMCAT_HOME>/lib/jakartaee-migration-*.jar \
 <TOMCAT_HOME>/bin/startup.sh
 ```
 
-### Step 5: Access the Application
-Open your browser and navigate to:
-```
-http://localhost:8081/psgitech-library/
-```
+### Step 5: Access the Application Portals
+When Tomcat 9 is running with `target/psgitech-library.war`, open your browser to the following direct, clickable URLs:
+
+| Portal / Page | Direct Tomcat URL | Description |
+|---|---|---|
+| **Student & Faculty Login Page** | [http://localhost:8080/psgitech-library/login.html](http://localhost:8080/psgitech-library/login.html) | Multi-identifier login (Email, Register Number) |
+| **Librarian Portal Login Page** | [http://localhost:8080/psgitech-library/librarian-login.html](http://localhost:8080/psgitech-library/librarian-login.html) | Dedicated staff portal with multi-factor OTP verification |
+| **Digital Library Home (Public / Post-Login)** | [http://localhost:8080/psgitech-library/index.html](http://localhost:8080/psgitech-library/index.html) | Welcome banner, live hours, quick access cards & 3 carousel shelves |
+| **Academic Book Catalog** | [http://localhost:8080/psgitech-library/browse.html](http://localhost:8080/psgitech-library/browse.html) | Two-column catalog with sticky filters, category strip & live search |
+| **Librarian Smart Desk Dashboard** | [http://localhost:8080/psgitech-library/librarian-dashboard.html](http://localhost:8080/psgitech-library/librarian-dashboard.html) | Circulation desk, Express Desk (`Alt+Shift+D`), & 11 Analytics Reports |
+| **Student My Books & Transfers** | [http://localhost:8080/psgitech-library/my-books.html](http://localhost:8080/psgitech-library/my-books.html) | Active student borrowings, return dates & peer transfer initiation |
+| **Student Directory** | [http://localhost:8080/psgitech-library/student-directory.html](http://localhost:8080/psgitech-library/student-directory.html) | Peer-to-peer student discovery for book interchanges |
+| **Student Fines & Payments** | [http://localhost:8080/psgitech-library/my-fines.html](http://localhost:8080/psgitech-library/my-fines.html) | Overdue fines ledger with dynamic UPI QR & payment reconciliation |
+
+> *Note: If Tomcat is configured to deploy as `ROOT.war` (serving directly from the port `8080` root `/`), simply omit `/psgitech-library` from the URLs above.*
 
 ### Default Accounts for Verification
 | Role | Email / Login Identifier | Password | Access Capabilities |
 |---|---|---|---|
 | **Admin** | `admin@psgitech.ac.in` | `AdminPassword@123` | User administration, concurrency monitor, financial overrides, full access |
-| **Librarian** | `librarian@psgitech.ac.in` (`LIB101`) | `Librarian@123` | Circulation desk, book catalog, loss assessment, replacement processing, UPI verification, fine waivers |
-| **Student** | `sivakathir.22cs@psgitech.ac.in` (`715522104045`) | `Student@123` | Catalog, borrow history, reservation queue, peer transfer, loss reporting, replacement tracking, UPI pay |
-| **Student** | `ananya.23ai@psgitech.ac.in` (`715523105012`) | `Student@123` | Catalog, borrow history, reservation queue, peer transfer, loss reporting, replacement tracking, UPI pay |
+| **Librarian** | `librarian@psgitech.ac.in` (`LIB101`) | `Librarian@123` | Circulation desk, Express Desk (`Alt+Shift+D`), loss assessment, replacement processing, UPI verification, fine waivers, 11 analytics reports |
+| **Student** | `sivakathir.22cs@psgitech.ac.in` (`715522104045`) | `Student@123` | Digital library home, catalog, borrow history, reservation queue, peer transfer, loss reporting, replacement tracking, UPI pay |
+| **Student** | `ananya.23ai@psgitech.ac.in` (`715523105012`) | `Student@123` | Digital library home, catalog, borrow history, reservation queue, peer transfer, loss reporting, replacement tracking, UPI pay |
 
 ---
 
@@ -569,10 +671,11 @@ http://localhost:8081/psgitech-library/
 | **Feature 7: Concurrency Management** | **Fully Implemented (+ Latency Percentiles & Histogram)** | `ConcurrencyManager.java`, `ConcurrencyFilter.java`, `ConcurrencyMetrics.java`, `CsrfFilter.java`, `RouteClassifier.java`, `ConcurrencyMonitorServlet.java`, `concurrency-monitor.html` |
 | **Feature 8: Peer Book Interchange** | **Fully Implemented (+ Handover OTP Verification)** | `BookInterchangeService.java`, `BookInterchangeRepository.java`, `InterchangeOtpServlet.java`, `InterchangeServlet.java`, `InterchangeActionServlet.java`, `book_interchanges` table |
 | **Feature 9: Reservation Expiry** | **Fully Implemented (+ Auto Release & Reallocation)** | `AllocationExpiryScheduler.java`, `AllocationService.java`, `FIFOAllocationStrategy.java`, `AllocationServlet.java`, `allocations` table |
-| **Feature 10: Smart Book Discovery** | **Fully Implemented (+ Autocomplete & Recommendations)** | `SmartDiscoveryService.java`, `BookRecommendationService.java`, `BookPopularityService.java`, `DiscoveryRepository.java`, `RecommendationRepository.java`, `RecommendationStrategy.java`, `PopularBookStrategy.java`, `SimilarBookStrategy.java`, `CategoryBasedStrategy.java`, `AutocompleteRateLimiter.java`, `SmartDiscoveryServlet.java`, `BookSuggestionServlet.java`, `PopularBooksServlet.java`, `PersonalizedRecommendationsServlet.java`, `SimilarBooksServlet.java`, `BookCategoriesServlet.java`, `smart-discovery.html`, `discovery.js` |
+| **Feature 10: Smart Book Discovery** | **Fully Implemented (+ Autocomplete & Recommendations)** | `SmartDiscoveryService.java`, `BookRecommendationService.java`, `BookPopularityService.java`, `DiscoveryRepository.java`, `RecommendationRepository.java`, `RecommendationStrategy.java`, `PopularBookStrategy.java`, `SimilarBookStrategy.java`, `CategoryBasedStrategy.java`, `AutocompleteRateLimiter.java`, `SmartDiscoveryServlet.java`, `BookSuggestionServlet.java`, `PopularBooksServlet.java`, `PersonalizedRecommendationsServlet.java`, `SimilarBooksServlet.java`, `BookCategoriesServlet.java`, `LegacyDiscoverRedirectServlet.java`, `index.html`, `browse.html`, `browse.js` |
 | **Feature 11: Smart Notification & Alert System** | **Fully Implemented (+ Transactional Outbox)** | `NotificationService.java`, `NotificationRecorder.java`, `NotificationRepository.java`, `NotificationOutboxRepository.java`, `NotificationPreferenceRepository.java`, `NotificationDeliveryService.java`, `NotificationReminderService.java`, `NotificationTemplateService.java`, `NotificationWorker.java`, `NotificationsServlet.java`, `NotificationUnreadCountServlet.java`, `NotificationReadServlet.java`, `NotificationReadAllServlet.java`, `NotificationPreferencesServlet.java`, `AdminNotificationStatsServlet.java`, `notifications.html`, `notification-bell.js`, `notifications-page.js`, `notifications` & `notification_outbox` tables |
 | **Feature 12: Exam-Season Dynamic Borrowing Policy** | **Fully Implemented (+ Hysteresis Dampening & Exam Windows)** | `LoanPolicy.java`, `StandardLoanPolicy.java`, `HighDemandLoanPolicy.java`, `PolicyTransitionRule.java`, `LoanPolicyManager.java`, `LoanPolicyService.java`, `LoanPolicyRepository.java`, `LoanPolicySettings.java`, `BookPolicyState.java`, `LoanPolicyChangeRecord.java`, `LoanPolicyWindow.java`, `BookPolicyServlet.java`, `LoanPolicySettingsServlet.java`, `LoanPolicyUpdateServlet.java`, `LoanPolicyPreviewServlet.java`, `LoanPolicyHighDemandServlet.java`, `LoanPolicyHistoryServlet.java`, `LoanPolicyWindowsServlet.java`, `LoanPolicyWindowCreateServlet.java`, `LoanPolicyWindowDeactivateServlet.java`, `loan-policy.html`, `loan-policy.js`, `loan_policy_settings`, `book_loan_policy_state`, `loan_policy_changes` & `loan_policy_windows` tables |
 | **Feature 14: Lost & Damaged Book Replacement** | **Fully Implemented (+ Depreciation & Physical Replacement Queue Offering)** | `LossDamageService.java`, `LossDamageCaseRepository.java`, `CompensationCalculator.java`, `PenaltyResolution.java`, `MonetaryCompensation.java`, `PhysicalReplacement.java`, `CaseReportServlet.java`, `MyCasesServlet.java`, `CaseChooseServlet.java`, `CaseListServlet.java`, `CaseDetailServlet.java`, `CaseAssessServlet.java`, `CaseReplacementReceiveServlet.java`, `CaseReplacementAcceptServlet.java`, `CaseReplacementRejectServlet.java`, `CaseConvertServlet.java`, `CaseCancelServlet.java`, `CaseOverrideServlet.java`, `my-cases.html`, `cases.js`, `borrowing-management.html` (Tab 10), `loss_damage_cases` & `loss_damage_case_events` tables |
+| **Feature 15: Librarian Smart Desk & Analytics Suite** | **Fully Implemented (+ Express Desk, Heatmap, Triage & 11 Reports)** | `LibrarianAuthServlet.java`, `LibrarianOtpServlet.java`, `LibrarianDeskServlet.java`, `FloorLayoutServlet.java`, `FloorLayoutService.java`, `TrustStandingServlet.java`, `TrustStandingService.java`, `LibrarianTriageServlet.java`, `LibrarianTriageService.java`, `LibrarianOperationsServlet.java`, `LibrarianReportServlet.java`, `LibrarianReportService.java`, `librarian-login.html`, `librarian-dashboard.html`, `librarian-*.js`, `librarian_audit_log`, `acquisition_requests`, `physical_discrepancies` tables |
 | **Node.js Server (`server.js`)** | **Mock / Dev Artifact** | `server.js` (Used strictly as a lightweight local mockup for early UI prototype review; independent of Java Tomcat backend) |
 
 ---
