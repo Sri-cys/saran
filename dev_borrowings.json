@@ -1,7 +1,7 @@
 [
   {
     "transactionId": 1,
-    "studentId": 4,
+    "studentId": 5,
     "bookId": 1,
     "copyId": 1,
     "issueDate": "2026-10-25",
@@ -40,5 +40,19 @@
     "returnedBy": 2,
     "createdAt": "2026-10-30T20:37:41.243Z",
     "updatedAt": "2026-10-30T20:37:45.959Z"
+  },
+  {
+    "transactionId": 4,
+    "studentId": 5,
+    "bookId": 2,
+    "copyId": 4,
+    "issueDate": "2026-11-15",
+    "dueDate": "2026-11-29",
+    "returnDate": null,
+    "status": "ACTIVE",
+    "issuedBy": 2,
+    "returnedBy": null,
+    "createdAt": "2026-11-15 10:00:00",
+    "updatedAt": "2026-11-15 10:00:00"
   }
 ]

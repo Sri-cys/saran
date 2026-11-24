@@ -334,6 +334,20 @@ function setupMobileMenu() {
             e.stopPropagation();
             centerCluster.classList.toggle('mobile-open');
         });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!centerCluster.contains(e.target) && !burgerBtn.contains(e.target)) {
+                centerCluster.classList.remove('mobile-open');
+            }
+        });
+
+        // Close mobile menu when a navigation link is clicked
+        centerCluster.addEventListener('click', (e) => {
+            if (e.target.tagName === 'A' || e.target.closest('a')) {
+                centerCluster.classList.remove('mobile-open');
+            }
+        });
     }
 }
 

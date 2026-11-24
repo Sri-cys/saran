@@ -29,7 +29,7 @@ import java.util.logging.Logger;
  * Read-only view for Librarians.
  * URL Mapping: /api/librarian/queues/*
  */
-@WebServlet(name = "LibrarianQueueServlet", urlPatterns = {"/api/librarian/queues/*"})
+@WebServlet(name = "LibrarianQueueServlet", urlPatterns = {"/api/librarian/queues", "/api/librarian/queues/*"})
 public class LibrarianQueueServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LibrarianQueueServlet.class.getName());
 

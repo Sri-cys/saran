@@ -56,7 +56,7 @@ import java.util.logging.Logger;
  * All mutations route strictly through the core domain services.
  * URL Mapping: /api/librarian/circulation/*
  */
-@WebServlet(name = "LibrarianCirculationServlet", urlPatterns = {"/api/librarian/circulation/*"})
+@WebServlet(name = "LibrarianCirculationServlet", urlPatterns = {"/api/librarian/circulation", "/api/librarian/circulation/*"})
 public class LibrarianCirculationServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LibrarianCirculationServlet.class.getName());
 

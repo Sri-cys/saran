@@ -2,6 +2,12 @@
  * PSG iTech Library - Feature 6 & Feature 14: Fine Management & Razorpay Payment Integration
  */
 
+const inrFormatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' });
+function formatINR(val) {
+    const num = parseFloat(val) || 0;
+    return inrFormatter.format(num);
+}
+
 let activeFineRecord = null;
 let currentPaymentAttempt = null;
 let currentStudentProfile = { name: '', registerNumber: '', department: '' };
@@ -24,9 +30,14 @@ function loadMyFines() {
 
             // Populate Student Profile Bar
             if (data.summary) {
-                currentStudentProfile.name = data.summary.studentName || 'Student Member';
-                currentStudentProfile.registerNumber = data.summary.studentRegisterNumber || data.summary.registerNumber || '--';
-                currentStudentProfile.department = data.summary.studentDepartment || 'Student Member';
+                let cachedUser = {};
+                try {
+                    cachedUser = JSON.parse(sessionStorage.getItem('psgitech_user') || localStorage.getItem('psgitech_user') || '{}');
+                } catch (e) {}
+
+                currentStudentProfile.name = data.summary.studentName || cachedUser.name || 'Student Member';
+                currentStudentProfile.registerNumber = data.summary.studentRegisterNumber || data.summary.registerNumber || cachedUser.registerNumber || cachedUser.rollNumber || '--';
+                currentStudentProfile.department = data.summary.studentDepartment || data.summary.department || cachedUser.department || 'Student Member';
 
                 const nameEl = document.getElementById('hdrStudentName');
                 const regEl = document.getElementById('hdrStudentRegNo');
@@ -65,9 +76,9 @@ function renderSummary(summary) {
     const sumWaivedEl = document.getElementById('sumWaived');
     const sumCountEl = document.getElementById('sumUnpaidCount');
 
-    if (sumOutEl) sumOutEl.innerHTML = '&inr; ' + outstanding.toFixed(2);
-    if (sumPaidEl) sumPaidEl.innerHTML = '&inr; ' + paid.toFixed(2);
-    if (sumWaivedEl) sumWaivedEl.innerHTML = '&inr; ' + waived.toFixed(2);
+    if (sumOutEl) sumOutEl.innerHTML = formatINR(outstanding);
+    if (sumPaidEl) sumPaidEl.innerHTML = formatINR(paid);
+    if (sumWaivedEl) sumWaivedEl.innerHTML = formatINR(waived);
     if (sumCountEl) sumCountEl.innerText = `${count} open fine${count === 1 ? '' : 's'}`;
 
     const badge = document.getElementById('borrowingEligibilityBadge');
@@ -119,8 +130,8 @@ function renderBulkPaySection(summary, fines) {
         const btnText = document.getElementById('btnPayAllText');
 
         if (titleEl) titleEl.innerText = `Pay All ${count} Outstanding Fines`;
-        if (subEl) subEl.innerHTML = `Combine all <strong>${count}</strong> open library fines totaling <strong>&inr; ${totalOutstanding.toFixed(2)}</strong> into a single transaction.`;
-        if (btnText) btnText.innerHTML = `PAY ALL &ndash; &inr; ${totalOutstanding.toFixed(2)}`;
+        if (subEl) subEl.innerHTML = `Combine all <strong>${count}</strong> open library fines totaling <strong>${formatINR(totalOutstanding)}</strong> into a single transaction.`;
+        if (btnText) btnText.innerHTML = `PAY ALL &ndash; ${formatINR(totalOutstanding)}`;
 
         const btn = document.getElementById('btnPayAllFines');
         if (btn) {
@@ -159,8 +170,8 @@ function renderProjectedFines(projectedList) {
             <td><code>${escapeHtml(item.copyCode)}</code></td>
             <td>${escapeHtml(item.dueDate)}</td>
             <td style="color: var(--danger); font-weight: bold;">${item.overdueDays} day${item.overdueDays === 1 ? '' : 's'}</td>
-            <td>&inr; ${parseFloat(item.ratePerDay).toFixed(2)}/day</td>
-            <td style="color: var(--danger); font-weight: bold;">&inr; ${parseFloat(item.projectedAmount).toFixed(2)}</td>
+            <td>${formatINR(item.ratePerDay)}/day</td>
+            <td style="color: var(--danger); font-weight: bold;">${formatINR(item.projectedAmount)}</td>
         </tr>
     `).join('');
 }
@@ -201,7 +212,7 @@ function renderFinesTable(fines) {
             actionHtml = `
                 <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
                     <button class="btn-rzp-pay" id="btnPay_${f.fineId}" onclick="payNowRazorpay(${f.fineId}, '${escapeJs(f.bookTitle)}', ${outstanding})">
-                        &#128179; Pay Now &ndash; &inr; ${outstanding.toFixed(2)}
+                        &#128179; Pay Now &ndash; ${formatINR(outstanding)}
                     </button>
                     <button type="button" class="btn-upi-manual" onclick="openPaymentModal(${f.fineId}, '${escapeJs(f.bookTitle)}', ${outstanding})">
                         &#128241; UPI QR / UTR
@@ -222,10 +233,10 @@ function renderFinesTable(fines) {
                 <td><code>${escapeHtml(f.copyCode || '-')}</code></td>
                 <td>${escapeHtml(f.returnDate ? f.returnDate.toString() : (f.createdAt ? f.createdAt.toString().substring(0, 10) : '-'))}</td>
                 <td>${escapeHtml(f.dueDate ? f.dueDate.toString() : '-')}</td>
-                <td>&inr; ${original.toFixed(2)}</td>
-                <td style="color: var(--success); font-weight: 500;">&inr; ${paid.toFixed(2)}</td>
+                <td>${formatINR(original)}</td>
+                <td style="color: var(--success); font-weight: 500;">${formatINR(paid)}</td>
                 <td style="font-weight: bold; color: ${outstanding > 0 ? 'var(--danger)' : 'var(--success)'}; font-size: 1.05rem;">
-                    &inr; ${outstanding.toFixed(2)}
+                    ${formatINR(outstanding)}
                 </td>
                 <td><span class="badge badge-${statusLower}">${escapeHtml(f.status)}</span></td>
                 <td style="text-align: right;">${actionHtml}</td>
@@ -289,7 +300,7 @@ function renderPaymentsTable(payments) {
             <tr>
                 <td><strong>${escapeHtml(displayCode)}</strong></td>
                 <td>${escapeHtml(dateStr)}</td>
-                <td style="font-weight: bold; color: var(--primary);">&inr; ${amount.toFixed(2)}</td>
+                <td style="font-weight: bold; color: var(--primary);">${formatINR(amount)}</td>
                 <td>${typeBadge}</td>
                 <td><small>${escapeHtml(settledText)}</small></td>
                 <td><code>${escapeHtml(p.method || 'RAZORPAY')}</code></td>
@@ -329,7 +340,7 @@ function payNowRazorpay(fineId, bookTitle, outstandingAmount) {
             alert(data ? data.message : 'Failed to create payment order. Please try again.');
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = `&#128179; Pay Now &ndash; &inr; ${outstandingAmount.toFixed(2)}`;
+                btn.innerHTML = `&#128179; Pay Now &ndash; ${formatINR(outstandingAmount)}`;
             }
             return;
         }
@@ -337,7 +348,7 @@ function payNowRazorpay(fineId, bookTitle, outstandingAmount) {
         launchRazorpayCheckout(data, `Fine Settlement #${fineId} - ${bookTitle}`, () => {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = `&#128179; Pay Now &ndash; &inr; ${outstandingAmount.toFixed(2)}`;
+                btn.innerHTML = `&#128179; Pay Now &ndash; ${formatINR(outstandingAmount)}`;
             }
         });
     })
@@ -346,7 +357,7 @@ function payNowRazorpay(fineId, bookTitle, outstandingAmount) {
         alert('Communication error while contacting payment gateway.');
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = `&#128179; Pay Now &ndash; &inr; ${outstandingAmount.toFixed(2)}`;
+            btn.innerHTML = `&#128179; Pay Now &ndash; ${formatINR(outstandingAmount)}`;
         }
     });
 }
@@ -507,7 +518,7 @@ function showPaymentConfirmation(data) {
 
     if (receiptNoEl) receiptNoEl.innerText = data.receiptNumber || 'RCPT-ISSUED';
     if (payIdEl) payIdEl.innerText = data.referenceId || data.paymentId || 'pay_verified';
-    if (amtEl) amtEl.innerHTML = '&inr; ' + (parseFloat(data.amount) || 0).toFixed(2);
+    if (amtEl) amtEl.innerHTML = formatINR(data.amount);
     if (typeEl) typeEl.innerText = (data.paymentType === 'BULK') ? 'Bulk Fine Settlement' : 'Individual Fine Settlement';
 
     const fIds = data.settledFineIds || [];

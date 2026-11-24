@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-@WebServlet(name = "LibrarianReportServlet", urlPatterns = {"/api/librarian/reports/*"})
+@WebServlet(name = "LibrarianReportServlet", urlPatterns = {"/api/librarian/reports", "/api/librarian/reports/*"})
 public class LibrarianReportServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LibrarianReportServlet.class.getName());
 

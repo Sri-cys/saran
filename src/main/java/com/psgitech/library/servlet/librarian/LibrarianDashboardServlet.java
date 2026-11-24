@@ -22,7 +22,7 @@ import java.util.logging.Logger;
  * Servlet handling Librarian Dashboard real-time KPIs, charts, collections, and global search.
  * URL Mapping: /api/librarian/dashboard/* and /api/librarian/search
  */
-@WebServlet(name = "LibrarianDashboardServlet", urlPatterns = {"/api/librarian/dashboard/*", "/api/librarian/search"})
+@WebServlet(name = "LibrarianDashboardServlet", urlPatterns = {"/api/librarian/dashboard", "/api/librarian/dashboard/*", "/api/librarian/search"})
 public class LibrarianDashboardServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LibrarianDashboardServlet.class.getName());
 

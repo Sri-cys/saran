@@ -1,0 +1,44 @@
+[
+  {
+    "paymentId": 1,
+    "fineId": 1,
+    "studentId": 4,
+    "studentName": "Sivakathir S",
+    "registerNumber": "715522104045",
+    "bookTitle": "Introduction to Algorithms",
+    "amount": "28.00",
+    "method": "RAZORPAY",
+    "status": "INITIATED",
+    "orderId": "order_6dd3db012a5de94b",
+    "paymentCode": "FINE-1-996194",
+    "createdAt": "2026-11-23T19:09:56.194Z"
+  },
+  {
+    "paymentId": 2,
+    "fineId": 1,
+    "studentId": 4,
+    "studentName": "Sivakathir S",
+    "registerNumber": "715522104045",
+    "bookTitle": "Introduction to Algorithms",
+    "amount": "28.00",
+    "method": "RAZORPAY",
+    "status": "INITIATED",
+    "orderId": "order_4f2bb3d482bb8b7e",
+    "paymentCode": "FINE-1-172341",
+    "createdAt": "2026-11-23T19:12:52.341Z"
+  },
+  {
+    "paymentId": 3,
+    "fineId": 1,
+    "studentId": 4,
+    "studentName": "Sivakathir S",
+    "registerNumber": "715522104045",
+    "bookTitle": "Introduction to Algorithms",
+    "amount": "28.00",
+    "method": "RAZORPAY",
+    "status": "INITIATED",
+    "orderId": "order_37623405fa508ffd",
+    "paymentCode": "FINE-1-737509",
+    "createdAt": "2026-11-24T07:52:17.509Z"
+  }
+]

@@ -28,7 +28,7 @@ import java.util.logging.Logger;
  * Servlet handling Student directory search, profile audits, No-Dues clearance, and status changes.
  * URL Mapping: /api/librarian/students/*
  */
-@WebServlet(name = "LibrarianStudentServlet", urlPatterns = {"/api/librarian/students/*"})
+@WebServlet(name = "LibrarianStudentServlet", urlPatterns = {"/api/librarian/students", "/api/librarian/students/*"})
 public class LibrarianStudentServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LibrarianStudentServlet.class.getName());
 

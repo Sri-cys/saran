@@ -348,7 +348,7 @@
             <div id="blockedAlertBanner" style="display: none; background-color: #FDEDEC; border: 1px solid #E6B0AA; color: #78281F; padding: 16px 20px; border-radius: 6px; margin-bottom: 24px;">
                 <h4 style="color: #922B21 !important; margin: 0 0 6px 0; font-size: 1.1rem;">&#9888; Library Borrowing Privileges Paused</h4>
                 <p style="font-size: 0.92rem; margin: 0;">
-                    Your account has an outstanding fine balance exceeding &inr;0.00. Per institutional regulations, issuing new books and picking up reserved allocations are paused until all outstanding dues are settled.
+                    Your account has an outstanding fine balance exceeding ₹0.00. Per institutional regulations, issuing new books and picking up reserved allocations are paused until all outstanding dues are settled.
                 </p>
             </div>
 
@@ -356,17 +356,17 @@
             <div class="fine-summary-grid">
                 <div class="summary-card" id="cardOutstanding">
                     <div class="summary-label">Total Outstanding Dues</div>
-                    <div class="summary-val" id="sumOutstanding">&inr; 0.00</div>
+                    <div class="summary-val" id="sumOutstanding">₹ 0.00</div>
                     <div class="summary-sub text-secondary" id="sumUnpaidCount">0 open fines</div>
                 </div>
                 <div class="summary-card">
                     <div class="summary-label">Total Amount Paid</div>
-                    <div class="summary-val" id="sumPaid" style="color: var(--success);">&inr; 0.00</div>
+                    <div class="summary-val" id="sumPaid" style="color: var(--success);">₹ 0.00</div>
                     <div class="summary-sub text-secondary">Verified receipts issued</div>
                 </div>
                 <div class="summary-card">
                     <div class="summary-label">Administrative Waivers</div>
-                    <div class="summary-val" id="sumWaived" style="color: var(--text-secondary);">&inr; 0.00</div>
+                    <div class="summary-val" id="sumWaived" style="color: var(--text-secondary);">₹ 0.00</div>
                     <div class="summary-sub text-secondary">Approved by Administration</div>
                 </div>
                 <div class="summary-card">
@@ -394,7 +394,7 @@
                             <rect x="2" y="5" width="20" height="14" rx="2"></rect>
                             <line x1="2" y1="10" x2="22" y2="10"></line>
                         </svg>
-                        <span id="btnPayAllText">PAY ALL &ndash; &inr; 0.00</span>
+                        <span id="btnPayAllText">PAY ALL &ndash; ₹ 0.00</span>
                     </button>
                 </div>
             </div>
@@ -406,7 +406,7 @@
                     <span class="badge" style="background: #FEF9E7; color: #B7950B; border: 1px solid #F9E79F;">Estimates Only</span>
                 </div>
                 <p style="font-size: 0.9rem; margin-bottom: 12px; color: var(--text-secondary);">
-                    Charges accrue daily at <strong>&inr; 2.00 / day</strong> for books kept past the due date. The official fine is calculated atomically upon physical return check-in at the circulation desk.
+                    Charges accrue daily at <strong>₹ 2.00 / day</strong> for books kept past the due date. The official fine is calculated atomically upon physical return check-in at the circulation desk.
                 </p>
                 <div class="table-responsive">
                     <table class="library-table" style="background: white;">
@@ -524,7 +524,7 @@
                         </div>
                         <div class="confirmation-row">
                             <span class="text-secondary">Amount Paid:</span>
-                            <strong style="color: #1E8449; font-size: 1.1rem;" id="confAmountPaid">&inr; 0.00</strong>
+                            <strong style="color: #1E8449; font-size: 1.1rem;" id="confAmountPaid">₹ 0.00</strong>
                         </div>
                         <div class="confirmation-row">
                             <span class="text-secondary">Payment Type:</span>
@@ -573,14 +573,14 @@
                         </div>
                         <div style="display: flex; justify-content: space-between;">
                             <span class="text-secondary">Outstanding Balance:</span>
-                            <strong id="modalFineOutstanding" style="color: var(--danger);">&inr; 0.00</strong>
+                            <strong id="modalFineOutstanding" style="color: var(--danger);">₹ 0.00</strong>
                         </div>
                     </div>
 
                     <div class="form-group" style="margin-bottom: 16px;">
-                        <label for="payAmountInput" class="form-label" style="font-weight: bold;">Amount to Pay (&inr;):</label>
+                        <label for="payAmountInput" class="form-label" style="font-weight: bold;">Amount to Pay (₹):</label>
                         <input type="number" id="payAmountInput" class="form-control" step="0.50" min="1.00" style="font-size: 1.1rem; font-weight: bold; padding: 8px 12px;">
-                        <small class="text-secondary" style="display: block; margin-top: 4px;">Partial payments allowed (Min &inr; 1.00 up to full outstanding).</small>
+                        <small class="text-secondary" style="display: block; margin-top: 4px;">Partial payments allowed (Min ₹ 1.00 up to full outstanding).</small>
                     </div>
 
                     <button type="button" class="btn btn-primary" id="btnInitiatePayment" style="width: 100%;" onclick="initiatePayment()">
@@ -592,7 +592,7 @@
                     <div style="text-align: center; margin-bottom: 12px;">
                         <span class="badge badge-initiated" style="font-size: 0.9rem;">Payment Initiated</span>
                         <div style="font-size: 1.4rem; font-weight: bold; color: var(--primary); margin: 6px 0;" id="modalPayAmountText">
-                            &inr; 0.00
+                            ₹ 0.00
                         </div>
                         <div class="text-secondary" style="font-size: 0.85rem;" id="modalPaymentCodeText">Code: --</div>
                     </div>

@@ -501,8 +501,10 @@ function simulateFallbackLogin(loginKey, password, alertBox, submitBtn, remember
         mockUser = { userId: 2, name: 'Dr. K. Ramanathan', email: 'librarian@psgitech.ac.in', role: 'LIBRARIAN', employeeId: 'LIB101', active: true, mustChangePassword: false };
     } else if (lower.includes('meena') || lower === 'lib102') {
         mockUser = { userId: 3, name: 'Ms. S. Meena', email: 'meena.lib@psgitech.ac.in', role: 'LIBRARIAN', employeeId: 'LIB102', active: true, mustChangePassword: true };
+    } else if (lower.includes('saran') || lower === '715525104210' || lower === '25z304@psgitech.ac.in') {
+        mockUser = { userId: 7, name: 'Saran Karthi', email: '25z304@psgitech.ac.in', registerNumber: '715525104210', department: 'CSE', year: 2, role: 'STUDENT', active: true };
     } else {
-        mockUser = { userId: 4, name: 'Saran', email: loginKey, registerNumber: '715525104210', department: 'CSE', year: 2, role: 'STUDENT', active: true };
+        mockUser = { userId: 4, name: 'Sivakathir S', email: 'sivakathir.22cs@psgitech.ac.in', registerNumber: '715522104045', department: 'CSE', year: 3, role: 'STUDENT', active: true };
     }
 
     sessionStorage.setItem('psgitech_user', JSON.stringify(mockUser));

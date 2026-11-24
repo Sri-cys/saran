@@ -26,7 +26,7 @@ import java.util.logging.Logger;
  * Mutating fine actions (waivers, manual reconciliation) strictly reject Librarians with HTTP 403.
  * URL Mapping: /api/librarian/fines/*
  */
-@WebServlet(name = "LibrarianFineServlet", urlPatterns = {"/api/librarian/fines/*"})
+@WebServlet(name = "LibrarianFineServlet", urlPatterns = {"/api/librarian/fines", "/api/librarian/fines/*"})
 public class LibrarianFineServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LibrarianFineServlet.class.getName());
     private Gson gson;

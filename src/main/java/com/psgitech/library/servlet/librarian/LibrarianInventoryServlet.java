@@ -35,7 +35,7 @@ import java.util.logging.Logger;
  * Servlet managing Librarian Inventory, Catalog Operations, Copies, and Shelf Locator.
  * URL Mapping: /api/librarian/inventory/*
  */
-@WebServlet(name = "LibrarianInventoryServlet", urlPatterns = {"/api/librarian/inventory/*"})
+@WebServlet(name = "LibrarianInventoryServlet", urlPatterns = {"/api/librarian/inventory", "/api/librarian/inventory/*"})
 public class LibrarianInventoryServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LibrarianInventoryServlet.class.getName());
 

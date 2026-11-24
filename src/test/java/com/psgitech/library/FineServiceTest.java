@@ -527,4 +527,19 @@ public class FineServiceTest {
                     e.getMessage().toLowerCase().contains("fine") || e.getMessage().toLowerCase().contains("dues"));
         }
     }
+
+    /**
+     * Test 14: Verifies student identity integrity in Fine Summary.
+     */
+    @Test
+    public void testStudentFineSummaryIdentity() {
+        Map<String, Object> summary = fineService.getStudentFineSummary(4);
+        assertNotNull("Fine summary must not be null", summary);
+        assertEquals("Sivakathir S", summary.get("studentName"));
+        assertEquals("715522104045", summary.get("studentId"));
+        assertEquals("715522104045", summary.get("registerNumber"));
+        assertEquals("715522104045", summary.get("studentRegisterNumber"));
+        assertEquals("CSE", summary.get("department"));
+        assertEquals("CSE", summary.get("studentDepartment"));
+    }
 }

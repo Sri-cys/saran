@@ -70,6 +70,23 @@ INSERT INTO borrow_transactions
 VALUES 
 (2, 5, 2, 5, '2026-10-01', '2026-10-15', '2026-10-14', 'RETURNED', 2, 2);
 
+INSERT INTO borrow_transactions 
+(transaction_id, student_id, book_id, copy_id, issue_date, due_date, return_date, status, issued_by, returned_by)
+VALUES 
+(4, 5, 2, 4, '2026-11-15', '2026-11-29', NULL, 'ACTIVE', 2, NULL);
+
+UPDATE book_copies SET status = 'BORROWED' WHERE copy_id = 4;
+
+INSERT INTO fines 
+(fine_id, borrow_transaction_id, student_id, book_id, copy_id, overdue_days, chargeable_days, fine_per_day, original_amount, paid_amount, waived_amount, outstanding_amount, status, fine_type)
+VALUES 
+(1, 1, 4, 1, 1, 14, 14, 2.00, 28.00, 0.00, 0.00, 28.00, 'UNPAID', 'OVERDUE');
+
+INSERT INTO fines 
+(fine_id, borrow_transaction_id, student_id, book_id, copy_id, overdue_days, chargeable_days, fine_per_day, original_amount, paid_amount, waived_amount, outstanding_amount, status, fine_type)
+VALUES 
+(2, 2, 5, 2, 5, 0, 0, 2.00, 0.00, 0.00, 0.00, 0.00, 'PAID', 'OVERDUE');
+
 INSERT INTO students (permanent_roll_number, full_name, account_status, registration_status) VALUES
 ('715525104189', 'SANJUNIVASINI S', 'ACTIVE', 'NOT_REGISTERED'),
 ('715525104190', 'SANTHOSH V', 'ACTIVE', 'NOT_REGISTERED'),

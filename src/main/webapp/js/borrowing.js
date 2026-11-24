@@ -1222,7 +1222,7 @@ async function handleConfirmReturn() {
                         <div style="margin-top: 12px; padding: 12px 16px; background: #FDEDEC; border: 1px solid #E6B0AA; border-radius: 4px; color: #78281F;">
                             <strong style="color: #922B21;">Overdue Return &bull; Fine Incurred!</strong><br>
                             This physical copy was returned <strong>${fine.overdueDays} day${fine.overdueDays === 1 ? '' : 's'} late</strong>.
-                            Atomic fine created: <strong>&inr; ${parseFloat(fine.amount || fine.outstanding).toFixed(2)}</strong> (Fine Record #${fine.fineId}).
+                            Atomic fine created: <strong>₹ ${parseFloat(fine.amount || fine.outstanding).toFixed(2)}</strong> (Fine Record #${fine.fineId}).
                             <br>
                             <span style="font-size: 0.88rem;">Student's borrowing quota and reservation collections are temporarily paused until cleared via UPI or Admin waiver.</span>
                         </div>
@@ -1235,7 +1235,7 @@ async function handleConfirmReturn() {
                         <div style="margin-top: 12px; padding: 12px 16px; background: #FEF9E7; border: 1px solid #F9E79F; border-radius: 4px; color: #7D6608;">
                             <strong style="color: #B7950B;">Damaged Copy Processed &bull; Penalty Case #${caseData.caseId} Created!</strong><br>
                             Severity: <strong>${caseData.severity}</strong> &bull; Disposition: <strong>${caseData.copyDisposition}</strong><br>
-                            Assessed Compensation: <strong>&inr; ${parseFloat(caseData.finalAmount || 0).toFixed(2)}</strong>.
+                            Assessed Compensation: <strong>₹ ${parseFloat(caseData.finalAmount || 0).toFixed(2)}</strong>.
                             Student notified to select compensation payment or physical replacement.
                         </div>
                     `;
@@ -1632,10 +1632,10 @@ async function loadStaffFines() {
                         <td><code>${escapeHtml(f.copyCode || '-')}</code></td>
                         <td>${escapeHtml(f.returnDate ? f.returnDate.toString() : '-')}</td>
                         <td>${f.overdueDays}d</td>
-                        <td>&inr; ${original.toFixed(2)}</td>
-                        <td style="color: var(--success);">&inr; ${paid.toFixed(2)}</td>
-                        <td style="color: var(--text-secondary);">&inr; ${waived.toFixed(2)}</td>
-                        <td style="font-weight: bold; color: ${outstanding > 0 ? 'var(--danger)' : 'var(--success)'};">&inr; ${outstanding.toFixed(2)}</td>
+                        <td>₹ ${original.toFixed(2)}</td>
+                        <td style="color: var(--success);">₹ ${paid.toFixed(2)}</td>
+                        <td style="color: var(--text-secondary);">₹ ${waived.toFixed(2)}</td>
+                        <td style="font-weight: bold; color: ${outstanding > 0 ? 'var(--danger)' : 'var(--success)'};">₹ ${outstanding.toFixed(2)}</td>
                         <td><span class="badge badge-${statusLower}">${escapeHtml(f.status)}</span></td>
                         <td style="text-align: right;">${actionHtml}</td>
                     </tr>
@@ -1729,7 +1729,7 @@ async function loadPendingVerifications() {
                     <td><strong>${escapeHtml(p.studentName || '-')}</strong></td>
                     <td><code>${escapeHtml(p.registerNumber || '-')}</code></td>
                     <td>${escapeHtml(p.bookTitle || '-')}</td>
-                    <td style="font-weight: bold; color: var(--primary);">&inr; ${parseFloat(p.amount || 0).toFixed(2)}</td>
+                    <td style="font-weight: bold; color: var(--primary);">₹ ${parseFloat(p.amount || 0).toFixed(2)}</td>
                     <td><code style="font-size: 1.05rem; letter-spacing: 1px; font-weight: bold; color: #159B50;">${escapeHtml(p.referenceId || '-')}</code></td>
                     <td>${escapeHtml(p.createdAt ? p.createdAt.toString().substring(0, 16) : '-')}</td>
                     <td style="text-align: right; white-space: nowrap;">
@@ -1950,7 +1950,7 @@ function renderStaffCaseRow(c) {
     }
 
     if (['ASSESSED', 'PAYMENT_PENDING', 'REPLACEMENT_PENDING'].includes(c.status)) {
-        actions.push(`<button class="btn btn-outline btn-sm" style="font-size:0.75rem;" onclick="openOverrideModal(${c.caseId}, ${c.finalAmount || 0})">Override &inr;</button>`);
+        actions.push(`<button class="btn btn-outline btn-sm" style="font-size:0.75rem;" onclick="openOverrideModal(${c.caseId}, ${c.finalAmount || 0})">Override ₹</button>`);
     }
 
     return `
@@ -1962,7 +1962,7 @@ function renderStaffCaseRow(c) {
             <td><code>${escapeHtml(c.copyCode || '-')}</code></td>
             <td style="font-size:0.85rem;">${formatDateOnly(c.reportedAt)}</td>
             <td><span class="badge ${statusClass}">${(c.status || '').replace('_', ' ')}</span></td>
-            <td><strong>&inr; ${c.finalAmount != null ? Number(c.finalAmount).toFixed(2) : '--'}</strong></td>
+            <td><strong>₹ ${c.finalAmount != null ? Number(c.finalAmount).toFixed(2) : '--'}</strong></td>
             <td style="text-align: right; white-space: nowrap;">
                 <div style="display:inline-flex; gap:6px; justify-content:flex-end;">
                     ${actions.join('')}

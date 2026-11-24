@@ -150,6 +150,14 @@ public class FineService {
         if (studentUser != null) {
             summary.put("studentName", studentUser.getName());
             summary.put("studentId", studentUser.getIdentifier());
+            summary.put("registerNumber", studentUser.getIdentifier());
+            summary.put("studentRegisterNumber", studentUser.getIdentifier());
+            if (studentUser instanceof com.psgitech.library.model.Student) {
+                com.psgitech.library.model.Student s = (com.psgitech.library.model.Student) studentUser;
+                summary.put("studentDepartment", s.getDepartment());
+                summary.put("department", s.getDepartment());
+                summary.put("year", s.getYear());
+            }
         }
         return summary;
     }

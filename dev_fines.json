@@ -1,0 +1,32 @@
+[
+  {
+    "fineId": 1,
+    "borrowTransactionId": 1,
+    "studentId": 4,
+    "bookId": 1,
+    "copyId": 1,
+    "overdueDays": 14,
+    "originalAmount": "28.00",
+    "paidAmount": "0.00",
+    "waivedAmount": "0.00",
+    "outstandingAmount": "28.00",
+    "status": "UNPAID",
+    "fineType": "OVERDUE",
+    "createdAt": "2026-11-09 10:00:00"
+  },
+  {
+    "fineId": 2,
+    "borrowTransactionId": 3,
+    "studentId": 6,
+    "bookId": 3,
+    "copyId": 8,
+    "overdueDays": 25,
+    "originalAmount": "50.00",
+    "paidAmount": "50.00",
+    "waivedAmount": "0.00",
+    "outstandingAmount": "0.00",
+    "status": "PAID",
+    "fineType": "OVERDUE",
+    "createdAt": "2026-10-20 11:30:00"
+  }
+]

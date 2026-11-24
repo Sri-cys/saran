@@ -43,7 +43,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-@WebServlet(name = "LibrarianOperationsServlet", urlPatterns = {"/api/librarian/operations/*", "/api/librarian/layout/*"})
+@WebServlet(name = "LibrarianOperationsServlet", urlPatterns = {"/api/librarian/operations", "/api/librarian/operations/*", "/api/librarian/layout", "/api/librarian/layout/*"})
 public class LibrarianOperationsServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LibrarianOperationsServlet.class.getName());
 
