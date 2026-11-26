@@ -344,7 +344,7 @@ async function loadStudentIncomingInterchanges() {
                             <div>
                                 <h4 style="margin: 0 0 4px 0; color: var(--primary);">${escapeHtml(req.bookTitle || 'Textbook')}</h4>
                                 <div class="text-secondary" style="font-size: 0.85rem;">
-                                    From: <strong>${escapeHtml(req.fromStudentName || 'Student')}</strong> (${escapeHtml(req.fromStudentRegNo || '-')}) &bull; Copy: <code>${escapeHtml(req.copyCode || '-')}</code>
+                                    From: <strong>${escapeHtml(req.fromStudentName || 'Student')}</strong> (${escapeHtml(req.fromStudentRegNo || req.fromRegisterNumber || '-')}) &bull; Copy: <code>${escapeHtml(req.copyCode || '-')}</code>
                                 </div>
                             </div>
                             <span class="badge badge-info" style="background: #e0f2fe; color: #0369a1;">Pending Acceptance</span>

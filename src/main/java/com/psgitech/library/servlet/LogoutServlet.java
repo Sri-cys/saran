@@ -62,7 +62,8 @@ public class LogoutServlet extends HttpServlet {
             session.invalidate();
         }
 
-        boolean isAjax = "XMLHttpRequest".equalsIgnoreCase(req.getHeader("X-Requested-With"));
+        boolean isAjax = "XMLHttpRequest".equalsIgnoreCase(req.getHeader("X-Requested-With"))
+                || (req.getHeader("Accept") != null && req.getHeader("Accept").contains("application/json"));
         if (isAjax) {
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);

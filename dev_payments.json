@@ -1,31 +1,40 @@
 [
   {
     "paymentId": 1,
-    "fineId": 1,
-    "studentId": 4,
-    "studentName": "Sivakathir S",
-    "registerNumber": "715522104045",
-    "bookTitle": "Introduction to Algorithms",
-    "amount": "28.00",
+    "fineId": 4,
+    "studentId": 7,
+    "amount": "20.00",
     "method": "RAZORPAY",
-    "status": "INITIATED",
-    "orderId": "order_6dd3db012a5de94b",
-    "paymentCode": "FINE-1-996194",
-    "createdAt": "2026-11-23T19:09:56.194Z"
+    "status": "SUCCESS",
+    "paymentCode": "PAY-RZP-2026-001",
+    "referenceId": "pay_DEMO_RZP_782914",
+    "receiptNumber": "RCPT-2026-00001",
+    "disputed": false,
+    "studentName": "Saran",
+    "registerNumber": "715525104210",
+    "bookTitle": "Clean Code: A Handbook of Agile Software Craftsmanship",
+    "settledFineIds": [
+      4
+    ],
+    "verifiedAt": "2026-11-01 10:15:00",
+    "createdAt": "2026-11-01 10:14:00"
   },
   {
     "paymentId": 2,
-    "fineId": 1,
+    "fineId": 5,
     "studentId": 4,
     "studentName": "Sivakathir S",
     "registerNumber": "715522104045",
-    "bookTitle": "Introduction to Algorithms",
-    "amount": "28.00",
+    "bookTitle": "Computer Networks",
+    "amount": "16.00",
     "method": "RAZORPAY",
-    "status": "INITIATED",
-    "orderId": "order_4f2bb3d482bb8b7e",
-    "paymentCode": "FINE-1-172341",
-    "createdAt": "2026-11-23T19:12:52.341Z"
+    "status": "SUCCESS",
+    "orderId": "order_U4pNsw5qXnlb1n",
+    "paymentCode": "FINE-5-316358",
+    "createdAt": "2026-11-26T13:55:16.358Z",
+    "receiptNumber": "RCPT-2026-00002",
+    "verifiedAt": "2026-11-26T13:55:44.886Z",
+    "referenceId": "pay_U4pO5COawLbELT"
   },
   {
     "paymentId": 3,
@@ -36,9 +45,10 @@
     "bookTitle": "Introduction to Algorithms",
     "amount": "28.00",
     "method": "RAZORPAY",
-    "status": "INITIATED",
-    "orderId": "order_37623405fa508ffd",
-    "paymentCode": "FINE-1-737509",
-    "createdAt": "2026-11-24T07:52:17.509Z"
+    "status": "FAILED",
+    "orderId": "order_U4pQ2rM6rcL66y",
+    "paymentCode": "FINE-1-438987",
+    "createdAt": "2026-11-26T13:57:18.987Z",
+    "failureReason": "Your payment has been cancelled. Try again or complete the payment later."
   }
 ]

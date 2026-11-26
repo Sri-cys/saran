@@ -33,5 +33,38 @@
     "handoverOtp": "967559",
     "createdAt": "2026-11-24 07:53:13",
     "updatedAt": "2026-11-24 07:53:13"
+  },
+  {
+    "interchangeId": 3,
+    "transactionId": 1,
+    "bookId": 1,
+    "copyId": 1,
+    "fromStudentId": 5,
+    "toStudentId": 7,
+    "initiatedBy": 7,
+    "status": "COMPLETED",
+    "originalIssueDate": "2026-10-25",
+    "originalDueDate": "2026-11-08",
+    "requestNote": "cafeteria",
+    "handoverOtp": "684592",
+    "createdAt": "2026-11-25 08:15:41",
+    "updatedAt": "2026-11-25 08:15:41",
+    "completedAt": "2026-11-25 08:19:33"
+  },
+  {
+    "interchangeId": 4,
+    "transactionId": 1,
+    "bookId": 1,
+    "copyId": 1,
+    "fromStudentId": 7,
+    "toStudentId": 4,
+    "initiatedBy": 4,
+    "status": "REJECTED",
+    "originalIssueDate": "2026-10-25",
+    "originalDueDate": "2026-11-08",
+    "requestNote": "Peer transfer request",
+    "handoverOtp": "450551",
+    "createdAt": "2026-11-25 08:30:38",
+    "updatedAt": "2026-11-25 08:30:38"
   }
 ]

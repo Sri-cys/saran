@@ -369,3 +369,51 @@ window.switchToStudentPortal = function(e) {
         window.location.href = ctx + '/login.html';
     });
 };
+
+// Global Librarian Portal Logout listener
+document.addEventListener('click', function (e) {
+    const logoutBtn = e.target.closest('[data-action="logout"], a[href="logout"], a[href$="/logout"]');
+    if (!logoutBtn) return;
+
+    e.preventDefault();
+    if (logoutBtn.dataset.loggingOut === 'true') return;
+    logoutBtn.dataset.loggingOut = 'true';
+
+    sessionStorage.removeItem('psgitech_user');
+    sessionStorage.removeItem('psgitech_csrf_token');
+    localStorage.removeItem('psgitech_user');
+    localStorage.removeItem('psgitech_remember_me');
+
+    const ctx = (function () {
+        const p = window.location.pathname;
+        if (p.startsWith('/psgitech-library')) return '/psgitech-library';
+        return '';
+    })();
+
+    const logoutUrl = ctx ? (ctx + '/logout') : 'logout';
+    const fallbackRedirect = ctx ? (ctx + '/login.html?logged_out=true') : 'login.html?logged_out=true';
+
+    fetch(logoutUrl, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(async res => {
+        let redirectTarget = fallbackRedirect;
+        if (res.ok) {
+            try {
+                const data = await res.json();
+                if (data && data.redirect) {
+                    redirectTarget = data.redirect;
+                }
+            } catch (err) {}
+        }
+        window.location.href = redirectTarget;
+    })
+    .catch(err => {
+        console.error('Logout error:', err);
+        window.location.href = fallbackRedirect;
+    });
+});

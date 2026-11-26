@@ -206,7 +206,8 @@
             const downloadBtn = document.getElementById('downloadPdfBtn');
             if (downloadBtn) {
                 downloadBtn.addEventListener('click', function() {
-                    window.location.href = `payments/receipt/pdf?paymentId=${encodeURIComponent(paymentId)}`;
+                    const ctx = window.location.pathname.startsWith('/psgitech-library') ? '/psgitech-library' : '';
+                    window.location.href = `${ctx}/payments/receipt/pdf?paymentId=${encodeURIComponent(paymentId)}`;
                 });
             }
 

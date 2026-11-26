@@ -61,31 +61,26 @@ INSERT INTO book_copies (copy_code, book_id, status) VALUES
 INSERT INTO borrow_transactions 
 (transaction_id, student_id, book_id, copy_id, issue_date, due_date, return_date, status, issued_by, returned_by)
 VALUES 
-(1, 4, 1, 1, '2026-10-25', '2026-11-08', NULL, 'ACTIVE', 2, NULL);
-
-UPDATE book_copies SET status = 'BORROWED' WHERE copy_id = 1;
-
-INSERT INTO borrow_transactions 
-(transaction_id, student_id, book_id, copy_id, issue_date, due_date, return_date, status, issued_by, returned_by)
-VALUES 
-(2, 5, 2, 5, '2026-10-01', '2026-10-15', '2026-10-14', 'RETURNED', 2, 2);
-
-INSERT INTO borrow_transactions 
-(transaction_id, student_id, book_id, copy_id, issue_date, due_date, return_date, status, issued_by, returned_by)
-VALUES 
-(4, 5, 2, 4, '2026-11-15', '2026-11-29', NULL, 'ACTIVE', 2, NULL);
-
-UPDATE book_copies SET status = 'BORROWED' WHERE copy_id = 4;
+(1, 4, 1, 1, '2026-10-15', '2026-10-29', '2026-11-12', 'RETURNED', 2, 2),
+(2, 6, 3, 8, '2026-09-10', '2026-09-24', '2026-10-19', 'RETURNED', 2, 2),
+(3, 4, 3, 8, '2026-10-20', '2026-11-03', '2026-11-25', 'RETURNED', 2, 2),
+(4, 7, 2, 4, '2026-10-07', '2026-10-21', '2026-10-31', 'RETURNED', 2, 2),
+(5, 4, 4, 10, '2026-10-25', '2026-11-08', '2026-11-16', 'RETURNED', 2, 2),
+(6, 7, 1, 2, '2026-10-18', '2026-11-01', '2026-11-18', 'RETURNED', 2, 2),
+(7, 7, 5, 14, '2026-10-22', '2026-11-05', '2026-11-16', 'RETURNED', 2, 2),
+(8, 7, 2, 5, '2026-10-28', '2026-11-11', '2026-11-17', 'RETURNED', 2, 2);
 
 INSERT INTO fines 
 (fine_id, borrow_transaction_id, student_id, book_id, copy_id, overdue_days, chargeable_days, fine_per_day, original_amount, paid_amount, waived_amount, outstanding_amount, status, fine_type)
 VALUES 
-(1, 1, 4, 1, 1, 14, 14, 2.00, 28.00, 0.00, 0.00, 28.00, 'UNPAID', 'OVERDUE');
-
-INSERT INTO fines 
-(fine_id, borrow_transaction_id, student_id, book_id, copy_id, overdue_days, chargeable_days, fine_per_day, original_amount, paid_amount, waived_amount, outstanding_amount, status, fine_type)
-VALUES 
-(2, 2, 5, 2, 5, 0, 0, 2.00, 0.00, 0.00, 0.00, 0.00, 'PAID', 'OVERDUE');
+(1, 1, 4, 1, 1, 14, 14, 2.00, 28.00, 0.00, 0.00, 28.00, 'UNPAID', 'OVERDUE'),
+(2, 2, 6, 3, 8, 25, 25, 2.00, 50.00, 50.00, 0.00, 0.00, 'PAID', 'OVERDUE'),
+(3, 6, 7, 1, 2, 17, 17, 2.00, 34.00, 0.00, 0.00, 34.00, 'UNPAID', 'OVERDUE'),
+(4, 4, 7, 2, 4, 10, 10, 2.00, 20.00, 20.00, 0.00, 0.00, 'PAID', 'OVERDUE'),
+(5, 5, 4, 4, 10, 8, 8, 2.00, 16.00, 0.00, 0.00, 16.00, 'UNPAID', 'OVERDUE'),
+(6, 3, 4, 3, 8, 22, 22, 2.00, 44.00, 0.00, 0.00, 44.00, 'UNPAID', 'OVERDUE'),
+(7, 7, 7, 5, 14, 11, 11, 2.00, 22.00, 0.00, 0.00, 22.00, 'UNPAID', 'OVERDUE'),
+(8, 8, 7, 2, 5, 6, 6, 2.00, 12.00, 0.00, 0.00, 12.00, 'UNPAID', 'OVERDUE');
 
 INSERT INTO students (permanent_roll_number, full_name, account_status, registration_status) VALUES
 ('715525104189', 'SANJUNIVASINI S', 'ACTIVE', 'NOT_REGISTERED'),

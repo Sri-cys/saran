@@ -3,6 +3,7 @@ package com.psgitech.library.servlet;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.psgitech.library.config.DemoOtpConfig;
 import com.psgitech.library.enums.InterchangeStatus;
 import com.psgitech.library.model.BookInterchange;
 import com.psgitech.library.model.OtpPurpose;
@@ -126,10 +127,15 @@ public class InterchangeOtpServlet extends HttpServlet {
                 return;
             }
 
-            String rawOtp = otpService.generateAndSaveOtp(OtpPurpose.INTERCHANGE_HANDOVER, interchangeId, sender.getEmail());
+            String targetEmail = DemoOtpConfig.resolveDeliveryEmail(
+                    sender.getRegisterNumber(),
+                    sender.getEmail()
+            );
+
+            String rawOtp = otpService.generateAndSaveOtp(OtpPurpose.INTERCHANGE_HANDOVER, interchangeId, targetEmail);
 
             EmailService emailService = EmailService.getInstance();
-            emailService.sendEmail(sender.getEmail(), "PSG iTech Library - Handover Verification Code",
+            emailService.sendEmail(targetEmail, "PSG iTech Library - Handover Verification Code",
                     "Dear " + sender.getName() + ",\n\n" +
                     "Your physical book handover verification code for transfer #" + interchangeId + " is: " + rawOtp + "\n\n" +
                     "Please provide this 6-digit code to the recipient student (" + (interchange.getToStudentName() != null ? interchange.getToStudentName() : "recipient") + ") only when you physically hand over the book copy.\n" +

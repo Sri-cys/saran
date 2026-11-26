@@ -246,11 +246,13 @@ public class PaymentRepository {
     public boolean isFineInActivePayment(int fineId) {
         String sql = "SELECT COUNT(*) FROM payments p " +
                      "LEFT JOIN payment_fines pf ON p.payment_id = pf.payment_id " +
-                     "WHERE (p.fine_id = ? OR pf.fine_id = ?) AND p.status IN ('INITIATED', 'PENDING_VERIFICATION')";
+                     "WHERE (p.fine_id = ? OR pf.fine_id = ?) AND (p.status = 'PENDING_VERIFICATION' OR (p.status = 'INITIATED' AND p.created_at >= ?))";
+        java.sql.Timestamp cutoff = new java.sql.Timestamp(System.currentTimeMillis() - (15L * 60L * 1000L));
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, fineId);
             ps.setInt(2, fineId);
+            ps.setTimestamp(3, cutoff);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return rs.getInt(1) > 0;

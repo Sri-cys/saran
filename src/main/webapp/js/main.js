@@ -86,14 +86,49 @@ function updateLiveLibraryHours() {
 
 // Global Logout click listener
 document.addEventListener('click', function (e) {
-    const logoutTrigger = e.target.closest('[data-action="logout"]');
+    const logoutTrigger = e.target.closest('[data-action="logout"], a[href="logout"], a[href$="/logout"]');
     if (logoutTrigger) {
         e.preventDefault();
+        if (logoutTrigger.dataset.loggingOut === 'true') return;
+        logoutTrigger.dataset.loggingOut = 'true';
+
         sessionStorage.removeItem('psgitech_user');
         sessionStorage.removeItem('psgitech_csrf_token');
         localStorage.removeItem('psgitech_user');
         localStorage.removeItem('psgitech_remember_me');
-        window.location.href = 'logout';
+
+        const ctx = (function () {
+            const p = window.location.pathname;
+            if (p.startsWith('/psgitech-library')) return '/psgitech-library';
+            return '';
+        })();
+
+        const logoutUrl = ctx ? (ctx + '/logout') : 'logout';
+        const fallbackRedirect = ctx ? (ctx + '/login.html?logged_out=true') : 'login.html?logged_out=true';
+
+        fetch(logoutUrl, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(async res => {
+            let redirectTarget = fallbackRedirect;
+            if (res.ok) {
+                try {
+                    const data = await res.json();
+                    if (data && data.redirect) {
+                        redirectTarget = data.redirect;
+                    }
+                } catch (err) {}
+            }
+            window.location.href = redirectTarget;
+        })
+        .catch(err => {
+            console.error('Logout error:', err);
+            window.location.href = fallbackRedirect;
+        });
     }
 });
 

@@ -4,6 +4,7 @@
  */
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
@@ -13,6 +14,58 @@ const crypto = require('crypto');
 const PORT = process.env.PORT || 8080;
 const WEBAPP_DIR = path.join(__dirname, 'src', 'main', 'webapp');
 const DATA_FILE = path.join(__dirname, 'dev_users.json');
+
+// Razorpay Payment Gateway Configuration
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_U1hOr0s9TYhGRb';
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '2bekkNvTLar3OE2YEEjjP2xn';
+
+// Payment Mode Configuration: 'RAZORPAY' (Standard Razorpay Test Mode with Mock Bank Success/Failure)
+let PAYMENT_MODE = (process.env.PAYMENT_MODE || 'RAZORPAY').toUpperCase();
+
+function createRazorpayCloudOrder(amountPaise, receipt, notes = {}) {
+    return new Promise((resolve, reject) => {
+        const payload = JSON.stringify({
+            amount: amountPaise,
+            currency: 'INR',
+            receipt: receipt || `rcpt_${Date.now()}`,
+            notes: notes
+        });
+        const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+        const req = https.request('https://api.razorpay.com/v1/orders', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${auth}`,
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload)
+            },
+            timeout: 8000
+        }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    const parsed = JSON.parse(data);
+                    if (res.statusCode >= 200 && res.statusCode < 300 && parsed.id) {
+                        resolve(parsed);
+                    } else {
+                        reject(new Error(`Razorpay API returned HTTP ${res.statusCode}: ${data}`));
+                    }
+                } catch (e) {
+                    reject(new Error(`Failed to parse Razorpay API response: ${data}`));
+                }
+            });
+        });
+        req.on('error', (err) => {
+            reject(new Error(`Razorpay API network error: ${err.message}`));
+        });
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('Razorpay API request timed out after 8 seconds'));
+        });
+        req.write(payload);
+        req.end();
+    });
+}
 
 // MIME types for static assets
 const MIME_TYPES = {
@@ -24,8 +77,40 @@ const MIME_TYPES = {
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
     '.svg': 'image/svg+xml',
-    '.ico': 'image/x-icon'
+    '.ico': 'image/x-icon',
+    '.pdf': 'application/pdf'
 };
+
+function generateReceiptPdfBuffer(lines) {
+    let streamText = 'BT /F1 12 Tf 50 780 Td 18 TL ';
+    for (const line of lines) {
+        const escaped = String(line || '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+        streamText += '(' + escaped + ') \' ';
+    }
+    streamText += 'ET';
+    const streamLen = Buffer.byteLength(streamText, 'utf-8');
+
+    const objects = [
+        '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+        '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+        '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n',
+        '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>\nendobj\n',
+        '5 0 obj\n<< /Length ' + streamLen + ' >>\nstream\n' + streamText + '\nendstream\nendobj\n'
+    ];
+
+    let offset = 9;
+    const xref = ['xref\n0 6\n0000000000 65535 f \n'];
+    let pdf = '%PDF-1.4\n';
+    for (const obj of objects) {
+        xref.push(String(offset).padStart(10, '0') + ' 00000 n \n');
+        pdf += obj;
+        offset = Buffer.byteLength(pdf, 'utf-8');
+    }
+    const xrefOffset = offset;
+    pdf += xref.join('');
+    pdf += 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xrefOffset + '\n%%EOF\n';
+    return Buffer.from(pdf, 'utf-8');
+}
 
 // Seed Users Database
 const DEFAULT_USERS = [
@@ -525,13 +610,18 @@ function enrichInterchange(bi) {
     const book = bookData.books.find(b => b.bookId === bi.bookId) || {};
     const copy = bookData.copies.find(c => c.copyId === bi.copyId) || {};
 
+    const fromReg = fromStudent.registerNumber || '-';
+    const toReg = toStudent.registerNumber || '-';
+
     return {
         ...bi,
         fromStudentName: fromStudent.name || 'Student',
-        fromRegisterNumber: fromStudent.registerNumber || '-',
+        fromRegisterNumber: fromReg,
+        fromStudentRegNo: fromReg,
         fromDepartment: fromStudent.department || '-',
         toStudentName: toStudent.name || 'Student',
-        toRegisterNumber: toStudent.registerNumber || '-',
+        toRegisterNumber: toReg,
+        toStudentRegNo: toReg,
         toDepartment: toStudent.department || '-',
         bookTitle: book.title || 'Untitled Book',
         bookAuthor: book.author || 'Author',
@@ -751,7 +841,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/' || pathname === '') {
-        pathname = '/index.html';
+        pathname = '/login.html';
     }
 
     const cookies = parseCookies(req);
@@ -963,15 +1053,30 @@ const server = http.createServer(async (req, res) => {
         if (cookies.psgitech_session) sessions.delete(cookies.psgitech_session);
         if (cookies.psgitech_remember_me) rememberTokens.delete(cookies.psgitech_remember_me);
 
-        res.writeHead(200, {
-            'Content-Type': 'application/json',
-            'Set-Cookie': [
-                'psgitech_session=; Path=/; Max-Age=0',
-                'psgitech_remember_me=; Path=/; Max-Age=0'
-            ]
-        });
-        res.end(JSON.stringify({ success: true, message: 'Logged out successfully.', redirect: 'login.html?logged_out=true' }));
-        return;
+        const isAjax = req.headers['x-requested-with'] === 'XMLHttpRequest' ||
+                       (req.headers['accept'] && req.headers['accept'].includes('application/json'));
+
+        const clearCookieHeaders = [
+            'psgitech_session=; Path=/; Max-Age=0; HttpOnly',
+            'psgitech_remember_me=; Path=/; Max-Age=0; HttpOnly'
+        ];
+
+        if (isAjax) {
+            res.writeHead(200, {
+                'Content-Type': 'application/json',
+                'Set-Cookie': clearCookieHeaders
+            });
+            res.end(JSON.stringify({ success: true, message: 'Logged out successfully.', redirect: 'login.html?logged_out=true' }));
+            return;
+        } else {
+            // Direct browser page navigation -> redirect to login page
+            res.writeHead(302, {
+                'Location': 'login.html?logged_out=true',
+                'Set-Cookie': clearCookieHeaders
+            });
+            res.end();
+            return;
+        }
     }
 
     // 4. GET /profile or POST /profile
@@ -2536,6 +2641,22 @@ const server = http.createServer(async (req, res) => {
         }
 
         const studentFines = fines.filter(f => f.studentId === targetStudentId);
+
+        // Auto-expire stale initiations (> 15 minutes) for clean history
+        const cutoffHist = Date.now() - 15 * 60 * 1000;
+        let pDirty = false;
+        payments.forEach(p => {
+            if (p.studentId === targetStudentId && p.status === 'INITIATED') {
+                const cTime = new Date(p.createdAt || 0).getTime();
+                if (cTime < cutoffHist) {
+                    p.status = 'EXPIRED';
+                    p.updatedAt = new Date().toISOString();
+                    pDirty = true;
+                }
+            }
+        });
+        if (pDirty) savePayments();
+
         const studentPayments = payments.filter(p => p.studentId === targetStudentId);
 
         let totalOutstanding = 0;
@@ -2578,6 +2699,19 @@ const server = http.createServer(async (req, res) => {
             }
         }
 
+        const enrichedStudentFines = studentFines.map(f => {
+            const b = bookData.books.find(bk => bk.bookId === f.bookId) || {};
+            const cp = bookData.copies.find(c => c.copyId === f.copyId) || {};
+            const tx = borrowings.find(bt => bt.transactionId === f.borrowTransactionId) || {};
+            return {
+                ...f,
+                bookTitle: f.bookTitle || b.title || 'Library Resource',
+                copyCode: f.copyCode || cp.copyCode || (f.copyId ? `PSG-BK${f.bookId}-C${f.copyId}` : '-'),
+                dueDate: f.dueDate || tx.dueDate || '-',
+                returnDate: f.returnDate || tx.returnDate || (f.createdAt ? f.createdAt.substring(0, 10) : '-')
+            };
+        });
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
             success: true,
@@ -2588,6 +2722,8 @@ const server = http.createServer(async (req, res) => {
                 studentRegisterNumber: targetUser.registerNumber || '--',
                 studentDepartment: targetUser.department || 'Student Member',
                 department: targetUser.department || 'Student Member',
+                email: targetUser.email || '',
+                phone: targetUser.phone || '9876543210',
                 year: targetUser.year || 1,
                 totalOutstanding: totalOutstanding.toFixed(2),
                 totalPaid: totalPaid.toFixed(2),
@@ -2595,7 +2731,7 @@ const server = http.createServer(async (req, res) => {
                 unpaidCount: unpaidCount,
                 borrowingBlocked: totalOutstanding > 0
             },
-            fines: studentFines,
+            fines: enrichedStudentFines,
             projectedFines: projectedFines,
             payments: studentPayments
         }));
@@ -2730,11 +2866,56 @@ const server = http.createServer(async (req, res) => {
                 return;
             }
 
-            const activeAttempt = payments.find(p => p.fineId === fineId && (p.status === 'INITIATED' || p.status === 'PENDING_VERIFICATION'));
-            if (activeAttempt) {
+            // Feature 14 Lifecycle Fix: Auto-expire stale initiations (> 15 minutes)
+            const cutoff = Date.now() - 15 * 60 * 1000;
+            let dirty = false;
+            payments.forEach(p => {
+                if (p.fineId === fineId && p.status === 'INITIATED') {
+                    const cTime = new Date(p.createdAt || 0).getTime();
+                    if (cTime < cutoff) {
+                        p.status = 'EXPIRED';
+                        p.updatedAt = new Date().toISOString();
+                        dirty = true;
+                    }
+                }
+            });
+            if (dirty) savePayments();
+
+            // Check if there is an active payment pending staff verification
+            const pendingStaff = payments.find(p => p.fineId === fineId && p.status === 'PENDING_VERIFICATION');
+            if (pendingStaff) {
                 res.writeHead(409, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: false, message: 'An active payment attempt is already in progress for this fine.' }));
+                res.end(JSON.stringify({
+                    success: false,
+                    message: `A manual UPI payment (#${pendingStaff.paymentCode}) is already pending staff verification for this fine.`
+                }));
                 return;
+            }
+
+            // If an uncompleted INITIATED attempt exists for this fine:
+            const existingInitiation = payments.find(p => p.fineId === fineId && p.studentId === user.userId && p.status === 'INITIATED');
+            if (existingInitiation) {
+                if (existingInitiation.method === 'UPI_MANUAL') {
+                    // Reuse the existing active UPI_MANUAL initiation so the student can complete it
+                    const upiUri = `upi://pay?pa=library@psgitech.ac.in&pn=PSG+iTech+Library&am=${parseFloat(existingInitiation.amount).toFixed(2)}&cu=INR&tn=${existingInitiation.paymentCode}`;
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                        success: true,
+                        payment: existingInitiation,
+                        instructions: {
+                            upiUri: upiUri,
+                            upiId: 'library@psgitech.ac.in',
+                            payeeName: 'PSG iTech Library',
+                            paymentCode: existingInitiation.paymentCode
+                        }
+                    }));
+                    return;
+                } else {
+                    // Previous attempt was an abandoned Razorpay checkout window. Transition to CANCELLED to allow manual UPI
+                    existingInitiation.status = 'CANCELLED';
+                    existingInitiation.updatedAt = new Date().toISOString();
+                    savePayments();
+                }
             }
 
             const requestedAmt = body.amount ? parseFloat(body.amount) : parseFloat(fine.outstandingAmount);
@@ -2965,22 +3146,95 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // =========================================================================
-    // Feature 14: Direct Razorpay Checkout APIs with Student Isolation
-    // =========================================================================
-    if (pathname === '/payments/razorpay' && req.method === 'GET') {
+    // 5b. GET /payments/receipt/pdf & /receipt/pdf
+    if ((pathname === '/payments/receipt/pdf' || pathname === '/receipt/pdf') && req.method === 'GET') {
         const user = getSessionUser(req);
         if (!user) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: false, message: 'Authentication required. Please log in.' }));
             return;
         }
+
+        const paymentId = parseInt(queryParams.paymentId, 10);
+        const payment = payments.find(p => p.paymentId === paymentId);
+
+        if (!payment || (payment.status !== 'SUCCESS' && payment.status !== 'REFUNDED')) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Verified receipt not found.' }));
+            return;
+        }
+
+        if (user.role === 'STUDENT' && payment.studentId !== user.userId) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Access denied: Receipt belongs to another student account.' }));
+            return;
+        }
+
+        const fine = fines.find(f => f.fineId === payment.fineId) || {};
+        const receiptNo = payment.receiptNumber || `RCPT-${new Date().getFullYear()}-${String(payment.paymentId).padStart(5, '0')}`;
+        const studentName = payment.studentName || user.name || 'Student';
+        const regNo = payment.registerNumber || user.registerNumber || '--';
+        const bookTitle = payment.bookTitle || fine.bookTitle || 'Library Resource';
+        const amount = payment.amount || '0.00';
+        const paymentDate = payment.verifiedAt || payment.createdAt || new Date().toISOString();
+
+        const pdfLines = [
+            'PSG INSTITUTE OF TECHNOLOGY AND APPLIED RESEARCH',
+            'Central Library & Information Center - Official Receipt',
+            '------------------------------------------------------------',
+            `Receipt Number:  ${receiptNo}`,
+            `Payment ID:      #${payment.paymentId} (${payment.referenceId || 'N/A'})`,
+            `Payment Date:    ${paymentDate.substring(0, 19).replace('T', ' ')}`,
+            `Payment Status:  ${payment.status}`,
+            '------------------------------------------------------------',
+            `Student Name:    ${studentName}`,
+            `Register Number: ${regNo}`,
+            `Book Title:      ${bookTitle}`,
+            `Amount Paid:     INR ${amount}`,
+            'Payment Method:  Online Razorpay / UPI Verified',
+            '------------------------------------------------------------',
+            'Authorized Desk: Central Library Circulation Desk',
+            'This is a computer-generated institutional receipt.'
+        ];
+
+        const pdfBuffer = generateReceiptPdfBuffer(pdfLines);
+        res.writeHead(200, {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="PSG_iTech_Receipt_${receiptNo.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf"`,
+            'Content-Length': pdfBuffer.length
+        });
+        res.end(pdfBuffer);
+        return;
+    }
+
+    // =========================================================================
+    // Feature 14: Direct Razorpay Checkout APIs with Student Isolation
+    // =========================================================================
+    if (pathname === '/payments/mode') {
+        if (req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, paymentMode: PAYMENT_MODE }));
+            return;
+        }
+        if (req.method === 'POST') {
+            const body = await parseRequestBody(req);
+            if (body && body.mode) {
+                PAYMENT_MODE = body.mode.toUpperCase() === 'RAZORPAY' ? 'RAZORPAY' : 'DEMO';
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, paymentMode: PAYMENT_MODE }));
+            return;
+        }
+    }
+
+    if (pathname === '/payments/razorpay' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
             success: true,
-            keyId: 'rzp_test_psgitech2026',
+            paymentMode: PAYMENT_MODE,
+            keyId: RAZORPAY_KEY_ID,
             currency: 'INR',
-            mockGateway: true
+            mockGateway: PAYMENT_MODE === 'DEMO'
         }));
         return;
     }
@@ -3006,8 +3260,83 @@ const server = http.createServer(async (req, res) => {
             }
             let total = 0;
             studentFines.forEach(f => total += parseFloat(f.outstandingAmount || 0));
-            const orderId = `order_${crypto.randomBytes(8).toString('hex')}`;
+            const amountPaise = Math.round(total * 100);
+
+            // JURY DEMO MODE: Instant settlement without external mock bank UI
+            if (PAYMENT_MODE === 'DEMO') {
+                const newPaymentId = (payments.reduce((m, p) => Math.max(m, p.paymentId || 0), 0) || 0) + 1;
+                const demoTxnId = `DEMO_TXN_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+                const receiptNumber = `RCPT-DEMO-${new Date().getFullYear()}-${String(newPaymentId).padStart(5, '0')}`;
+                const settledFineIds = studentFines.map(f => f.fineId);
+
+                studentFines.forEach(f => {
+                    const out = parseFloat(f.outstandingAmount || 0);
+                    f.paidAmount = ((parseFloat(f.paidAmount) || 0) + out).toFixed(2);
+                    f.outstandingAmount = '0.00';
+                    f.status = 'PAID';
+                    f.updatedAt = new Date().toISOString();
+                });
+
+                const newPayment = {
+                    paymentId: newPaymentId,
+                    fineId: studentFines[0].fineId,
+                    fineIds: settledFineIds,
+                    studentId: user.userId,
+                    studentName: user.name,
+                    registerNumber: user.registerNumber || '--',
+                    bookTitle: `${studentFines.length} Combined Fines`,
+                    amount: total.toFixed(2),
+                    method: 'DEMO',
+                    status: 'SUCCESS',
+                    orderId: `order_demo_bulk_${Date.now()}`,
+                    referenceId: demoTxnId,
+                    paymentCode: `BULK-${user.userId}-${Date.now() % 1000000}`,
+                    receiptNumber: receiptNumber,
+                    notes: 'Jury Demo Automated Bulk Fine Settlement',
+                    createdAt: new Date().toISOString(),
+                    verifiedAt: new Date().toISOString()
+                };
+                payments.push(newPayment);
+                saveFines();
+                savePayments();
+
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: true,
+                    demoMode: true,
+                    paymentId: newPaymentId,
+                    receiptNumber: receiptNumber,
+                    referenceId: demoTxnId,
+                    amount: total.toFixed(2),
+                    paymentType: 'BULK',
+                    settledFineIds: settledFineIds,
+                    status: 'SUCCESS',
+                    message: `Demo Payment Processed Successfully! Settled ${studentFines.length} fines.`
+                }));
+                return;
+            }
+
+            let razorpayOrder;
+            try {
+                razorpayOrder = await createRazorpayCloudOrder(amountPaise, `rcpt_bulk_${user.userId}_${Date.now()}`, {
+                    student_id: String(user.userId),
+                    fines_count: String(studentFines.length),
+                    payment_type: 'BULK'
+                });
+            } catch (err) {
+                console.error('[Razorpay] Cloud order creation failed:', err.message);
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false,
+                    message: `Razorpay Gateway Error: ${err.message}. Please check credentials or network connection.`
+                }));
+                return;
+            }
+
+            const orderId = razorpayOrder.id;
             const newPaymentId = (payments.reduce((m, p) => Math.max(m, p.paymentId || 0), 0) || 0) + 1;
+            const testPayId = `pay_test_${Date.now()}`;
+            const testSig = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(`${orderId}|${testPayId}`).digest('hex');
 
             const newPayment = {
                 paymentId: newPaymentId,
@@ -3031,10 +3360,14 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({
                 success: true,
                 orderId: orderId,
-                amount: Math.round(total * 100),
+                amount: total.toFixed(2),
+                amountPaise: amountPaise,
                 currency: 'INR',
-                keyId: 'rzp_test_psgitech2026',
-                paymentId: newPaymentId
+                keyId: RAZORPAY_KEY_ID,
+                paymentId: newPaymentId,
+                finesCount: studentFines.length,
+                testPaymentId: testPayId,
+                testSignature: testSig
             }));
             return;
         }
@@ -3060,9 +3393,114 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
-        const orderId = `order_${crypto.randomBytes(8).toString('hex')}`;
+        // Feature 14 Lifecycle Fix: Expire stale initiations (> 15 minutes)
+        const cutoffTime = Date.now() - 15 * 60 * 1000;
+        let pChanged = false;
+        payments.forEach(p => {
+            if (p.fineId === fineId && p.status === 'INITIATED') {
+                const cTime = new Date(p.createdAt || 0).getTime();
+                if (cTime < cutoffTime) {
+                    p.status = 'EXPIRED';
+                    p.updatedAt = new Date().toISOString();
+                    pChanged = true;
+                }
+            }
+        });
+        if (pChanged) savePayments();
+
+        // Check if manual payment is pending staff review
+        const pendingStaffRev = payments.find(p => p.fineId === fineId && p.status === 'PENDING_VERIFICATION');
+        if (pendingStaffRev) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                message: `A manual payment (${pendingStaffRev.paymentCode}) is already submitted and pending staff verification for this fine.`
+            }));
+            return;
+        }
+
+        // Cancel previous uncompleted INITIATED attempt by this student for this fine to prevent multiple orders
+        payments.forEach(p => {
+            if (p.fineId === fineId && p.studentId === user.userId && p.status === 'INITIATED') {
+                p.status = 'CANCELLED';
+                p.updatedAt = new Date().toISOString();
+            }
+        });
+        savePayments();
+
+        // JURY DEMO MODE: Instant settlement without external mock bank UI
+        if (PAYMENT_MODE === 'DEMO') {
+            const newPaymentId = (payments.reduce((m, p) => Math.max(m, p.paymentId || 0), 0) || 0) + 1;
+            const demoTxnId = `DEMO_TXN_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+            const receiptNumber = `RCPT-DEMO-${new Date().getFullYear()}-${String(newPaymentId).padStart(5, '0')}`;
+            const b = bookData.books.find(bk => bk.bookId === fine.bookId) || {};
+
+            fine.paidAmount = ((parseFloat(fine.paidAmount) || 0) + outstanding).toFixed(2);
+            fine.outstandingAmount = '0.00';
+            fine.status = 'PAID';
+            fine.updatedAt = new Date().toISOString();
+
+            const newPayment = {
+                paymentId: newPaymentId,
+                fineId: fine.fineId,
+                studentId: user.userId,
+                studentName: user.name,
+                registerNumber: user.registerNumber || '--',
+                bookTitle: b.title || 'Book',
+                amount: outstanding.toFixed(2),
+                method: 'DEMO',
+                status: 'SUCCESS',
+                orderId: `order_demo_${Date.now()}`,
+                referenceId: demoTxnId,
+                paymentCode: `FINE-${fineId}-${Date.now() % 1000000}`,
+                receiptNumber: receiptNumber,
+                notes: 'Jury Demo Automated Instant Settlement',
+                createdAt: new Date().toISOString(),
+                verifiedAt: new Date().toISOString()
+            };
+            payments.push(newPayment);
+            saveFines();
+            savePayments();
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                demoMode: true,
+                paymentId: newPaymentId,
+                receiptNumber: receiptNumber,
+                referenceId: demoTxnId,
+                amount: outstanding.toFixed(2),
+                paymentType: 'INDIVIDUAL',
+                settledFineIds: [fine.fineId],
+                status: 'SUCCESS',
+                message: 'Demo Payment Processed Successfully!'
+            }));
+            return;
+        }
+
+        const amountPaise = Math.round(outstanding * 100);
+        let razorpayOrder;
+        try {
+            razorpayOrder = await createRazorpayCloudOrder(amountPaise, `rcpt_fine_${fineId}_${Date.now()}`, {
+                student_id: String(user.userId),
+                fine_id: String(fineId),
+                payment_type: 'INDIVIDUAL'
+            });
+        } catch (err) {
+            console.error('[Razorpay] Cloud order creation failed:', err.message);
+            res.writeHead(502, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                message: `Razorpay Gateway Error: ${err.message}. Please check credentials or network connection.`
+            }));
+            return;
+        }
+
+        const orderId = razorpayOrder.id;
         const newPaymentId = (payments.reduce((m, p) => Math.max(m, p.paymentId || 0), 0) || 0) + 1;
         const b = bookData.books.find(bk => bk.bookId === fine.bookId) || {};
+        const testPayId = `pay_test_${Date.now()}`;
+        const testSig = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(`${orderId}|${testPayId}`).digest('hex');
 
         const newPayment = {
             paymentId: newPaymentId,
@@ -3085,11 +3523,14 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({
             success: true,
             orderId: orderId,
-            amount: Math.round(outstanding * 100),
+            amount: outstanding.toFixed(2),
+            amountPaise: amountPaise,
             currency: 'INR',
-            keyId: 'rzp_test_psgitech2026',
+            keyId: RAZORPAY_KEY_ID,
             fineId: fine.fineId,
-            paymentId: newPaymentId
+            paymentId: newPaymentId,
+            testPaymentId: testPayId,
+            testSignature: testSig
         }));
         return;
     }
@@ -3104,6 +3545,15 @@ const server = http.createServer(async (req, res) => {
 
         const body = await parseRequestBody(req);
         const orderId = body.razorpay_order_id || body.orderId;
+        const paymentId = body.razorpay_payment_id || body.paymentId;
+        const signature = body.razorpay_signature || body.signature;
+
+        if (!orderId || !paymentId || !signature) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Missing Razorpay verification parameters: orderId, paymentId, and signature are required.' }));
+            return;
+        }
+
         const payment = payments.find(p => p.orderId === orderId);
         if (!payment) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -3114,6 +3564,27 @@ const server = http.createServer(async (req, res) => {
         if (user.role === 'STUDENT' && payment.studentId !== user.userId) {
             res.writeHead(403, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: false, message: 'Access denied: Payment belongs to another student account.' }));
+            return;
+        }
+
+        // Prevent duplicate processing
+        if (payment.status === 'SUCCESS') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                message: 'Payment already verified and completed.',
+                receiptNumber: payment.receiptNumber,
+                paymentId: payment.paymentId
+            }));
+            return;
+        }
+
+        // Cryptographic HMAC-SHA256 signature verification
+        const expectedSignature = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(`${orderId}|${paymentId}`).digest('hex');
+        if (signature.toLowerCase() !== expectedSignature.toLowerCase()) {
+            console.error('[Razorpay] Signature mismatch! Received:', signature, 'Expected:', expectedSignature);
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Cryptographic signature verification failed. Untrusted payment payload.' }));
             return;
         }
 
@@ -3140,15 +3611,19 @@ const server = http.createServer(async (req, res) => {
         payment.status = 'SUCCESS';
         payment.receiptNumber = `RCPT-${new Date().getFullYear()}-${String(payment.paymentId).padStart(5, '0')}`;
         payment.verifiedAt = new Date().toISOString();
-        payment.referenceId = body.razorpay_payment_id || `pay_${crypto.randomBytes(8).toString('hex')}`;
+        payment.referenceId = paymentId;
         savePayments();
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
             success: true,
             receiptNumber: payment.receiptNumber,
-            paymentId: payment.referenceId,
+            paymentId: payment.paymentId,
+            referenceId: payment.referenceId,
             amount: payment.amount,
+            status: payment.status,
+            paymentType: payment.fineIds ? 'BULK' : 'INDIVIDUAL',
+            settledFineIds: payment.fineIds || [payment.fineId],
             message: 'Payment verified and settled successfully!'
         }));
         return;
@@ -3158,15 +3633,35 @@ const server = http.createServer(async (req, res) => {
         const user = getSessionUser(req);
         if (user) {
             const body = await parseRequestBody(req);
+            const orderId = body.orderId || body.razorpay_order_id;
             const paymentId = parseInt(body.paymentId, 10);
-            const p = payments.find(pay => pay.paymentId === paymentId && pay.studentId === user.userId);
-            if (p && p.status === 'INITIATED') {
+            const p = payments.find(pay => (paymentId && pay.paymentId === paymentId) || (orderId && pay.orderId === orderId));
+            if (p && p.studentId === user.userId && p.status === 'INITIATED') {
                 p.status = 'CANCELLED';
                 savePayments();
             }
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, message: 'Payment cancelled.' }));
+        return;
+    }
+
+    if (pathname === '/payments/razorpay/failed' && req.method === 'POST') {
+        const user = getSessionUser(req);
+        if (user) {
+            const body = await parseRequestBody(req);
+            const orderId = body.orderId || body.razorpay_order_id;
+            const paymentId = parseInt(body.paymentId, 10);
+            const reason = body.reason || (body.error && body.error.description) || 'Payment failed during checkout';
+            const p = payments.find(pay => (paymentId && pay.paymentId === paymentId) || (orderId && pay.orderId === orderId));
+            if (p && p.studentId === user.userId && p.status === 'INITIATED') {
+                p.status = 'FAILED';
+                p.failureReason = reason;
+                savePayments();
+            }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: 'Payment failure recorded.' }));
         return;
     }
 
@@ -3231,21 +3726,32 @@ const server = http.createServer(async (req, res) => {
             }
 
             if (type === 'incoming') {
-                const incoming = interchanges.filter(ic => ic.toStudentId === user.userId).map(enrichInterchange);
+                const incoming = interchanges.filter(ic =>
+                    ((ic.toStudentId === user.userId && (ic.initiatedBy == null || ic.initiatedBy !== user.userId)) ||
+                     (ic.fromStudentId === user.userId && ic.initiatedBy === ic.toStudentId)) &&
+                    ic.status === 'REQUESTED'
+                ).map(enrichInterchange);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true, message: 'Incoming interchange requests retrieved.', data: incoming }));
                 return;
             }
 
             if (type === 'outgoing') {
-                const outgoing = interchanges.filter(ic => ic.fromStudentId === user.userId || ic.initiatedBy === user.userId).map(enrichInterchange);
+                const outgoing = interchanges.filter(ic =>
+                    ic.initiatedBy === user.userId ||
+                    (ic.fromStudentId === user.userId && (ic.initiatedBy == null || ic.initiatedBy === user.userId))
+                ).map(enrichInterchange);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true, message: 'Outgoing interchange requests retrieved.', data: outgoing }));
                 return;
             }
 
             if (type === 'count') {
-                const count = interchanges.filter(ic => ic.toStudentId === user.userId && ic.status === 'REQUESTED').length;
+                const count = interchanges.filter(ic =>
+                    ((ic.toStudentId === user.userId && (ic.initiatedBy == null || ic.initiatedBy !== user.userId)) ||
+                     (ic.fromStudentId === user.userId && ic.initiatedBy === ic.toStudentId)) &&
+                    ic.status === 'REQUESTED'
+                ).length;
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true, message: 'Pending count retrieved.', data: { pendingIncomingCount: count } }));
                 return;
@@ -3739,7 +4245,7 @@ const server = http.createServer(async (req, res) => {
     });
 });
 
-server.listen(PORT, () => {
-    console.log(`[PSG iTech Library] Unified Server running at http://localhost:${PORT}/`);
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[PSG iTech Library] Unified Server running at http://localhost:${PORT}/ (0.0.0.0:${PORT})`);
     console.log(`[PSG iTech Library] Serving files from: ${WEBAPP_DIR}`);
 });

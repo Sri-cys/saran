@@ -821,19 +821,49 @@ function initFirstLoginForm() {
  */
 function initLogoutButtons() {
     document.querySelectorAll('[data-action="logout"]').forEach(btn => {
+        if (btn._hasLogoutBound) return;
+        btn._hasLogoutBound = true;
         btn.addEventListener('click', function (e) {
             e.preventDefault();
+            if (btn.dataset.loggingOut === 'true') return;
+            btn.dataset.loggingOut = 'true';
+
             sessionStorage.removeItem('psgitech_user');
             sessionStorage.removeItem('psgitech_csrf_token');
             localStorage.removeItem('psgitech_user');
-            // We deliberately preserve localStorage psgitech_remembered_key so the user's username is remembered on login
+            localStorage.removeItem('psgitech_remember_me');
 
-            fetch('logout', {
+            const ctx = (function () {
+                const p = window.location.pathname;
+                if (p.startsWith('/psgitech-library')) return '/psgitech-library';
+                return '';
+            })();
+
+            const logoutUrl = ctx ? (ctx + '/logout') : 'logout';
+            const fallbackRedirect = ctx ? (ctx + '/login.html?logged_out=true') : 'login.html?logged_out=true';
+
+            fetch(logoutUrl, {
                 method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             })
-            .finally(() => {
-                window.location.href = 'login.html?logged_out=true';
+            .then(async res => {
+                let redirectTarget = fallbackRedirect;
+                if (res.ok) {
+                    try {
+                        const data = await res.json();
+                        if (data && data.redirect) {
+                            redirectTarget = data.redirect;
+                        }
+                    } catch (err) {}
+                }
+                window.location.href = redirectTarget;
+            })
+            .catch(err => {
+                console.error('Logout error:', err);
+                window.location.href = fallbackRedirect;
             });
         });
     });

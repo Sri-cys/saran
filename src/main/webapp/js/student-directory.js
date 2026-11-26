@@ -290,8 +290,16 @@
             container.innerHTML = requests.map(req => {
                 const titleEsc = escapeHtml(req.bookTitle || 'Book Title');
                 const copyCodeEsc = escapeHtml(req.copyCode || '');
-                const requesterNameEsc = escapeHtml(req.toStudentName || 'Fellow Student');
-                const requesterRollEsc = escapeHtml(req.toStudentRegNo || '—');
+                const isHolderInitiated = (req.initiatedBy === req.fromStudentId);
+                const lenderName = req.fromStudentName || 'Fellow Student';
+                const lenderRoll = req.fromStudentRegNo || req.fromRegisterNumber || '—';
+                const requesterName = req.toStudentName || 'Fellow Student';
+                const requesterRoll = req.toStudentRegNo || req.toRegisterNumber || '—';
+
+                const displayPartyLabel = isHolderInitiated ? 'Lender / Book Holder' : 'Requested by';
+                const displayPartyName = isHolderInitiated ? lenderName : requesterName;
+                const displayPartyRoll = isHolderInitiated ? lenderRoll : requesterRoll;
+
                 const dueDateEsc = escapeHtml(req.originalDueDate || '—');
                 const noteEsc = req.requestNote ? `<div style="font-size: 0.85rem; color: #5F6368; font-style: italic; margin-top: 4px;">&ldquo;${escapeHtml(req.requestNote)}&rdquo;</div>` : '';
 
@@ -306,7 +314,7 @@
                         </div>
 
                         <div style="margin-top: 8px; font-size: 0.88rem;">
-                            Requested by: <strong>${requesterNameEsc}</strong> (<code style="color: var(--primary);">${requesterRollEsc}</code>)
+                            ${displayPartyLabel}: <strong>${escapeHtml(displayPartyName)}</strong> (<code style="color: var(--primary);">${escapeHtml(displayPartyRoll)}</code>)
                         </div>
                         <div style="font-size: 0.82rem; color: #B45309; margin-top: 2px;">
                             Current Loan Due Date: <strong>${dueDateEsc}</strong>
@@ -318,7 +326,7 @@
                                 Decline
                             </button>
                             <button type="button" class="btn btn-primary btn-sm" style="background-color: #1F3A60; border-color: #1F3A60;" 
-                                    onclick="acceptInterchangeRequest(${req.interchangeId}, '${escapeJs(requesterNameEsc)}')">
+                                    onclick="acceptInterchangeRequest(${req.interchangeId}, '${escapeJs(displayPartyName)}')">
                                 &#10003; Accept Request
                             </button>
                         </div>
@@ -435,8 +443,10 @@
             container.innerHTML = requests.map(req => {
                 const titleEsc = escapeHtml(req.bookTitle || 'Book Title');
                 const copyCodeEsc = escapeHtml(req.copyCode || '');
-                const holderNameEsc = escapeHtml(req.fromStudentName || 'Fellow Student');
-                const holderRollEsc = escapeHtml(req.fromStudentRegNo || '—');
+                const isHolderInitiator = (req.initiatedBy === req.fromStudentId);
+                const targetLabel = isHolderInitiator ? 'Recipient Student' : 'Holding Student (Lender)';
+                const targetName = isHolderInitiator ? (req.toStudentName || 'Fellow Student') : (req.fromStudentName || 'Fellow Student');
+                const targetRoll = isHolderInitiator ? (req.toStudentRegNo || req.toRegisterNumber || '—') : (req.fromStudentRegNo || req.fromRegisterNumber || '—');
                 const statusStr = (req.status || 'REQUESTED').toUpperCase();
 
                 let statusBadge = '';
@@ -485,7 +495,7 @@
                         </div>
 
                         <div style="margin-top: 8px; font-size: 0.88rem;">
-                            Holding Student: <strong>${holderNameEsc}</strong> (<code style="color: var(--primary);">${holderRollEsc}</code>)
+                            ${targetLabel}: <strong>${escapeHtml(targetName)}</strong> (<code style="color: var(--primary);">${escapeHtml(targetRoll)}</code>)
                         </div>
                         <div style="font-size: 0.82rem; color: #5F6368; margin-top: 2px;">
                             Requested on: ${req.requestedAt ? String(req.requestedAt).substring(0, 16) : 'Recently'}
