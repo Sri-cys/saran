@@ -50,5 +50,102 @@
     "paymentCode": "FINE-1-438987",
     "createdAt": "2026-11-26T13:57:18.987Z",
     "failureReason": "Your payment has been cancelled. Try again or complete the payment later."
+  },
+  {
+    "paymentId": 4,
+    "fineId": 1,
+    "fineIds": [
+      1,
+      6
+    ],
+    "studentId": 4,
+    "studentName": "Sivakathir S",
+    "registerNumber": "715522104045",
+    "bookTitle": "2 Combined Fines",
+    "amount": "72.00",
+    "method": "RAZORPAY",
+    "status": "CANCELLED",
+    "orderId": "order_U5Y418H3DktJmK",
+    "paymentCode": "BULK-4-659993",
+    "createdAt": "2026-11-28T09:37:39.993Z"
+  },
+  {
+    "paymentId": 5,
+    "fineId": 1,
+    "fineIds": [
+      1,
+      6
+    ],
+    "studentId": 4,
+    "studentName": "Sivakathir S",
+    "registerNumber": "715522104045",
+    "bookTitle": "2 Combined Fines",
+    "amount": "72.00",
+    "method": "RAZORPAY",
+    "status": "CANCELLED",
+    "orderId": "order_U5YvPwFZOBhqjK",
+    "paymentCode": "BULK-4-692664",
+    "createdAt": "2026-11-28T10:28:12.664Z"
+  },
+  {
+    "paymentId": 6,
+    "fineId": 1,
+    "studentId": 4,
+    "studentName": "Sivakathir S",
+    "registerNumber": "715522104045",
+    "bookTitle": "Introduction to Algorithms",
+    "amount": "28.00",
+    "method": "RAZORPAY",
+    "status": "SUCCESS",
+    "orderId": "order_U5Z0rlOrd3S0hO",
+    "paymentCode": "FINE-1-1851",
+    "createdAt": "2026-11-28T10:33:21.851Z",
+    "receiptNumber": "RCPT-2026-00006",
+    "verifiedAt": "2026-11-28T10:33:50.344Z",
+    "referenceId": "pay_U5Z144ASJnA7dA"
+  },
+  {
+    "paymentId": 7,
+    "fineId": 7,
+    "studentId": 7,
+    "studentName": "Saran",
+    "registerNumber": "715525104210",
+    "bookTitle": "Operating System Concepts",
+    "amount": "22.00",
+    "method": "RAZORPAY",
+    "status": "CANCELLED",
+    "orderId": "order_U5Z2ZrNXYDnl6b",
+    "paymentCode": "FINE-7-99059",
+    "createdAt": "2026-11-28T10:34:59.059Z"
+  },
+  {
+    "paymentId": 8,
+    "fineId": 7,
+    "studentId": 7,
+    "amount": "22.00",
+    "method": "UPI_MANUAL",
+    "status": "INITIATED",
+    "paymentCode": "FINE-7-109247",
+    "referenceId": null,
+    "disputed": false,
+    "studentName": "Saran",
+    "registerNumber": "715525104210",
+    "bookTitle": "Book",
+    "createdAt": "2026-11-28T10:35:09.247Z"
+  },
+  {
+    "paymentId": 9,
+    "fineId": 3,
+    "studentId": 7,
+    "amount": "34.00",
+    "method": "UPI_MANUAL",
+    "status": "INITIATED",
+    "paymentCode": "FINE-3-171553",
+    "referenceId": null,
+    "disputed": false,
+    "studentName": "Saran",
+    "registerNumber": "715525104210",
+    "bookTitle": "Book",
+    "createdAt": "2026-11-28T10:36:11.553Z"
   }
 ]

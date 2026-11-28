@@ -26,13 +26,14 @@
     "fromStudentId": 5,
     "toStudentId": 4,
     "initiatedBy": 4,
-    "status": "REQUESTED",
+    "status": "COMPLETED",
     "originalIssueDate": "2026-11-15",
     "originalDueDate": "2026-11-29",
     "requestNote": "Peer transfer request",
     "handoverOtp": "967559",
     "createdAt": "2026-11-24 07:53:13",
-    "updatedAt": "2026-11-24 07:53:13"
+    "updatedAt": "2026-11-24 07:53:13",
+    "completedAt": "2026-11-28 06:17:17"
   },
   {
     "interchangeId": 3,

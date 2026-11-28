@@ -10,10 +10,10 @@
     "finePerDay": "2.00",
     "gracePeriodDays": 0,
     "originalAmount": "28.00",
-    "paidAmount": "0.00",
+    "paidAmount": "28.00",
     "waivedAmount": "0.00",
-    "outstandingAmount": "28.00",
-    "status": "UNPAID",
+    "outstandingAmount": "0.00",
+    "status": "PAID",
     "fineType": "OVERDUE",
     "createdAt": "2026-11-12 10:00:00"
   },
